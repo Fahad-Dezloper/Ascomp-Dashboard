@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { format, differenceInCalendarDays, parseISO, startOfDay, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, addMonths, subMonths } from "date-fns"
+import { format, differenceInCalendarDays, parseISO, startOfDay, isSameDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, addMonths, subMonths, getDay, isFuture, addDays } from "date-fns"
 import { Search, CalendarClock, MapPin, Projector as ProjectorIcon, User as UserIcon, X, Ban, LayoutGrid, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Eye } from "lucide-react"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -40,6 +40,7 @@ export default function ScheduledServicesPage() {
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date())
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogDate, setDialogDate] = useState<Date | null>(null)
+  const [selectedPerson, setSelectedPerson] = useState<string>("")
 
   useEffect(() => {
     const load = async () => {
@@ -65,19 +66,83 @@ export default function ScheduledServicesPage() {
     load()
   }, [search, refreshKey])
 
-  const filteredServices = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return services
-    return services.filter((s) => {
-      return (
-        s.siteName.toLowerCase().includes(q) ||
-        (s.siteAddress && s.siteAddress.toLowerCase().includes(q)) ||
-        (s.projectorModel && s.projectorModel.toLowerCase().includes(q)) ||
-        (s.projectorSerial && s.projectorSerial.toLowerCase().includes(q)) ||
-        (s.assignedToName && s.assignedToName.toLowerCase().includes(q))
-      )
+  // Color mapping for each assigned person
+  const personColors: Record<string, { bg: string; border: string; hover: string }> = {
+    "Manoj kumar": {
+      bg: "bg-blue-100",
+      border: "border-blue-400",
+      hover: "hover:bg-blue-200",
+    },
+    "Arun Rajkumar": {
+      bg: "bg-green-100",
+      border: "border-green-400",
+      hover: "hover:bg-green-200",
+    },
+    "Satish Yadav": {
+      bg: "bg-purple-100",
+      border: "border-purple-400",
+      hover: "hover:bg-purple-200",
+    },
+    "Christie": {
+      bg: "bg-orange-100",
+      border: "border-orange-400",
+      hover: "hover:bg-orange-200",
+    },
+    "Ascomp": {
+      bg: "bg-teal-100",
+      border: "border-teal-400",
+      hover: "hover:bg-teal-200",
+    },
+    "Challa China": {
+      bg: "bg-pink-100",
+      border: "border-pink-400",
+      hover: "hover:bg-pink-200",
+    },
+    "Pramod": {
+      bg: "bg-indigo-100",
+      border: "border-indigo-400",
+      hover: "hover:bg-indigo-200",
+    },
+  }
+
+  // Get all unique assigned names (only show these specific names)
+  const assignedNames = useMemo(() => {
+    const validNames = ["Manoj kumar", "Arun Rajkumar", "Satish Yadav", "Christie", "Ascomp", "Challa China", "Pramod"]
+    const names = new Set<string>()
+    services.forEach((service) => {
+      if (service.assignedToName && service.assignedToName.trim() && validNames.includes(service.assignedToName)) {
+        names.add(service.assignedToName)
+      }
     })
-  }, [services, search])
+    // Sort according to the predefined order
+    return validNames.filter((name) => names.has(name))
+  }, [services])
+
+  const filteredServices = useMemo(() => {
+    let filtered = services
+
+    // Apply person filter only in calendar view
+    if (viewMode === "calendar" && selectedPerson) {
+      filtered = filtered.filter((s) => s.assignedToName === selectedPerson)
+    }
+    // In cards view, show all services (no person filter)
+
+    // Apply search filter
+    const q = search.trim().toLowerCase()
+    if (q) {
+      filtered = filtered.filter((s) => {
+        return (
+          s.siteName.toLowerCase().includes(q) ||
+          (s.siteAddress && s.siteAddress.toLowerCase().includes(q)) ||
+          (s.projectorModel && s.projectorModel.toLowerCase().includes(q)) ||
+          (s.projectorSerial && s.projectorSerial.toLowerCase().includes(q)) ||
+          (s.assignedToName && s.assignedToName.toLowerCase().includes(q))
+        )
+      })
+    }
+
+    return filtered
+  }, [services, search, selectedPerson, viewMode])
 
   const handleUnassign = async (id: string) => {
     if (!confirm("Unassign this field worker from the scheduled service?")) return
@@ -242,9 +307,72 @@ export default function ScheduledServicesPage() {
     }
   }
 
-  const getDateBoxColor = (_date: Date, services: ScheduledService[]) => {
-    if (!services || !Array.isArray(services) || services.length === 0) return ""
+  // Check if a date is a working day (Sunday to Wednesday)
+  const isWorkingDay = (date: Date) => {
     try {
+      const dayOfWeek = getDay(date) // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      return dayOfWeek >= 0 && dayOfWeek <= 3 // Sunday (0), Monday (1), Tuesday (2), Wednesday (3)
+    } catch {
+      return false
+    }
+  }
+
+  // Get upcoming working days based on number of filtered services (for the selected person in calendar view)
+  const upcomingWorkingDays = useMemo(() => {
+    // Only calculate for calendar view with filtered services
+    if (viewMode !== "calendar") {
+      return []
+    }
+    const workingDays: Date[] = []
+    const today = startOfDay(new Date())
+    let currentDate = addDays(today, 1) // Start from tomorrow (upcoming only)
+    const maxDays = filteredServices.length // Use filtered services count (selected person's services)
+    let daysChecked = 0
+    
+    // Find the next N working days (Sunday to Wednesday) that are in the future
+    while (workingDays.length < maxDays && daysChecked < 365) { // Safety limit
+      if (isWorkingDay(currentDate) && isFuture(currentDate)) {
+        workingDays.push(startOfDay(currentDate))
+      }
+      currentDate = addDays(currentDate, 1)
+      daysChecked++
+    }
+    
+    return workingDays.slice(0, filteredServices.length) // Limit to number of filtered services
+  }, [filteredServices, viewMode])
+
+  const getDateBoxColor = (date: Date, services: ScheduledService[]) => {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return ""
+    if (!services || !Array.isArray(services) || services.length === 0) {
+      // Check if this is an upcoming working day (only in calendar view)
+      if (viewMode === "calendar" && selectedPerson && personColors[selectedPerson]) {
+        const dateKey = format(startOfDay(date), "yyyy-MM-dd")
+        const isUpcomingWorkingDay = upcomingWorkingDays.some((wd) => 
+          format(startOfDay(wd), "yyyy-MM-dd") === dateKey
+        )
+        if (isUpcomingWorkingDay) {
+          // Use the selected person's color for upcoming working days (lighter variant)
+          const color = personColors[selectedPerson]
+          return `${color.bg.replace("100", "50")} ${color.border.replace("400", "300")} ${color.hover.replace("200", "100")}`
+        }
+      }
+      return ""
+    }
+    try {
+      // Use the selected person's color for all services (since we're filtering by person)
+      if (selectedPerson && personColors[selectedPerson]) {
+        const color = personColors[selectedPerson]
+        const hasOverdue = services.some((s) => s && isOverdueByMoreThan4Days(s.scheduledDate))
+        
+        // If overdue, use a darker variant of the person's color
+        if (hasOverdue) {
+          return `${color.bg.replace("100", "200")} ${color.border.replace("400", "600")} ${color.hover.replace("200", "300")}`
+        }
+        // Use the person's assigned color
+        return `${color.bg} ${color.border} ${color.hover}`
+      }
+      
+      // Fallback to default colors if person color not found (should not happen in calendar view)
       const hasOverdue = services.some((s) => s && isOverdueByMoreThan4Days(s.scheduledDate))
       const hasInProgress = services.some((s) => s && s.status === "in_progress")
       const count = services.length
@@ -311,6 +439,34 @@ export default function ScheduledServicesPage() {
           <CalendarIcon className="h-4 w-4" />
           Calendar
         </Button>
+        <div className="flex gap-8 items-center">
+                {/* Assigned People Tabs - Only show in calendar view */}
+      {viewMode === "calendar" && assignedNames.length > 0 && (
+        <div className="space-y-2">
+          {/* <p className="text-sm font-medium text-foreground">View by Assigned Person</p> */}
+          <div className="flex gap-2 flex-wrap">
+            {assignedNames.map((name) => {
+              const count = services.filter((s) => s.assignedToName === name).length
+              const isSelected = selectedPerson === name
+              const personColor = personColors[name]
+              return (
+                <button
+                  key={name}
+                  onClick={() => setSelectedPerson(name)}
+                  className={cn(
+                    "px-2 py-1 rounded-lg font-medium text-xs transition-colors border-2",
+                    isSelected && personColor
+                      ? `${personColor.bg} ${personColor.border} ${personColor.hover} text-foreground`
+                      : "bg-muted text-foreground hover:bg-muted/80 border-transparent"
+                  )}
+                >
+                  {name} ({count})
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
         {viewMode === "calendar" && 
           <h2 className="text-xl font-semibold text-center">
               {(() => {
@@ -322,6 +478,7 @@ export default function ScheduledServicesPage() {
               })()}
             </h2> 
           }
+        </div>
         </div>
       </div>
 
