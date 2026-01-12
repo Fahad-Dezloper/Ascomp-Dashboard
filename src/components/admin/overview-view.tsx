@@ -20,7 +20,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { CalendarIcon, Image as ImageIcon, Folder, ExternalLink, Download, Edit, Mail } from "lucide-react"
+import { CalendarIcon, Image as ImageIcon, Folder, ExternalLink, Download, Edit, Mail, Plus, Trash2, Filter, X } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import Image from "next/image"
 import ExportDataModal from "./modals/export-data-modal"
@@ -173,6 +174,72 @@ const toLabel = (key: string) => {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+// Filter field definitions for advanced filtering
+type FilterField = {
+  key: string
+  label: string
+  type: "string" | "number" | "date" | "enum" | "boolean"
+  options?: string[]
+}
+
+const FILTER_FIELDS: {
+  projector: FilterField[]
+  site: FilterField[]
+  serviceRecord: FilterField[]
+} = {
+  projector: [
+    { key: "serialNo", label: "Serial Number", type: "string" },
+    { key: "modelNo", label: "Model Number", type: "string" },
+    { key: "region", label: "Region", type: "string" },
+    { key: "state", label: "State", type: "string" },
+    { key: "pvr", label: "PVR/Non-PVR", type: "enum", options: ["PVR", "NonPVR"] },
+    { key: "status", label: "Status", type: "enum", options: ["DRAFT", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "PENDING", "CANCELLED"] },
+    { key: "address", label: "Address", type: "string" },
+    { key: "noOfservices", label: "Number of Services", type: "number" },
+  ],
+  site: [
+    { key: "siteName", label: "Site Name", type: "string" },
+    { key: "siteCode", label: "Site Code", type: "string" },
+    { key: "address", label: "Address", type: "string" },
+    { key: "contactDetails", label: "Contact Details", type: "string" },
+  ],
+  serviceRecord: [
+    { key: "serviceNumber", label: "Service Number", type: "string" },
+    { key: "date", label: "Date", type: "date" },
+    { key: "cinemaName", label: "Cinema Name", type: "string" },
+    { key: "screenNumber", label: "Screen Number", type: "string" },
+    { key: "reportGenerated", label: "Report Generated", type: "boolean" },
+  ],
+}
+
+const OPERATORS = {
+  string: [
+    { value: "equals", label: "Equals" },
+    { value: "contains", label: "Contains" },
+    { value: "startsWith", label: "Starts With" },
+    { value: "endsWith", label: "Ends With" },
+  ],
+  number: [
+    { value: "equals", label: "Equals" },
+    { value: "greaterThan", label: "Greater Than" },
+    { value: "lessThan", label: "Less Than" },
+    { value: "between", label: "Between" },
+  ],
+  date: [
+    { value: "equals", label: "Equals" },
+    { value: "after", label: "After" },
+    { value: "before", label: "Before" },
+    { value: "between", label: "Between" },
+  ],
+  enum: [
+    { value: "equals", label: "Equals" },
+    { value: "notEquals", label: "Not Equals" },
+  ],
+  boolean: [
+    { value: "equals", label: "Equals" },
+  ],
 }
 
 // Utility function to clean repeated/duplicated patterns from note values
@@ -2437,6 +2504,19 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   const [showExportModal, setShowExportModal] = useState(false)
   const [recommendedPartsDialogOpen, setRecommendedPartsDialogOpen] = useState(false)
   const [selectedRecommendedParts, setSelectedRecommendedParts] = useState<RecommendedPart[]>([])
+  
+  // Advanced filter states
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [latestRecordsOnly, setLatestRecordsOnly] = useState(false)
+  const [filterConditions, setFilterConditions] = useState<Array<{
+    id: string
+    table: "projector" | "site" | "serviceRecord"
+    field: string
+    operator: string
+    value: string
+    value2?: string
+  }>>([])
+  const [filterLogic, setFilterLogic] = useState<"AND" | "OR">("AND")
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -2487,6 +2567,9 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
             projectorSerial: item.serialNo ?? projector.serialNo ?? item.projectorSerial ?? "",
             projectorStatus: projector.status ?? "",
             projectorServices: projector.noOfservices ?? "",
+            projectorRegion: projector.region ?? "",
+            projectorState: projector.state ?? "",
+            projectorPvr: projector.pvr ?? "",
             siteName: site.siteName ?? item.siteName ?? "",
             siteCode: site.siteCode ?? "",
             siteAddress: site.address ?? item.address ?? "",
@@ -2558,6 +2641,81 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
     fetchRecords()
   }, [])
 
+  // Filter helper functions - must be defined before filtered useMemo
+  const getFieldsForTable = (table: "projector" | "site" | "serviceRecord") => {
+    return FILTER_FIELDS[table] || []
+  }
+
+  const getOperatorsForField = (table: "projector" | "site" | "serviceRecord", fieldKey: string) => {
+    const field = FILTER_FIELDS[table].find((f) => f.key === fieldKey)
+    if (!field) return OPERATORS.string
+    return OPERATORS[field.type as keyof typeof OPERATORS] || OPERATORS.string
+  }
+
+  const getFieldDefinition = (table: "projector" | "site" | "serviceRecord", fieldKey: string): FilterField | undefined => {
+    return FILTER_FIELDS[table].find((f) => f.key === fieldKey)
+  }
+
+  // Apply filter conditions to a record - must be defined before filtered useMemo
+  const matchesFilterCondition = (record: ServiceRecord, condition: typeof filterConditions[0]): boolean => {
+    const fieldDef = getFieldDefinition(condition.table, condition.field)
+    if (!fieldDef || !condition.value) return true
+
+    let recordValue: any = null
+
+    // Get value from record based on table and field
+    if (condition.table === "projector") {
+      if (condition.field === "serialNo") recordValue = record.projectorSerial
+      else if (condition.field === "modelNo") recordValue = record.projectorModel
+      else if (condition.field === "region") recordValue = (record as any).projectorRegion || ""
+      else if (condition.field === "state") recordValue = (record as any).projectorState || ""
+      else if (condition.field === "pvr") recordValue = (record as any).projectorPvr || ""
+      else if (condition.field === "status") recordValue = record.projectorStatus
+      else if (condition.field === "noOfservices") recordValue = record.projectorServices
+    } else if (condition.table === "site") {
+      if (condition.field === "siteName") recordValue = record.siteName
+      else if (condition.field === "siteCode") recordValue = record.siteCode
+      else if (condition.field === "address") recordValue = record.siteAddress
+      else if (condition.field === "contactDetails") recordValue = record.siteContactDetails
+    } else if (condition.table === "serviceRecord") {
+      recordValue = record[condition.field]
+    }
+
+    if (recordValue === null || recordValue === undefined) return false
+
+    const filterValue = condition.value.toLowerCase().trim()
+    const recordValueStr = String(recordValue).toLowerCase()
+
+    switch (condition.operator) {
+      case "equals":
+        if (fieldDef.type === "boolean") {
+          return String(recordValue) === condition.value
+        }
+        return recordValueStr === filterValue
+      case "contains":
+        return recordValueStr.includes(filterValue)
+      case "startsWith":
+        return recordValueStr.startsWith(filterValue)
+      case "endsWith":
+        return recordValueStr.endsWith(filterValue)
+      case "greaterThan":
+        return Number(recordValue) > Number(condition.value)
+      case "lessThan":
+        return Number(recordValue) < Number(condition.value)
+      case "between":
+        if (!condition.value2) return true
+        const val = Number(recordValue)
+        return val >= Number(condition.value) && val <= Number(condition.value2)
+      case "after":
+        return new Date(recordValue) > new Date(condition.value)
+      case "before":
+        return new Date(recordValue) < new Date(condition.value)
+      case "notEquals":
+        return recordValueStr !== filterValue
+      default:
+        return true
+    }
+  }
 
   const filtered = useMemo(() => {
     const lower = search.trim().toLowerCase()
@@ -2583,20 +2741,79 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
 
     const matchesWorker = (rec: ServiceRecord) => workerFilter === "all" || rec.workerName === workerFilter
 
-    return records
-      .filter((rec) => matchesWorker(rec) && matchesSearch(rec) && inRange(rec.date || rec.scheduledDate || rec.createdAt))
-      .sort((a, b) => {
-        const aDate = a.date || a.scheduledDate || a.createdAt
-        const bDate = b.date || b.scheduledDate || b.createdAt
-        const aTime = aDate ? new Date(aDate).getTime() : 0
-        const bTime = bDate ? new Date(bDate).getTime() : 0
-        return bTime - aTime // descending newest first
+    // Apply advanced filter conditions
+    const matchesAdvancedFilters = (rec: ServiceRecord) => {
+      if (filterConditions.length === 0) return true
+
+      if (filterLogic === "AND") {
+        return filterConditions.every((condition) => matchesFilterCondition(rec, condition))
+      } else {
+        return filterConditions.some((condition) => matchesFilterCondition(rec, condition))
+      }
+    }
+
+    let filteredRecords = records
+      .filter((rec) => matchesWorker(rec) && matchesSearch(rec) && inRange(rec.date || rec.scheduledDate || rec.createdAt) && matchesAdvancedFilters(rec))
+
+    // Apply latest records only filter
+    if (latestRecordsOnly) {
+      const projectorMap = new Map<string, ServiceRecord>()
+      filteredRecords.forEach((rec) => {
+        const projectorSerial = rec.projectorSerial || ""
+        if (!projectorSerial) return
+
+        const existing = projectorMap.get(projectorSerial)
+        if (!existing) {
+          projectorMap.set(projectorSerial, rec)
+        } else {
+          const existingDate = existing.date || existing.scheduledDate || existing.createdAt
+          const currentDate = rec.date || rec.scheduledDate || rec.createdAt
+          if (currentDate && existingDate) {
+            const existingTime = new Date(existingDate).getTime()
+            const currentTime = new Date(currentDate).getTime()
+            if (currentTime > existingTime) {
+              projectorMap.set(projectorSerial, rec)
+            }
+          }
+        }
       })
-  }, [records, search, workerFilter, startDate, columnKeys, visibleColumns])
+      filteredRecords = Array.from(projectorMap.values())
+    }
+
+    return filteredRecords.sort((a, b) => {
+      const aDate = a.date || a.scheduledDate || a.createdAt
+      const bDate = b.date || b.scheduledDate || b.createdAt
+      const aTime = aDate ? new Date(aDate).getTime() : 0
+      const bTime = bDate ? new Date(bDate).getTime() : 0
+      return bTime - aTime // descending newest first
+    })
+  }, [records, search, workerFilter, startDate, columnKeys, visibleColumns, filterConditions, filterLogic, latestRecordsOnly])
 
   useEffect(() => {
     setPage(1)
-  }, [search, workerFilter, startDate])
+  }, [search, workerFilter, startDate, filterConditions, latestRecordsOnly])
+
+  // Filter UI helper functions
+  const addFilterCondition = () => {
+    const newCondition = {
+      id: `filter-${Date.now()}-${Math.random()}`,
+      table: "projector" as const,
+      field: FILTER_FIELDS.projector[0]!.key,
+      operator: "equals",
+      value: "",
+    }
+    setFilterConditions([...filterConditions, newCondition])
+  }
+
+  const removeFilterCondition = (id: string) => {
+    setFilterConditions(filterConditions.filter((f) => f.id !== id))
+  }
+
+  const updateFilterCondition = (id: string, updates: Partial<typeof filterConditions[0]>) => {
+    setFilterConditions(
+      filterConditions.map((f) => (f.id === id ? { ...f, ...updates } : f))
+    )
+  }
 
   const totalPages = limit ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize))
   const pageData = limit ? filtered.slice(0, limit) : filtered.slice((page - 1) * pageSize, page * pageSize)
@@ -2908,11 +3125,336 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                       setSearch("")
                       setWorkerFilter("all")
                       setStartDate("")
+                      setFilterConditions([])
+                      setLatestRecordsOnly(false)
+                      setFilterLogic("AND")
+                      setShowAdvancedFilters(false)
                       setPage(1)
                     }}
                   >
+                    <X className="h-4 w-4 mr-2" />
                     Reset filters
                   </Button>
+                  <div className="relative">
+                    <Button
+                      variant="outline"
+                      className="border-2 border-black text-sm"
+                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    >
+                      <Filter className="h-4 w-4 mr-2" />
+                      {showAdvancedFilters ? "Hide Filters" : "Advance Filters"}
+                    </Button>
+
+                    {showAdvancedFilters && (
+                      <div className="absolute -left-120 mt-2 z-50 border-2 border-gray-200 rounded-lg p-3 space-y-3 bg-white w-[90vw] sm:w-[40vw] md:w-[40vw] lg:w-[40vw] shadow-lg max-h-[70vh] overflow-auto">
+                        {/* Latest Records Only Option */}
+                        <div className="flex items-center gap-2 pb-2 border-b">
+                          <Checkbox
+                            id="latest-records"
+                            checked={latestRecordsOnly}
+                            onCheckedChange={(checked) =>
+                              setLatestRecordsOnly(checked as boolean)
+                            }
+                            className="border-2 border-black data-[state=checked]:bg-black data-[state=checked]:border-black h-3.5 w-3.5"
+                          />
+                          <Label
+                            htmlFor="latest-records"
+                            className="text-xs font-medium cursor-pointer"
+                          >
+                            Latest records only (one record per projector)
+                          </Label>
+                        </div>
+
+                        {/* Filter Logic (AND/OR) */}
+                        {filterConditions.length > 1 && (
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs font-medium">
+                              Combine filters with:
+                            </Label>
+                            <Select
+                              value={filterLogic}
+                              onValueChange={(v) =>
+                                setFilterLogic(v as "AND" | "OR")
+                              }
+                            >
+                              <SelectTrigger className="w-24 h-7 text-xs border-2 border-gray-300">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="AND">AND</SelectItem>
+                                <SelectItem value="OR">OR</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+
+                        {/* Filter Conditions */}
+                        <div className="space-y-2 w-fit">
+                          {filterConditions.map((condition, index) => {
+                            const fields = getFieldsForTable(condition.table)
+                            const operators = getOperatorsForField(
+                              condition.table,
+                              condition.field
+                            )
+                            const fieldDef = getFieldDefinition(
+                              condition.table,
+                              condition.field
+                            )
+
+                            return (
+                              <div
+                                key={condition.id}
+                                className="border-2 border-gray-200 w-fit rounded-lg p-2.5 space-y-2.5"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-semibold text-gray-700">
+                                    Filter {index + 1}
+                                  </span>
+                                  {filterConditions.length > 1 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        removeFilterCondition(condition.id)
+                                      }
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 h-6 w-6 p-0"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+
+                                <div className="flex gap-4">
+                                  {/* Table Selection */}
+                                  <div className="space-y-1 w-fit">
+                                    <Label className="text-[10px] text-gray-600">
+                                      Table
+                                    </Label>
+                                    <Select
+                                      value={condition.table}
+                                      onValueChange={(value) =>
+                                        updateFilterCondition(condition.id, {
+                                          table: value as
+                                            | "projector"
+                                            | "site"
+                                            | "serviceRecord",
+                                          field:
+                                            FILTER_FIELDS[
+                                              value as keyof typeof FILTER_FIELDS
+                                            ][0]!.key,
+                                          operator: "equals",
+                                          value: "",
+                                        })
+                                      }
+                                    >
+                                      <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="projector">
+                                          Projector
+                                        </SelectItem>
+                                        <SelectItem value="site">
+                                          Site
+                                        </SelectItem>
+                                        <SelectItem value="serviceRecord">
+                                          Service Record
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  {/* Field Selection */}
+                                  <div className="space-y-1 w-fit">
+                                    <Label className="text-[10px] text-gray-600">
+                                      Field
+                                    </Label>
+                                    <Select
+                                      value={condition.field}
+                                      onValueChange={(value) =>
+                                        updateFilterCondition(condition.id, {
+                                          field: value,
+                                          operator: "equals",
+                                          value: "",
+                                        })
+                                      }
+                                    >
+                                      <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {fields.map((field) => (
+                                          <SelectItem
+                                            key={field.key}
+                                            value={field.key}
+                                          >
+                                            {field.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  {/* Operator Selection */}
+                                  <div className="space-y-1 w-fit">
+                                    <Label className="text-[10px] text-gray-600">
+                                      Operator
+                                    </Label>
+                                    <Select
+                                      value={condition.operator}
+                                      onValueChange={(value) =>
+                                        updateFilterCondition(condition.id, {
+                                          operator: value,
+                                          value2:
+                                            value === "between"
+                                              ? condition.value2
+                                              : undefined,
+                                        })
+                                      }
+                                    >
+                                      <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                        <SelectValue placeholder="Select operator" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {operators.map((op) => (
+                                          <SelectItem
+                                            key={op.value}
+                                            value={op.value}
+                                          >
+                                            {op.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  {/* Value Input */}
+                                  <div className="space-y-1">
+                                    <Label className="text-[10px] text-gray-600">
+                                      Value
+                                    </Label>
+                                    {fieldDef?.type === "enum" ? (
+                                      <Select
+                                        value={condition.value}
+                                        onValueChange={(value) =>
+                                          updateFilterCondition(
+                                            condition.id,
+                                            { value }
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                          <SelectValue placeholder="Select value" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {fieldDef.options?.map((opt) => (
+                                            <SelectItem key={opt} value={opt}>
+                                              {opt}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    ) : fieldDef?.type === "boolean" ? (
+                                      <Select
+                                        value={condition.value}
+                                        onValueChange={(value) =>
+                                          updateFilterCondition(
+                                            condition.id,
+                                            { value }
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                          <SelectValue placeholder="Select value" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="true">
+                                            Yes
+                                          </SelectItem>
+                                          <SelectItem value="false">
+                                            No
+                                          </SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    ) : fieldDef?.type === "date" ? (
+                                      <Input
+                                        type="date"
+                                        value={condition.value}
+                                        onChange={(e) =>
+                                          updateFilterCondition(
+                                            condition.id,
+                                            { value: e.target.value }
+                                          )
+                                        }
+                                        className="h-9 text-xs border-2 border-gray-300"
+                                      />
+                                    ) : (
+                                      <Input
+                                        type={
+                                          fieldDef?.type === "number"
+                                            ? "number"
+                                            : "text"
+                                        }
+                                        value={condition.value}
+                                        onChange={(e) =>
+                                          updateFilterCondition(
+                                            condition.id,
+                                            { value: e.target.value }
+                                          )
+                                        }
+                                        placeholder="Enter value"
+                                        className="h-9 text-xs border-2 border-gray-300"
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Second Value for "Between" Operator */}
+                                {condition.operator === "between" && (
+                                  <div className="md:col-span-4 mt-2">
+                                    <div className="space-y-0.5 max-w-xs">
+                                      <Label className="text-[10px] text-gray-600">
+                                        Second Value
+                                      </Label>
+                                      <Input
+                                        type={
+                                          fieldDef?.type === "date"
+                                            ? "date"
+                                            : fieldDef?.type === "number"
+                                              ? "number"
+                                              : "text"
+                                        }
+                                        value={condition.value2 || ""}
+                                        onChange={(e) =>
+                                          updateFilterCondition(
+                                            condition.id,
+                                            { value2: e.target.value }
+                                          )
+                                        }
+                                        placeholder="Enter second value"
+                                        className="h-9 text-xs border-2 border-gray-300"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+
+                        {/* Add Filter Button */}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={addFilterCondition}
+                          className="w-full h-8 text-xs border-2 border-dashed border-gray-300 hover:border-black"
+                        >
+                          <Plus className="h-3 w-3 mr-1.5" />
+                          Add Filter Condition
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                   {/* <Button
                     className="text-sm"
                     onClick={() => setUploadDialogOpen(true)}
@@ -3139,7 +3681,21 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
 
       {/* Export Data Modal */}
       {showExportModal && (
-        <ExportDataModal onClose={() => setShowExportModal(false)} />
+        <ExportDataModal
+          onClose={() => setShowExportModal(false)}
+          columnKeys={columnKeys}
+          toLabel={toLabel}
+          filters={{
+            search,
+            workerFilter,
+            startDate,
+          }}
+          currentAdvancedFilters={{
+            latestRecordsOnly,
+            filterConditions,
+            filterLogic,
+          }}
+        />
       )}
 
       {/* Recommended Parts Preview Dialog */}

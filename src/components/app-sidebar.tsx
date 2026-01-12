@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Command, Home, Projector, User, FileEdit, Database, CalendarClock } from "lucide-react"
+import { Command, Home, Projector, User, FileEdit, Database, CalendarClock, File } from "lucide-react"
 import type { Route } from "next"
 
 import { NavMain, type NavMainItem } from "@/components/nav-main"
