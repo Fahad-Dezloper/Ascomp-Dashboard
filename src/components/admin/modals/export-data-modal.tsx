@@ -218,10 +218,6 @@ export default function ExportDataModal({
     setSelectedColumns(newSet);
   };
 
-  const selectAllFilteredColumns = () => {
-    setSelectedColumns(new Set(filteredColumns));
-  };
-
   const deselectAllFilteredColumns = () => {
     setSelectedColumns(new Set());
   };
