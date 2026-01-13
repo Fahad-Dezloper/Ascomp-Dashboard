@@ -211,6 +211,30 @@ const FILTER_FIELDS: {
     { key: "cinemaName", label: "Cinema Name", type: "string" },
     { key: "screenNumber", label: "Screen Number", type: "string" },
     { key: "reportGenerated", label: "Report Generated", type: "boolean" },
+    { key: "engineerVisited", label: "Engineer Visited", type: "string" },
+    { key: "serviceVisitType", label: "Service Visit Type", type: "string" },
+    { key: "projectorRunningHours", label: "Projector Running Hours", type: "number" },
+    { key: "softwareVersion", label: "Software Version", type: "string" },
+    { key: "lampMakeModel", label: "Lamp Make/Model", type: "string" },
+    { key: "lampTotalRunningHours", label: "Lamp Total Running Hours", type: "number" },
+    { key: "lampCurrentRunningHours", label: "Lamp Current Running Hours", type: "number" },
+    { key: "contentPlayerModel", label: "Content Player Model", type: "string" },
+    { key: "acStatus", label: "AC Status", type: "string" },
+    { key: "leStatus", label: "LE Status", type: "string" },
+    { key: "reflector", label: "Reflector", type: "enum", options: ["OK", "YES"] },
+    { key: "uvFilter", label: "UV Filter", type: "enum", options: ["OK", "YES"] },
+    { key: "integratorRod", label: "Integrator Rod", type: "enum", options: ["OK", "YES"] },
+    { key: "coldMirror", label: "Cold Mirror", type: "enum", options: ["OK", "YES"] },
+    { key: "foldMirror", label: "Fold Mirror", type: "enum", options: ["OK", "YES"] },
+    { key: "touchPanel", label: "Touch Panel", type: "enum", options: ["OK", "YES"] },
+    { key: "lightEngineFans", label: "Light Engine Fans", type: "enum", options: ["OK", "YES"] },
+    { key: "cardCageFans", label: "Card Cage Fans", type: "enum", options: ["OK", "YES"] },
+    { key: "radiatorFanPump", label: "Radiator Fan/Pump", type: "enum", options: ["OK", "YES"] },
+    { key: "remarks", label: "Remarks", type: "string" },
+    { key: "startTime", label: "Start Time", type: "string" },
+    { key: "endTime", label: "End Time", type: "string" },
+    { key: "flLeft", label: "FL Before", type: "number" },
+    { key: "flRight", label: "FL After", type: "number" },
   ],
 }
 
@@ -2504,7 +2528,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   const [showExportModal, setShowExportModal] = useState(false)
   const [recommendedPartsDialogOpen, setRecommendedPartsDialogOpen] = useState(false)
   const [selectedRecommendedParts, setSelectedRecommendedParts] = useState<RecommendedPart[]>([])
-  
+
   // Advanced filter states
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [latestRecordsOnly, setLatestRecordsOnly] = useState(false)
@@ -2659,7 +2683,10 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   // Apply filter conditions to a record - must be defined before filtered useMemo
   const matchesFilterCondition = (record: ServiceRecord, condition: typeof filterConditions[0]): boolean => {
     const fieldDef = getFieldDefinition(condition.table, condition.field)
-    if (!fieldDef || !condition.value) return true
+    if (!fieldDef) return true
+
+    // If no value is provided, skip this condition (don't filter)
+    if (!condition.value || condition.value.trim() === "") return true
 
     let recordValue: any = null
 
@@ -2671,6 +2698,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
       else if (condition.field === "state") recordValue = (record as any).projectorState || ""
       else if (condition.field === "pvr") recordValue = (record as any).projectorPvr || ""
       else if (condition.field === "status") recordValue = record.projectorStatus
+      else if (condition.field === "address") recordValue = record.siteAddress || (record as any).address || ""
       else if (condition.field === "noOfservices") recordValue = record.projectorServices
     } else if (condition.table === "site") {
       if (condition.field === "siteName") recordValue = record.siteName
@@ -2681,37 +2709,102 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
       recordValue = record[condition.field]
     }
 
-    if (recordValue === null || recordValue === undefined) return false
+    // Handle null/undefined - for "contains" type searches, missing values should not match
+    if (recordValue === null || recordValue === undefined || recordValue === "") {
+      // For notEquals operator, missing value should match (it's not equal to the search value)
+      if (condition.operator === "notEquals") return true
+      return false
+    }
 
     const filterValue = condition.value.toLowerCase().trim()
-    const recordValueStr = String(recordValue).toLowerCase()
+    const recordValueStr = String(recordValue).toLowerCase().trim()
+
+    // Helper function to parse dates safely
+    const parseDate = (val: any): Date | null => {
+      if (!val) return null
+      const d = new Date(val)
+      return isNaN(d.getTime()) ? null : d
+    }
 
     switch (condition.operator) {
       case "equals":
         if (fieldDef.type === "boolean") {
-          return String(recordValue) === condition.value
+          // Handle boolean - record value could be true, false, "true", "false"
+          const recordBool = String(recordValue).toLowerCase() === "true" || recordValue === true
+          const filterBool = condition.value.toLowerCase() === "true"
+          return recordBool === filterBool
+        }
+        if (fieldDef.type === "date") {
+          // For date equals, compare date strings (YYYY-MM-DD format)
+          const recordDate = parseDate(recordValue)
+          const filterDate = parseDate(condition.value)
+          if (!recordDate || !filterDate) return false
+          return recordDate.toDateString() === filterDate.toDateString()
         }
         return recordValueStr === filterValue
+
       case "contains":
         return recordValueStr.includes(filterValue)
+
       case "startsWith":
         return recordValueStr.startsWith(filterValue)
+
       case "endsWith":
         return recordValueStr.endsWith(filterValue)
+
       case "greaterThan":
-        return Number(recordValue) > Number(condition.value)
+        if (fieldDef.type === "number") {
+          return Number(recordValue) > Number(condition.value)
+        }
+        return false
+
       case "lessThan":
-        return Number(recordValue) < Number(condition.value)
+        if (fieldDef.type === "number") {
+          return Number(recordValue) < Number(condition.value)
+        }
+        return false
+
       case "between":
-        if (!condition.value2) return true
-        const val = Number(recordValue)
-        return val >= Number(condition.value) && val <= Number(condition.value2)
+        if (!condition.value2 || condition.value2.trim() === "") return true
+        if (fieldDef.type === "number") {
+          const val = Number(recordValue)
+          return val >= Number(condition.value) && val <= Number(condition.value2)
+        }
+        if (fieldDef.type === "date") {
+          const recordDate = parseDate(recordValue)
+          const startDate = parseDate(condition.value)
+          const endDate = parseDate(condition.value2)
+          if (!recordDate || !startDate || !endDate) return false
+          return recordDate >= startDate && recordDate <= endDate
+        }
+        return true
+
       case "after":
-        return new Date(recordValue) > new Date(condition.value)
+        if (fieldDef.type === "date") {
+          const recordDate = parseDate(recordValue)
+          const filterDate = parseDate(condition.value)
+          if (!recordDate || !filterDate) return false
+          return recordDate > filterDate
+        }
+        return false
+
       case "before":
-        return new Date(recordValue) < new Date(condition.value)
+        if (fieldDef.type === "date") {
+          const recordDate = parseDate(recordValue)
+          const filterDate = parseDate(condition.value)
+          if (!recordDate || !filterDate) return false
+          return recordDate < filterDate
+        }
+        return false
+
       case "notEquals":
+        if (fieldDef.type === "boolean") {
+          const recordBool = String(recordValue).toLowerCase() === "true" || recordValue === true
+          const filterBool = condition.value.toLowerCase() === "true"
+          return recordBool !== filterBool
+        }
         return recordValueStr !== filterValue
+
       default:
         return true
     }
@@ -2729,15 +2822,33 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
       return true
     }
 
-    const matchesSearch = (r: ServiceRecord) =>
-      !lower ||
-      columnKeys
-        .filter((key) => visibleColumns[key]) // search only visible columns to match user view
+    // Always search in these key fields regardless of column visibility
+    const alwaysSearchFields = [
+      "siteName", "siteCode", "siteAddress", "siteContactDetails",
+      "projectorSerial", "projectorModel", "serviceNumber", "engineerVisited",
+      "cinemaName", "screenNumber", "remarks"
+    ]
+
+    const matchesSearch = (r: ServiceRecord) => {
+      if (!lower) return true
+
+      // First check always-searchable fields
+      const matchesAlwaysFields = alwaysSearchFields.some((key) => {
+        const val = r[key]
+        if (val === null || val === undefined) return false
+        return String(val).toLowerCase().includes(lower)
+      })
+      if (matchesAlwaysFields) return true
+
+      // Then check visible columns
+      return columnKeys
+        .filter((key) => visibleColumns[key])
         .some((key) => {
           const val = r[key]
           if (val === null || val === undefined) return false
           return String(val).toLowerCase().includes(lower)
         })
+    }
 
     const matchesWorker = (rec: ServiceRecord) => workerFilter === "all" || rec.workerName === workerFilter
 
@@ -3138,15 +3249,25 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                   <div className="relative">
                     <Button
                       variant="outline"
-                      className="border-2 border-black text-sm"
-                      onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                      className={`border-2 text-sm ${filterConditions.filter(f => f.value.trim() !== "").length > 0 ? "border-blue-600 bg-blue-50 text-blue-700" : "border-black"}`}
+                      onClick={() => {
+                        if (!showAdvancedFilters && filterConditions.length === 0) {
+                          // Add a default filter condition when opening for the first time
+                          addFilterCondition()
+                        }
+                        setShowAdvancedFilters(!showAdvancedFilters)
+                      }}
                     >
                       <Filter className="h-4 w-4 mr-2" />
-                      {showAdvancedFilters ? "Hide Filters" : "Advance Filters"}
+                      {showAdvancedFilters
+                        ? "Hide Filters"
+                        : filterConditions.filter(f => f.value.trim() !== "").length > 0
+                          ? `Filters (${filterConditions.filter(f => f.value.trim() !== "").length})`
+                          : "Advanced Filters"}
                     </Button>
 
                     {showAdvancedFilters && (
-                      <div className="absolute -left-120 mt-2 z-50 border-2 border-gray-200 rounded-lg p-3 space-y-3 bg-white w-[90vw] sm:w-[40vw] md:w-[40vw] lg:w-[40vw] shadow-lg max-h-[70vh] overflow-auto">
+                      <div className="absolute -left-120 mt-2 z-50 border-2 border-gray-200 rounded-lg p-3 space-y-3 bg-white w-[90vw] sm:w-[40vw] md:w-[40vw] lg:w-[35vw] shadow-lg max-h-[70vh] overflow-auto">
                         {/* Latest Records Only Option */}
                         <div className="flex items-center gap-2 pb-2 border-b">
                           <Checkbox
@@ -3189,7 +3310,13 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                         )}
 
                         {/* Filter Conditions */}
-                        <div className="space-y-2 w-fit">
+                        <div className="space-y-2 w-full">
+                          {filterConditions.length === 0 && (
+                            <div className="text-center py-4 text-gray-500 text-xs">
+                              <p>No filter conditions added.</p>
+                              <p>Click "Add Filter Condition" below to start filtering.</p>
+                            </div>
+                          )}
                           {filterConditions.map((condition, index) => {
                             const fields = getFieldsForTable(condition.table)
                             const operators = getOperatorsForField(
@@ -3204,7 +3331,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                             return (
                               <div
                                 key={condition.id}
-                                className="border-2 border-gray-200 w-fit rounded-lg p-2.5 space-y-2.5"
+                                className="border-2 border-gray-200 w-full rounded-lg p-2.5 space-y-2.5"
                               >
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs font-semibold text-gray-700">
@@ -3224,9 +3351,9 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                   )}
                                 </div>
 
-                                <div className="flex gap-4">
+                                <div className="grid grid-cols-4">
                                   {/* Table Selection */}
-                                  <div className="space-y-1 w-fit">
+                                  <div className="space-y-1 w-full">
                                     <Label className="text-[10px] text-gray-600">
                                       Table
                                     </Label>
@@ -3478,7 +3605,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
           ) : error ? (
             <div className="py-12 text-center text-sm text-red-600">{error}</div>
           ) : filtered.length === 0 ? (
-            <div className="py-12 text-center text-sm text-gray-600">No records found.</div>
+            <div className="py-82 text-center text-sm text-gray-600">No records found.</div>
           ) : (
             <table className="min-w-full text-sm">
               <thead>

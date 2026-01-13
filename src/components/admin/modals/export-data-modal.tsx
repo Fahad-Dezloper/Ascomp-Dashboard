@@ -137,7 +137,7 @@ interface FilterCondition {
   field: string;
   operator: string;
   value: string;
-  value2?: string;
+  value2?: string; // For "between" operator
 }
 
 export default function ExportDataModal({
@@ -157,12 +157,14 @@ export default function ExportDataModal({
   const [isColumnPopoverOpen, setIsColumnPopoverOpen] = useState(false);
   const [email, setEmail] = useState("");
 
+  // Set default email from current user
   useEffect(() => {
     if (user?.email) {
       setEmail(user.email);
     }
   }, [user]);
 
+  // Filter states
   const [noFilter, setNoFilter] = useState(true);
   const [useCurrentFilter, setUseCurrentFilter] = useState(false);
   const [selectFilter, setSelectFilter] = useState(false);
@@ -172,8 +174,10 @@ export default function ExportDataModal({
   );
   const [filterLogic, setFilterLogic] = useState<"AND" | "OR">("AND");
 
+  // Default toLabel function if not provided
   const getLabel = (key: string) => {
     if (toLabel) return toLabel(key);
+    // Fallback: convert camelCase/snakeCase to Title Case
     return key
       .replace(/_/g, " ")
       .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -182,6 +186,7 @@ export default function ExportDataModal({
       .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
+  // Filter columns based on search
   const filteredColumns = useMemo(() => {
     if (!columnSearch) return columnKeys;
     const searchLower = columnSearch.toLowerCase();
@@ -190,6 +195,7 @@ export default function ExportDataModal({
     );
   }, [columnKeys, columnSearch, getLabel]);
 
+  // Handle "All" checkbox
   const handleAllChange = (checked: boolean) => {
     setSelectAllColumns(checked);
     if (checked) {
@@ -198,16 +204,19 @@ export default function ExportDataModal({
     }
   };
 
+  // Handle "Select Column" checkbox
   const handleSelectColumnChange = (checked: boolean) => {
     setSelectSpecificColumns(checked);
     if (checked) {
       setSelectAllColumns(false);
+      // Keep all columns unselected by default
       setSelectedColumns(new Set());
     } else {
       setSelectedColumns(new Set());
     }
   };
 
+  // Toggle individual column selection
   const toggleColumn = (columnKey: string) => {
     const newSet = new Set(selectedColumns);
     if (newSet.has(columnKey)) {
@@ -218,10 +227,17 @@ export default function ExportDataModal({
     setSelectedColumns(newSet);
   };
 
+  // Select all columns
+  const selectAllFilteredColumns = () => {
+    setSelectedColumns(new Set(filteredColumns));
+  };
+
+  // Deselect all columns
   const deselectAllFilteredColumns = () => {
     setSelectedColumns(new Set());
   };
 
+  // Filter handlers
   const handleNoFilterChange = (checked: boolean) => {
     setNoFilter(checked);
     if (checked) {
@@ -237,6 +253,7 @@ export default function ExportDataModal({
     if (checked) {
       setNoFilter(false);
       setSelectFilter(false);
+      // Use the current advanced filters from overview view
       if (currentAdvancedFilters) {
         setLatestRecordsOnly(currentAdvancedFilters.latestRecordsOnly || false);
         setFilterConditions(currentAdvancedFilters.filterConditions || []);
@@ -258,6 +275,7 @@ export default function ExportDataModal({
     if (checked) {
       setNoFilter(false);
       setUseCurrentFilter(false);
+      // Add first filter condition if none exist
       if (filterConditions.length === 0) {
         addFilterCondition();
       }
@@ -267,6 +285,7 @@ export default function ExportDataModal({
     }
   };
 
+  // Add new filter condition
   const addFilterCondition = () => {
     const newCondition: FilterCondition = {
       id: `filter-${Date.now()}-${Math.random()}`,
@@ -278,10 +297,12 @@ export default function ExportDataModal({
     setFilterConditions([...filterConditions, newCondition]);
   };
 
+  // Remove filter condition
   const removeFilterCondition = (id: string) => {
     setFilterConditions(filterConditions.filter((f) => f.id !== id));
   };
 
+  // Update filter condition
   const updateFilterCondition = (
     id: string,
     updates: Partial<FilterCondition>
@@ -291,10 +312,12 @@ export default function ExportDataModal({
     );
   };
 
+  // Get available fields for selected table
   const getFieldsForTable = (table: "projector" | "site" | "serviceRecord") => {
     return FILTER_FIELDS[table] || [];
   };
 
+  // Get operators for field type
   const getOperatorsForField = (
     table: "projector" | "site" | "serviceRecord",
     fieldKey: string
@@ -304,6 +327,7 @@ export default function ExportDataModal({
     return OPERATORS[field.type as keyof typeof OPERATORS] || OPERATORS.string;
   };
 
+  // Get field definition
   const getFieldDefinition = (
     table: "projector" | "site" | "serviceRecord",
     fieldKey: string
@@ -311,7 +335,9 @@ export default function ExportDataModal({
     return FILTER_FIELDS[table].find((f) => f.key === fieldKey);
   };
 
+  // Handle Export button
   const handleExport = () => {
+    // Validate column selection
     if (!selectAllColumns && !selectSpecificColumns) {
       toast.error("Please select column option");
       return;
@@ -322,12 +348,14 @@ export default function ExportDataModal({
       return;
     }
 
+    // Validate filters
     if (selectFilter) {
       if (filterConditions.length === 0) {
         toast.error("Please add at least one filter condition");
         return;
       }
 
+      // Validate all filter conditions have values
       for (const condition of filterConditions) {
         if (!condition.value.trim()) {
           toast.error("Please fill in all filter values");
@@ -340,11 +368,13 @@ export default function ExportDataModal({
       }
     }
 
+    // Validate email if provided
     if (email && !email.includes("@")) {
       toast.error("Please enter a valid email address");
       return;
     }
 
+    // Build export config
     const exportConfig = {
       columns: selectAllColumns ? "all" : Array.from(selectedColumns),
       filters: {
@@ -359,6 +389,7 @@ export default function ExportDataModal({
 
     console.log("Export Config:", exportConfig);
     toast.info("Export configuration ready (Backend not connected yet)");
+    // TODO: Implement export logic (will be done in backend step)
   };
 
   return (
@@ -372,11 +403,13 @@ export default function ExportDataModal({
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
+          {/* Column Selection */}
           <div className="flex gap-4 flex-col">
             <div className="flex gap-24">
               <Label className="text-base font-semibold">Column</Label>
 
               <div className="flex gap-8">
+                {/* All Checkbox */}
                 <div className="flex items-center gap-3">
                   <Checkbox
                     id="all-columns"
@@ -392,6 +425,7 @@ export default function ExportDataModal({
                   </Label>
                 </div>
 
+                {/* Select Column Checkbox */}
                 <div className="flex items-center gap-3">
                   <Checkbox
                     id="select-columns"
@@ -409,6 +443,7 @@ export default function ExportDataModal({
               </div>
             </div>
 
+            {/* Column Selection - Show when "Select Column" is checked */}
             {selectSpecificColumns && (
               <Popover
                 open={isColumnPopoverOpen}
@@ -455,6 +490,7 @@ export default function ExportDataModal({
                   onOpenAutoFocus={(e) => e.preventDefault()}
                 >
                   <div className="p-4 space-y-3 flex flex-col">
+                    {/* Search Input */}
                     <Input
                       placeholder="Search columns..."
                       value={columnSearch}
@@ -463,6 +499,7 @@ export default function ExportDataModal({
                       autoFocus
                     />
 
+                    {/* Select All/Deselect All */}
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
@@ -474,6 +511,7 @@ export default function ExportDataModal({
                       </Button>
                     </div>
 
+                    {/* Column List */}
                     <div className="border flex flex-col gap-8 border-gray-200 h-[25vh] rounded-md p-2">
                       {filteredColumns.length === 0 ? (
                         <div className="text-center text-sm text-gray-500 py-8">
@@ -508,18 +546,25 @@ export default function ExportDataModal({
                         </div>
                       )}
                     </div>
+
+                    {/* Selected Count */}
+                    {/* <div className="text-xs text-gray-500">
+                      {selectedColumns.size} of {columnKeys.length} column{columnKeys.length !== 1 ? "s" : ""} selected
+                    </div> */}
                   </div>
                 </PopoverContent>
               </Popover>
             )}
           </div>
 
+          {/* Filters Selection */}
           <div className="space-y-6 mt-4">
             <div className="flex gap-4 flex-col">
               <div className="flex gap-24">
                 <Label className="text-base font-semibold">Filters</Label>
 
                 <div className="flex items-center gap-8">
+                  {/* No Filter Checkbox */}
                   <div className="flex items-center gap-3">
                     <Checkbox
                       id="no-filter"
@@ -535,6 +580,7 @@ export default function ExportDataModal({
                     </Label>
                   </div>
 
+                  {/* Use Current Filter Checkbox */}
                   <div className="flex items-center gap-3">
                     <Checkbox
                       id="use-current-filter"
@@ -559,6 +605,7 @@ export default function ExportDataModal({
                     )}
                   </div>
 
+                  {/* Select Filter Checkbox */}
                   <div className="flex items-center gap-3">
                     <Checkbox
                       id="select-filter"
@@ -574,9 +621,12 @@ export default function ExportDataModal({
                     </Label>
                   </div>
                 </div>
+
+                {/* Filter Builder - Show when "Select filter" or "Use current filter" is checked */}
               </div>
                 {(selectFilter || useCurrentFilter) && (
                   <div className="border-2 border-gray-200 rounded-lg p-4 space-y-2">
+                    {/* Show indicator when using current filters */}
                     {useCurrentFilter && (
                       <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
                         <p className="text-xs text-blue-800">
@@ -586,6 +636,7 @@ export default function ExportDataModal({
                         </p>
                       </div>
                     )}
+                    {/* Latest Records Only Option */}
                     <div className="flex items-center gap-3 pb-3 border-b">
                       <Checkbox
                         id="latest-records"
@@ -604,6 +655,7 @@ export default function ExportDataModal({
                       </Label>
                     </div>
 
+                    {/* Filter Logic (AND/OR) */}
                     {filterConditions.length > 1 && (
                       <div className="flex items-center gap-3">
                         <Label className="text-sm font-medium">
@@ -626,6 +678,7 @@ export default function ExportDataModal({
                       </div>
                     )}
 
+                    {/* Filter Conditions */}
                     <div className="space-y-3">
                       {filterConditions.map((condition, index) => {
                         const fields = getFieldsForTable(condition.table);
@@ -662,6 +715,7 @@ export default function ExportDataModal({
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                              {/* Table Selection */}
                               <div className="space-y-1">
                                 <Label className="text-xs text-gray-600">
                                   Table
@@ -699,6 +753,7 @@ export default function ExportDataModal({
                                 </Select>
                               </div>
 
+                              {/* Field Selection */}
                               <div className="space-y-1">
                                 <Label className="text-xs text-gray-600">
                                   Field
@@ -730,6 +785,7 @@ export default function ExportDataModal({
                                 </Select>
                               </div>
 
+                              {/* Operator Selection */}
                               <div className="space-y-1">
                                 <Label className="text-xs text-gray-600">
                                   Operator
@@ -763,6 +819,7 @@ export default function ExportDataModal({
                                 </Select>
                               </div>
 
+                              {/* Value Input */}
                               <div className="space-y-1">
                                 <Label className="text-xs text-gray-600">
                                   Value
@@ -839,6 +896,7 @@ export default function ExportDataModal({
                               </div>
                             </div>
 
+                            {/* Second Value for "Between" Operator */}
                             {condition.operator === "between" && (
                               <div className="md:col-span-4">
                                 <div className="space-y-1 max-w-xs">
@@ -871,8 +929,8 @@ export default function ExportDataModal({
                       })}
                     </div>
 
-                    {!useCurrentFilter && (
-                      <Button
+                    {/* Add Filter Button */}
+                    <Button
                       type="button"
                       variant="outline"
                       onClick={addFilterCondition}
@@ -881,12 +939,12 @@ export default function ExportDataModal({
                       <Plus className="h-4 w-4 mr-2" />
                       Add Filter Condition
                     </Button>
-                    )}
                   </div>
                 )}
             </div>
           </div>
 
+          {/* Email Input */}
           <div className="space-y-2 pt-4 border-t">
             <Label className="text-base font-semibold flex items-center gap-2">
               <Mail className="h-4 w-4" />
@@ -904,6 +962,7 @@ export default function ExportDataModal({
             </p>
           </div>
 
+          {/* Action Buttons */}
           <div className="flex gap-3 justify-end pt-4 border-t">
             <Button
               variant="outline"
