@@ -335,7 +335,25 @@ export default function GenerateReportStep({ data, onBack }: any) {
         reportUrl: "",
         engineerSignatureUrl: fullService.signatures?.engineer || fullService.signatures?.engineerSignatureUrl || "",
         siteSignatureUrl: fullService.signatures?.site || fullService.signatures?.siteSignatureUrl || "",
-        imagesLink: fullService.workDetails?.photosDriveLink || undefined,
+        imagesLink: (() => {
+          if (fullService.workDetails?.photosDriveLink) {
+              return fullService.workDetails.photosDriveLink;
+          }
+
+          const hasImages =
+              (Array.isArray(fullService.images) && fullService.images.length > 0) ||
+              (Array.isArray(fullService.afterImages) && fullService.afterImages.length > 0) ||
+              (Array.isArray(fullService.brokenImages) && fullService.brokenImages.length > 0);
+
+          if (hasImages) {
+              const baseUrl = process.env.CORS_ORIGIN || '';
+              const imagesPath = `/share/service-images/${serviceId}`;
+
+              return baseUrl ? `${baseUrl}${imagesPath}` : imagesPath;
+          }
+
+          return undefined;
+      })(),
       }
 
       // Step 3: Generate PDF (this includes loading logos and signatures)
