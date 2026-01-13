@@ -3267,20 +3267,33 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                     </Button>
 
                     {showAdvancedFilters && (
-                      <div className="absolute -left-120 mt-2 z-50 border-2 border-gray-200 rounded-lg p-3 space-y-3 bg-white w-[90vw] sm:w-[40vw] md:w-[40vw] lg:w-[35vw] shadow-lg max-h-[70vh] overflow-auto">
+                      <div className="absolute right-0 mt-2 z-50 border border-gray-200 rounded-xl p-4 space-y-4 bg-white shadow-xl w-[95vw] sm:w-[85vw] md:w-[600px] lg:w-[700px] max-h-[75vh] overflow-auto">
+                        {/* Header */}
+                        <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+                          <h3 className="text-sm font-semibold text-gray-900">Advanced Filters</h3>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowAdvancedFilters(false)}
+                            className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+
                         {/* Latest Records Only Option */}
-                        <div className="flex items-center gap-2 pb-2 border-b">
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                           <Checkbox
                             id="latest-records"
                             checked={latestRecordsOnly}
                             onCheckedChange={(checked) =>
                               setLatestRecordsOnly(checked as boolean)
                             }
-                            className="border-2 border-black data-[state=checked]:bg-black data-[state=checked]:border-black h-3.5 w-3.5"
+                            className="border-2 border-gray-400 data-[state=checked]:bg-black data-[state=checked]:border-black h-4 w-4"
                           />
                           <Label
                             htmlFor="latest-records"
-                            className="text-xs font-medium cursor-pointer"
+                            className="text-sm font-medium cursor-pointer text-gray-700"
                           >
                             Latest records only (one record per projector)
                           </Label>
@@ -3288,8 +3301,8 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
 
                         {/* Filter Logic (AND/OR) */}
                         {filterConditions.length > 1 && (
-                          <div className="flex items-center gap-2">
-                            <Label className="text-xs font-medium">
+                          <div className="flex items-center gap-3 px-1">
+                            <Label className="text-sm font-medium text-gray-700">
                               Combine filters with:
                             </Label>
                             <Select
@@ -3298,7 +3311,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                 setFilterLogic(v as "AND" | "OR")
                               }
                             >
-                              <SelectTrigger className="w-24 h-7 text-xs border-2 border-gray-300">
+                              <SelectTrigger className="w-20 h-8 text-sm border border-gray-300 rounded-md">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -3310,13 +3323,14 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                         )}
 
                         {/* Filter Conditions */}
-                        <div className="space-y-2 w-full">
+                        <div className="space-y-3">
                           {filterConditions.length === 0 && (
-                            <div className="text-center py-4 text-gray-500 text-xs">
+                            <div className="text-center py-6 text-gray-400 text-sm bg-gray-50 rounded-lg">
                               <p>No filter conditions added.</p>
-                              <p>Click "Add Filter Condition" below to start filtering.</p>
+                              <p className="text-xs mt-1">Click the button below to add a filter.</p>
                             </div>
                           )}
+
                           {filterConditions.map((condition, index) => {
                             const fields = getFieldsForTable(condition.table)
                             const operators = getOperatorsForField(
@@ -3331,30 +3345,28 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                             return (
                               <div
                                 key={condition.id}
-                                className="border-2 border-gray-200 w-full rounded-lg p-2.5 space-y-2.5"
+                                className="border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors"
                               >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-semibold text-gray-700">
+                                {/* Filter Header */}
+                                <div className="flex items-center justify-between mb-3">
+                                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
                                     Filter {index + 1}
                                   </span>
-                                  {filterConditions.length > 1 && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() =>
-                                        removeFilterCondition(condition.id)
-                                      }
-                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 h-6 w-6 p-0"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
-                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeFilterCondition(condition.id)}
+                                    className="text-gray-400 hover:text-red-600 hover:bg-red-50 h-7 w-7 p-0 rounded-full"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
                                 </div>
 
-                                <div className="grid grid-cols-4">
+                                {/* Filter Fields Grid - Responsive */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                   {/* Table Selection */}
-                                  <div className="space-y-1 w-full">
-                                    <Label className="text-[10px] text-gray-600">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-gray-600">
                                       Table
                                     </Label>
                                     <Select
@@ -3374,26 +3386,20 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                         })
                                       }
                                     >
-                                      <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                      <SelectTrigger className="h-9 text-sm border border-gray-300 rounded-md w-full">
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        <SelectItem value="projector">
-                                          Projector
-                                        </SelectItem>
-                                        <SelectItem value="site">
-                                          Site
-                                        </SelectItem>
-                                        <SelectItem value="serviceRecord">
-                                          Service Record
-                                        </SelectItem>
+                                        <SelectItem value="projector">Projector</SelectItem>
+                                        <SelectItem value="site">Site</SelectItem>
+                                        <SelectItem value="serviceRecord">Service Record</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
 
                                   {/* Field Selection */}
-                                  <div className="space-y-1 w-fit">
-                                    <Label className="text-[10px] text-gray-600">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-gray-600">
                                       Field
                                     </Label>
                                     <Select
@@ -3406,10 +3412,10 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                         })
                                       }
                                     >
-                                      <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                      <SelectTrigger className="h-9 text-sm border border-gray-300 rounded-md w-full">
                                         <SelectValue />
                                       </SelectTrigger>
-                                      <SelectContent>
+                                      <SelectContent className="max-h-60">
                                         {fields.map((field) => (
                                           <SelectItem
                                             key={field.key}
@@ -3423,8 +3429,8 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                   </div>
 
                                   {/* Operator Selection */}
-                                  <div className="space-y-1 w-fit">
-                                    <Label className="text-[10px] text-gray-600">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-gray-600">
                                       Operator
                                     </Label>
                                     <Select
@@ -3439,8 +3445,8 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                         })
                                       }
                                     >
-                                      <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
-                                        <SelectValue placeholder="Select operator" />
+                                      <SelectTrigger className="h-9 text-sm border border-gray-300 rounded-md w-full">
+                                        <SelectValue placeholder="Select" />
                                       </SelectTrigger>
                                       <SelectContent>
                                         {operators.map((op) => (
@@ -3456,8 +3462,8 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                   </div>
 
                                   {/* Value Input */}
-                                  <div className="space-y-1">
-                                    <Label className="text-[10px] text-gray-600">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-xs font-medium text-gray-600">
                                       Value
                                     </Label>
                                     {fieldDef?.type === "enum" ? (
@@ -3470,7 +3476,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                           )
                                         }
                                       >
-                                        <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
+                                        <SelectTrigger className="h-9 text-sm border border-gray-300 rounded-md w-full">
                                           <SelectValue placeholder="Select value" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -3491,16 +3497,12 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                           )
                                         }
                                       >
-                                        <SelectTrigger className="h-9 text-xs border-2 border-gray-300">
-                                          <SelectValue placeholder="Select value" />
+                                        <SelectTrigger className="h-9 text-sm border border-gray-300 rounded-md w-full">
+                                          <SelectValue placeholder="Select" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          <SelectItem value="true">
-                                            Yes
-                                          </SelectItem>
-                                          <SelectItem value="false">
-                                            No
-                                          </SelectItem>
+                                          <SelectItem value="true">Yes</SelectItem>
+                                          <SelectItem value="false">No</SelectItem>
                                         </SelectContent>
                                       </Select>
                                     ) : fieldDef?.type === "date" ? (
@@ -3513,7 +3515,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                             { value: e.target.value }
                                           )
                                         }
-                                        className="h-9 text-xs border-2 border-gray-300"
+                                        className="h-9 text-sm border border-gray-300 rounded-md w-full"
                                       />
                                     ) : (
                                       <Input
@@ -3530,7 +3532,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                                           )
                                         }
                                         placeholder="Enter value"
-                                        className="h-9 text-xs border-2 border-gray-300"
+                                        className="h-9 text-sm border border-gray-300 rounded-md w-full"
                                       />
                                     )}
                                   </div>
@@ -3538,29 +3540,31 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
 
                                 {/* Second Value for "Between" Operator */}
                                 {condition.operator === "between" && (
-                                  <div className="md:col-span-4 mt-2">
-                                    <div className="space-y-0.5 max-w-xs">
-                                      <Label className="text-[10px] text-gray-600">
-                                        Second Value
-                                      </Label>
-                                      <Input
-                                        type={
-                                          fieldDef?.type === "date"
-                                            ? "date"
-                                            : fieldDef?.type === "number"
-                                              ? "number"
-                                              : "text"
-                                        }
-                                        value={condition.value2 || ""}
-                                        onChange={(e) =>
-                                          updateFilterCondition(
-                                            condition.id,
-                                            { value2: e.target.value }
-                                          )
-                                        }
-                                        placeholder="Enter second value"
-                                        className="h-9 text-xs border-2 border-gray-300"
-                                      />
+                                  <div className="mt-3 pt-3 border-t border-gray-100">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                      <div className="lg:col-start-4 space-y-1.5">
+                                        <Label className="text-xs font-medium text-gray-600">
+                                          End Value
+                                        </Label>
+                                        <Input
+                                          type={
+                                            fieldDef?.type === "date"
+                                              ? "date"
+                                              : fieldDef?.type === "number"
+                                                ? "number"
+                                                : "text"
+                                          }
+                                          value={condition.value2 || ""}
+                                          onChange={(e) =>
+                                            updateFilterCondition(
+                                              condition.id,
+                                              { value2: e.target.value }
+                                            )
+                                          }
+                                          placeholder="Enter end value"
+                                          className="h-9 text-sm border border-gray-300 rounded-md w-full"
+                                        />
+                                      </div>
                                     </div>
                                   </div>
                                 )}
@@ -3574,9 +3578,9 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                           type="button"
                           variant="outline"
                           onClick={addFilterCondition}
-                          className="w-full h-8 text-xs border-2 border-dashed border-gray-300 hover:border-black"
+                          className="w-full h-10 text-sm border-2 border-dashed border-gray-300 hover:border-gray-400 hover:bg-gray-50 rounded-lg transition-colors"
                         >
-                          <Plus className="h-3 w-3 mr-1.5" />
+                          <Plus className="h-4 w-4 mr-2" />
                           Add Filter Condition
                         </Button>
                       </div>
@@ -3599,7 +3603,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
             </div>
           </CardHeader>
         )}
-        <CardContent className={`overflow-x-auto ${hideHeader && "px-0"}`}>
+        <CardContent className={`overflow-x-auto h-screen ${hideHeader && "px-0"}`}>
           {loading ? (
             <div className="py-12 text-center text-sm text-gray-600">Loading records...</div>
           ) : error ? (
