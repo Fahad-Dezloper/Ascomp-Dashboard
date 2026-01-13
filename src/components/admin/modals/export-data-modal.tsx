@@ -228,6 +228,7 @@ export default function ExportDataModal({
   };
 
   // Select all columns
+  // @ts-ignore
   const selectAllFilteredColumns = () => {
     setSelectedColumns(new Set(filteredColumns));
   };
@@ -524,11 +525,10 @@ export default function ExportDataModal({
                             return (
                               <label
                                 key={columnKey}
-                                className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
-                                  isSelected
-                                    ? "bg-black/5 border-2 border-black"
-                                    : "hover:bg-gray-50 border-2 border-transparent"
-                                }`}
+                                className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${isSelected
+                                  ? "bg-black/5 border-2 border-black"
+                                  : "hover:bg-gray-50 border-2 border-transparent"
+                                  }`}
                               >
                                 <Checkbox
                                   checked={isSelected}
@@ -624,323 +624,323 @@ export default function ExportDataModal({
 
                 {/* Filter Builder - Show when "Select filter" or "Use current filter" is checked */}
               </div>
-                {(selectFilter || useCurrentFilter) && (
-                  <div className="border-2 border-gray-200 rounded-lg p-4 space-y-2">
-                    {/* Show indicator when using current filters */}
-                    {useCurrentFilter && (
-                      <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                        <p className="text-xs text-blue-800">
-                          {filterConditions.length > 0 || latestRecordsOnly
-                            ? "Using current filters from overview table"
-                            : "No filters currently applied in overview table"}
-                        </p>
-                      </div>
-                    )}
-                    {/* Latest Records Only Option */}
-                    <div className="flex items-center gap-3 pb-3 border-b">
-                      <Checkbox
-                        id="latest-records"
-                        checked={latestRecordsOnly}
-                        onCheckedChange={(checked) =>
-                          setLatestRecordsOnly(checked as boolean)
-                        }
-                        disabled={useCurrentFilter}
-                        className="border-2 border-black data-[state=checked]:bg-black data-[state=checked]:border-black"
-                      />
-                      <Label
-                        htmlFor="latest-records"
-                        className={`text-sm font-medium ${useCurrentFilter ? "cursor-default text-gray-600" : "cursor-pointer"}`}
-                      >
-                        Latest records only (one record per projector)
-                      </Label>
+              {(selectFilter || useCurrentFilter) && (
+                <div className="border-2 border-gray-200 rounded-lg p-4 space-y-2">
+                  {/* Show indicator when using current filters */}
+                  {useCurrentFilter && (
+                    <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                      <p className="text-xs text-blue-800">
+                        {filterConditions.length > 0 || latestRecordsOnly
+                          ? "Using current filters from overview table"
+                          : "No filters currently applied in overview table"}
+                      </p>
                     </div>
+                  )}
+                  {/* Latest Records Only Option */}
+                  <div className="flex items-center gap-3 pb-3 border-b">
+                    <Checkbox
+                      id="latest-records"
+                      checked={latestRecordsOnly}
+                      onCheckedChange={(checked) =>
+                        setLatestRecordsOnly(checked as boolean)
+                      }
+                      disabled={useCurrentFilter}
+                      className="border-2 border-black data-[state=checked]:bg-black data-[state=checked]:border-black"
+                    />
+                    <Label
+                      htmlFor="latest-records"
+                      className={`text-sm font-medium ${useCurrentFilter ? "cursor-default text-gray-600" : "cursor-pointer"}`}
+                    >
+                      Latest records only (one record per projector)
+                    </Label>
+                  </div>
 
-                    {/* Filter Logic (AND/OR) */}
-                    {filterConditions.length > 1 && (
-                      <div className="flex items-center gap-3">
-                        <Label className="text-sm font-medium">
-                          Combine filters with:
-                        </Label>
-                        <Select
-                          value={filterLogic}
-                          onValueChange={(v) =>
-                            setFilterLogic(v as "AND" | "OR")
-                          }
+                  {/* Filter Logic (AND/OR) */}
+                  {filterConditions.length > 1 && (
+                    <div className="flex items-center gap-3">
+                      <Label className="text-sm font-medium">
+                        Combine filters with:
+                      </Label>
+                      <Select
+                        value={filterLogic}
+                        onValueChange={(v) =>
+                          setFilterLogic(v as "AND" | "OR")
+                        }
+                      >
+                        <SelectTrigger className="w-32 border-2 border-gray-300">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AND">AND</SelectItem>
+                          <SelectItem value="OR">OR</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Filter Conditions */}
+                  <div className="space-y-3">
+                    {filterConditions.map((condition, index) => {
+                      const fields = getFieldsForTable(condition.table);
+                      const operators = getOperatorsForField(
+                        condition.table,
+                        condition.field
+                      );
+                      const fieldDef = getFieldDefinition(
+                        condition.table,
+                        condition.field
+                      );
+
+                      return (
+                        <div
+                          key={condition.id}
+                          className="border-2 border-gray-200 rounded-lg p-4 space-y-3"
                         >
-                          <SelectTrigger className="w-32 border-2 border-gray-300">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="AND">AND</SelectItem>
-                            <SelectItem value="OR">OR</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* Filter Conditions */}
-                    <div className="space-y-3">
-                      {filterConditions.map((condition, index) => {
-                        const fields = getFieldsForTable(condition.table);
-                        const operators = getOperatorsForField(
-                          condition.table,
-                          condition.field
-                        );
-                        const fieldDef = getFieldDefinition(
-                          condition.table,
-                          condition.field
-                        );
-
-                        return (
-                          <div
-                            key={condition.id}
-                            className="border-2 border-gray-200 rounded-lg p-4 space-y-3"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-semibold text-gray-700">
-                                Filter {index + 1}
-                              </span>
-                              {filterConditions.length > 1 && !useCurrentFilter && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    removeFilterCondition(condition.id)
-                                  }
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                              {/* Table Selection */}
-                              <div className="space-y-1">
-                                <Label className="text-xs text-gray-600">
-                                  Table
-                                </Label>
-                                <Select
-                                  value={condition.table}
-                                  onValueChange={(value) =>
-                                    updateFilterCondition(condition.id, {
-                                      table: value as
-                                        | "projector"
-                                        | "site"
-                                        | "serviceRecord",
-                                      field:
-                                        FILTER_FIELDS[
-                                          value as keyof typeof FILTER_FIELDS
-                                        ][0]!.key,
-                                      operator: "equals",
-                                      value: "",
-                                    })
-                                  }
-                                  disabled={useCurrentFilter}
-                                >
-                                  <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="projector">
-                                      Projector
-                                    </SelectItem>
-                                    <SelectItem value="site">Site</SelectItem>
-                                    <SelectItem value="serviceRecord">
-                                      Service Record
-                                    </SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {/* Field Selection */}
-                              <div className="space-y-1">
-                                <Label className="text-xs text-gray-600">
-                                  Field
-                                </Label>
-                                <Select
-                                  value={condition.field}
-                                  onValueChange={(value) =>
-                                    updateFilterCondition(condition.id, {
-                                      field: value,
-                                      operator: "equals",
-                                      value: "",
-                                    })
-                                  }
-                                  disabled={useCurrentFilter}
-                                >
-                                  <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {fields.map((field) => (
-                                      <SelectItem
-                                        key={field.key}
-                                        value={field.key}
-                                      >
-                                        {field.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {/* Operator Selection */}
-                              <div className="space-y-1">
-                                <Label className="text-xs text-gray-600">
-                                  Operator
-                                </Label>
-                                <Select
-                                  value={condition.operator}
-                                  onValueChange={(value) =>
-                                    updateFilterCondition(condition.id, {
-                                      operator: value,
-                                      value2:
-                                        value === "between"
-                                          ? condition.value2
-                                          : undefined,
-                                    })
-                                  }
-                                  disabled={useCurrentFilter}
-                                >
-                                  <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {operators.map((op) => (
-                                      <SelectItem
-                                        key={op.value}
-                                        value={op.value}
-                                      >
-                                        {op.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-
-                              {/* Value Input */}
-                              <div className="space-y-1">
-                                <Label className="text-xs text-gray-600">
-                                  Value
-                                </Label>
-                                {fieldDef?.type === "enum" ? (
-                                  <Select
-                                    value={condition.value}
-                                    onValueChange={(value) =>
-                                      updateFilterCondition(condition.id, {
-                                        value,
-                                      })
-                                    }
-                                    disabled={useCurrentFilter}
-                                  >
-                                    <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
-                                      <SelectValue placeholder="Select value" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {fieldDef.options?.map((opt) => (
-                                        <SelectItem key={opt} value={opt}>
-                                          {opt}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                ) : fieldDef?.type === "boolean" ? (
-                                  <Select
-                                    value={condition.value}
-                                    onValueChange={(value) =>
-                                      updateFilterCondition(condition.id, {
-                                        value,
-                                      })
-                                    }
-                                    disabled={useCurrentFilter}
-                                  >
-                                    <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
-                                      <SelectValue placeholder="Select value" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="true">Yes</SelectItem>
-                                      <SelectItem value="false">No</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                ) : fieldDef?.type === "date" ? (
-                                  <Input
-                                    type="date"
-                                    value={condition.value}
-                                    onChange={(e) =>
-                                      updateFilterCondition(condition.id, {
-                                        value: e.target.value,
-                                      })
-                                    }
-                                    disabled={useCurrentFilter}
-                                    className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}
-                                  />
-                                ) : (
-                                  <Input
-                                    type={
-                                      fieldDef?.type === "number"
-                                        ? "number"
-                                        : "text"
-                                    }
-                                    value={condition.value}
-                                    onChange={(e) =>
-                                      updateFilterCondition(condition.id, {
-                                        value: e.target.value,
-                                      })
-                                    }
-                                    placeholder="Enter value"
-                                    disabled={useCurrentFilter}
-                                    className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}
-                                  />
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Second Value for "Between" Operator */}
-                            {condition.operator === "between" && (
-                              <div className="md:col-span-4">
-                                <div className="space-y-1 max-w-xs">
-                                  <Label className="text-xs text-gray-600">
-                                    Second Value
-                                  </Label>
-                                  <Input
-                                    type={
-                                      fieldDef?.type === "date"
-                                        ? "date"
-                                        : fieldDef?.type === "number"
-                                        ? "number"
-                                        : "text"
-                                    }
-                                    value={condition.value2 || ""}
-                                    onChange={(e) =>
-                                      updateFilterCondition(condition.id, {
-                                        value2: e.target.value,
-                                      })
-                                    }
-                                    placeholder="Enter second value"
-                                    disabled={useCurrentFilter}
-                                    className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}
-                                  />
-                                </div>
-                              </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-700">
+                              Filter {index + 1}
+                            </span>
+                            {filterConditions.length > 1 && !useCurrentFilter && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  removeFilterCondition(condition.id)
+                                }
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
                             )}
                           </div>
-                        );
-                      })}
-                    </div>
 
-                    {/* Add Filter Button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={addFilterCondition}
-                      className="w-full border-2 border-dashed border-gray-300 hover:border-black"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Filter Condition
-                    </Button>
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                            {/* Table Selection */}
+                            <div className="space-y-1">
+                              <Label className="text-xs text-gray-600">
+                                Table
+                              </Label>
+                              <Select
+                                value={condition.table}
+                                onValueChange={(value) =>
+                                  updateFilterCondition(condition.id, {
+                                    table: value as
+                                      | "projector"
+                                      | "site"
+                                      | "serviceRecord",
+                                    field:
+                                      FILTER_FIELDS[
+                                        value as keyof typeof FILTER_FIELDS
+                                      ][0]!.key,
+                                    operator: "equals",
+                                    value: "",
+                                  })
+                                }
+                                disabled={useCurrentFilter}
+                              >
+                                <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="projector">
+                                    Projector
+                                  </SelectItem>
+                                  <SelectItem value="site">Site</SelectItem>
+                                  <SelectItem value="serviceRecord">
+                                    Service Record
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Field Selection */}
+                            <div className="space-y-1">
+                              <Label className="text-xs text-gray-600">
+                                Field
+                              </Label>
+                              <Select
+                                value={condition.field}
+                                onValueChange={(value) =>
+                                  updateFilterCondition(condition.id, {
+                                    field: value,
+                                    operator: "equals",
+                                    value: "",
+                                  })
+                                }
+                                disabled={useCurrentFilter}
+                              >
+                                <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {fields.map((field) => (
+                                    <SelectItem
+                                      key={field.key}
+                                      value={field.key}
+                                    >
+                                      {field.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Operator Selection */}
+                            <div className="space-y-1">
+                              <Label className="text-xs text-gray-600">
+                                Operator
+                              </Label>
+                              <Select
+                                value={condition.operator}
+                                onValueChange={(value) =>
+                                  updateFilterCondition(condition.id, {
+                                    operator: value,
+                                    value2:
+                                      value === "between"
+                                        ? condition.value2
+                                        : undefined,
+                                  })
+                                }
+                                disabled={useCurrentFilter}
+                              >
+                                <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {operators.map((op) => (
+                                    <SelectItem
+                                      key={op.value}
+                                      value={op.value}
+                                    >
+                                      {op.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Value Input */}
+                            <div className="space-y-1">
+                              <Label className="text-xs text-gray-600">
+                                Value
+                              </Label>
+                              {fieldDef?.type === "enum" ? (
+                                <Select
+                                  value={condition.value}
+                                  onValueChange={(value) =>
+                                    updateFilterCondition(condition.id, {
+                                      value,
+                                    })
+                                  }
+                                  disabled={useCurrentFilter}
+                                >
+                                  <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
+                                    <SelectValue placeholder="Select value" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {fieldDef.options?.map((opt) => (
+                                      <SelectItem key={opt} value={opt}>
+                                        {opt}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              ) : fieldDef?.type === "boolean" ? (
+                                <Select
+                                  value={condition.value}
+                                  onValueChange={(value) =>
+                                    updateFilterCondition(condition.id, {
+                                      value,
+                                    })
+                                  }
+                                  disabled={useCurrentFilter}
+                                >
+                                  <SelectTrigger className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}>
+                                    <SelectValue placeholder="Select value" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="true">Yes</SelectItem>
+                                    <SelectItem value="false">No</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : fieldDef?.type === "date" ? (
+                                <Input
+                                  type="date"
+                                  value={condition.value}
+                                  onChange={(e) =>
+                                    updateFilterCondition(condition.id, {
+                                      value: e.target.value,
+                                    })
+                                  }
+                                  disabled={useCurrentFilter}
+                                  className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}
+                                />
+                              ) : (
+                                <Input
+                                  type={
+                                    fieldDef?.type === "number"
+                                      ? "number"
+                                      : "text"
+                                  }
+                                  value={condition.value}
+                                  onChange={(e) =>
+                                    updateFilterCondition(condition.id, {
+                                      value: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Enter value"
+                                  disabled={useCurrentFilter}
+                                  className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Second Value for "Between" Operator */}
+                          {condition.operator === "between" && (
+                            <div className="md:col-span-4">
+                              <div className="space-y-1 max-w-xs">
+                                <Label className="text-xs text-gray-600">
+                                  Second Value
+                                </Label>
+                                <Input
+                                  type={
+                                    fieldDef?.type === "date"
+                                      ? "date"
+                                      : fieldDef?.type === "number"
+                                        ? "number"
+                                        : "text"
+                                  }
+                                  value={condition.value2 || ""}
+                                  onChange={(e) =>
+                                    updateFilterCondition(condition.id, {
+                                      value2: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Enter second value"
+                                  disabled={useCurrentFilter}
+                                  className={`border-2 border-gray-300 ${useCurrentFilter ? "opacity-60 cursor-not-allowed" : ""}`}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+
+                  {/* Add Filter Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addFilterCondition}
+                    className="w-full border-2 border-dashed border-gray-300 hover:border-black"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Filter Condition
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 
