@@ -242,8 +242,8 @@ export async function generateMaintenanceReport(data: MaintenanceReportData): Pr
 
   // Load ALL images in PARALLEL for maximum speed
   const imagePromises: Promise<any>[] = [
-    loadImage('/LOGO/Ascomp.png'),
-    loadImage('/LOGO/Christie.png'),
+    loadImage('https://bpkad12ybfat3cyp.public.blob.vercel-storage.com/logo/Ascomp.png'),
+    loadImage('https://bpkad12ybfat3cyp.public.blob.vercel-storage.com/logo/Christie.png'),
   ];
 
   // Only add signature fetches if URLs are provided
