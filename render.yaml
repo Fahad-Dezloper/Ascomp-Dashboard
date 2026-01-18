@@ -2,7 +2,7 @@ services:
   - type: worker
     name: ascomp-export-worker
     env: node
-    buildCommand: pnpm install
+    buildCommand: pnpm install && bunx prisma generate
     startCommand: pnpm run worker:export
     envVars:
       - key: NODE_ENV
