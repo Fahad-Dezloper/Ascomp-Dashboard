@@ -2147,6 +2147,211 @@ function UploadServiceRecordsDialog({
   )
 }
 
+function ExportJobsHistoryDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const [jobs, setJobs] = useState<Array<{
+    jobId: string
+    state: string
+    progress: number
+    result: any
+    failedReason?: string
+    createdAt: string
+    completedAt: string | null
+    email: string
+    totalRecords: number | null
+  }>>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/admin/export/jobs", {
+        credentials: "include",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch jobs")
+      }
+
+      const data = await response.json()
+      setJobs(data.jobs || [])
+    } catch (error) {
+      console.error("Failed to fetch jobs:", error)
+      toast.error("Failed to load export jobs")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      fetchJobs()
+      const interval = setInterval(fetchJobs, 3000)
+      return () => clearInterval(interval)
+    }
+  }, [open])
+
+  const getStateColor = (state: string) => {
+    switch (state) {
+      case "completed":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "failed":
+        return "bg-red-100 text-red-800 border-red-200"
+      case "active":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "waiting":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
+  const getStateLabel = (state: string) => {
+    switch (state) {
+      case "completed":
+        return "Completed"
+      case "failed":
+        return "Failed"
+      case "active":
+        return "Processing"
+      case "waiting":
+        return "Queued"
+      default:
+        return state
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5" />
+            Export Jobs History
+          </DialogTitle>
+          <DialogDescription>
+            View all your export jobs and their progress
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading && jobs.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-gray-500">Loading jobs...</p>
+          </div>
+        ) : jobs.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-gray-500">No export jobs found</p>
+          </div>
+        ) : (
+          <div className="space-y-4 mt-4">
+            {jobs.map((job) => (
+              <div
+                key={job.jobId}
+                className="border-2 border-gray-200 rounded-lg p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold border ${getStateColor(job.state)}`}
+                    >
+                      {getStateLabel(job.state)}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      Job #{job.jobId}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(job.createdAt).toLocaleString()}
+                  </div>
+                </div>
+
+                {(job.state === "active" || job.state === "waiting") && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">
+                        {job.state === "active"
+                          ? "Processing..."
+                          : "Waiting in queue..."}
+                      </span>
+                      <span className="font-semibold text-gray-900">
+                        {Math.round(job.progress)}%
+                      </span>
+                    </div>
+                    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-600 transition-all duration-300"
+                        style={{ width: `${job.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {job.state === "completed" && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-700">Completed</span>
+                      <span className="font-semibold text-green-600">100%</span>
+                    </div>
+                    <div className="bg-green-50 border border-green-200 rounded-md p-3 space-y-2">
+                      <div className="text-sm">
+                        <span className="font-medium">Total Records:</span>{" "}
+                        {job.totalRecords !== null && job.totalRecords !== undefined ? job.totalRecords : (job.result?.totalRecords ?? "N/A")}
+                      </div>
+                      {job.result?.fileUrl && job.result.fileUrl.startsWith("http") && (
+                        <a
+                          href={job.result.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download Excel File
+                        </a>
+                      )}
+                      {job.result?.fileUrl && !job.result.fileUrl.startsWith("http") && (
+                        <div className="text-xs text-red-600">
+                          Invalid file URL: {job.result.fileUrl}
+                        </div>
+                      )}
+                      {job.completedAt && (
+                        <div className="text-xs text-gray-500">
+                          Completed: {new Date(job.completedAt).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {job.state === "failed" && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                    <div className="text-sm font-medium text-red-800 mb-1">
+                      Export Failed
+                    </div>
+                    {job.failedReason && (
+                      <div className="text-xs text-red-600">
+                        {job.failedReason}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="text-xs text-gray-500 border-t pt-2">
+                  Email: {job.email}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function PreviewDownloadDialog({
   open,
   onOpenChange,
@@ -2526,6 +2731,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   const [previewServiceId, setPreviewServiceId] = useState<string | null>(null)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [showJobHistoryDialog, setShowJobHistoryDialog] = useState(false)
   const [recommendedPartsDialogOpen, setRecommendedPartsDialogOpen] = useState(false)
   const [selectedRecommendedParts, setSelectedRecommendedParts] = useState<RecommendedPart[]>([])
 
@@ -3598,6 +3804,13 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                   >
                     Export
                   </Button>
+                  <Button
+                    className="text-sm"
+                    variant="outline"
+                    onClick={() => setShowJobHistoryDialog(true)}
+                  >
+                    Export Jobs
+                  </Button>
                 </div>
               </div>
             </div>
@@ -3828,6 +4041,12 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
           }}
         />
       )}
+
+      {/* Export Jobs History Dialog */}
+      <ExportJobsHistoryDialog
+        open={showJobHistoryDialog}
+        onOpenChange={setShowJobHistoryDialog}
+      />
 
       {/* Recommended Parts Preview Dialog */}
       <Dialog open={recommendedPartsDialogOpen} onOpenChange={setRecommendedPartsDialogOpen}>

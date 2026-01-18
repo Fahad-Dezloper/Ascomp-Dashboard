@@ -26,6 +26,7 @@ import {
 import { Download, Plus, Trash2, Mail, X } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+import { Progress } from "@/components/ui/progress";
 
 interface ExportDataModalProps {
   onClose: () => void;
@@ -156,6 +157,10 @@ export default function ExportDataModal({
   const [columnSearch, setColumnSearch] = useState("");
   const [isColumnPopoverOpen, setIsColumnPopoverOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [_jobId, setJobId] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportStatus, setExportStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
+  const [isExporting, setIsExporting] = useState(false);
 
   // Set default email from current user
   useEffect(() => {
@@ -337,7 +342,7 @@ export default function ExportDataModal({
   };
 
   // Handle Export button
-  const handleExport = () => {
+  const handleExport = async () => {
     // Validate column selection
     if (!selectAllColumns && !selectSpecificColumns) {
       toast.error("Please select column option");
@@ -375,22 +380,60 @@ export default function ExportDataModal({
       return;
     }
 
+    // Determine filter type
+    // If using current filter and there are advanced filters (conditions or latestRecordsOnly), use "custom"
+    // Otherwise, if using current filter with just basic filters, use "current"
+    let filterType: "none" | "current" | "custom" = "none";
+    if (noFilter) {
+      filterType = "none";
+    } else if (useCurrentFilter) {
+      // Check if there are advanced filters
+      const hasAdvancedFilters = (filterConditions.length > 0 && filterConditions.some(c => c.value.trim())) || latestRecordsOnly;
+      filterType = hasAdvancedFilters ? "custom" : "current";
+    } else if (selectFilter) {
+      filterType = "custom";
+    }
+
     // Build export config
     const exportConfig = {
       columns: selectAllColumns ? "all" : Array.from(selectedColumns),
       filters: {
-        type: noFilter ? "none" : useCurrentFilter ? "current" : "custom",
+        type: filterType,
         latestRecordsOnly,
-        conditions: filterConditions,
+        conditions: filterConditions.filter(c => c.value.trim()), // Only include conditions with values
         logic: filterLogic,
-        currentFilters: useCurrentFilter ? filters : undefined,
+        currentFilters: useCurrentFilter && filterType === "current" ? filters : undefined,
       },
       email: email || undefined,
     };
 
-    console.log("Export Config:", exportConfig);
-    toast.info("Export configuration ready (Backend not connected yet)");
-    // TODO: Implement export logic (will be done in backend step)
+    try {
+      setIsExporting(true);
+      const response = await fetch("/api/admin/export", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(exportConfig),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Failed to queue export" }));
+        throw new Error(error.error || "Failed to queue export");
+      }
+
+      const data = await response.json();
+      setJobId(data.jobId);
+      setExportStatus("processing");
+      setExportProgress(0);
+      toast.success("Export job queued! Processing in background...");
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to queue export");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -402,6 +445,42 @@ export default function ExportDataModal({
             Export Data
           </DialogTitle>
         </DialogHeader>
+
+        {exportStatus === "processing" && (
+          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-blue-900">
+                {exportProgress < 10
+                  ? "Fetching records..."
+                  : exportProgress < 75
+                    ? "Generating PDFs..."
+                    : exportProgress < 90
+                      ? "Creating Excel file..."
+                      : exportProgress < 100
+                        ? "Sending email..."
+                        : "Complete!"}
+              </span>
+              <span className="text-sm font-semibold text-blue-900">{Math.round(exportProgress)}%</span>
+            </div>
+            <Progress value={exportProgress} className="h-2" />
+          </div>
+        )}
+
+        {exportStatus === "completed" && (
+          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm font-medium text-green-900">
+              ✅ Export completed! Check your email for the download link.
+            </p>
+          </div>
+        )}
+
+        {exportStatus === "failed" && (
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm font-medium text-red-900">
+              ❌ Export failed. Please try again.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-6 mt-4">
           {/* Column Selection */}
@@ -424,7 +503,7 @@ export default function ExportDataModal({
                   >
                     All
                   </Label>
-                </div>
+          </div>
 
                 {/* Select Column Checkbox */}
                 <div className="flex items-center gap-3">
@@ -440,7 +519,7 @@ export default function ExportDataModal({
                   >
                     Select Column
                   </Label>
-                </div>
+        </div>
               </div>
             </div>
 
@@ -523,7 +602,7 @@ export default function ExportDataModal({
                           {filteredColumns.map((columnKey) => {
                             const isSelected = selectedColumns.has(columnKey);
                             return (
-                              <label
+                <label
                                 key={columnKey}
                                 className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${isSelected
                                   ? "bg-black/5 border-2 border-black"
@@ -540,7 +619,7 @@ export default function ExportDataModal({
                                 <span className="text-sm text-gray-900 flex-1">
                                   {getLabel(columnKey)}
                                 </span>
-                              </label>
+                </label>
                             );
                           })}
                         </div>
@@ -973,10 +1052,11 @@ export default function ExportDataModal({
             </Button>
             <Button
               onClick={handleExport}
-              className="bg-black text-white hover:bg-gray-800 border-2 border-black"
+              disabled={isExporting || exportStatus === "processing"}
+              className="bg-black text-white hover:bg-gray-800 border-2 border-black disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="h-4 w-4 mr-2" />
-              Export
+              {isExporting ? "Exporting..." : exportStatus === "processing" ? "Processing..." : "Export"}
             </Button>
           </div>
         </div>

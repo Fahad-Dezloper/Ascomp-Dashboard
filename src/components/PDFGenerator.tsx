@@ -210,16 +210,24 @@ export async function generateMaintenanceReport(data: MaintenanceReportData): Pr
       } else {
         // Handle regular URLs with a timeout for slow connections
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
         try {
-          const response = await fetch(url, { signal: controller.signal });
+          const response = await fetch(url, { 
+            signal: controller.signal,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; PDFGenerator/1.0)',
+            },
+          });
           clearTimeout(timeoutId);
-          if (!response.ok) return null;
+          if (!response.ok) {
+            console.warn(`Image fetch failed for ${url}: ${response.status} ${response.statusText}`);
+            return null;
+          }
           imageBytes = await response.arrayBuffer();
-        } catch (fetchError) {
+        } catch (fetchError: any) {
           clearTimeout(timeoutId);
-          console.warn(`Image fetch timeout or error for ${url}:`, fetchError);
+          console.warn(`Image fetch timeout or error for ${url}:`, fetchError?.message || fetchError);
           return null;
         }
       }
@@ -242,8 +250,16 @@ export async function generateMaintenanceReport(data: MaintenanceReportData): Pr
 
   // Load ALL images in PARALLEL for maximum speed
   const imagePromises: Promise<any>[] = [
-    loadImage('https://bpkad12ybfat3cyp.public.blob.vercel-storage.com/logo/Ascomp.png'),
-    loadImage('https://bpkad12ybfat3cyp.public.blob.vercel-storage.com/logo/Christie.png'),
+    loadImage('https://bpkad12ybfat3cyp.public.blob.vercel-storage.com/logo/Ascomp.png').catch(() => {
+      // Gracefully handle 403 or other errors for Ascomp logo
+      console.warn('Could not load Ascomp logo, continuing without it');
+      return null;
+    }),
+    loadImage('https://bpkad12ybfat3cyp.public.blob.vercel-storage.com/logo/Christie.png').catch(() => {
+      // Gracefully handle 403 or other errors for Christie logo
+      console.warn('Could not load Christie logo, continuing without it');
+      return null;
+    }),
   ];
 
   // Only add signature fetches if URLs are provided
