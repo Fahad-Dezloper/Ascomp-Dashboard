@@ -39,7 +39,7 @@ GMAIL_REFRESH_TOKEN=...
    - **Branch**: `main` (or your default branch)
    - **Root Directory**: Leave empty
    - **Runtime**: `Node`
-   - **Build Command**: `pnpm install && bunx prisma generate`
+   - **Build Command**: `pnpm install` (Prisma will generate automatically via postinstall script)
    - **Start Command**: `pnpm run worker:export`
 
    **Environment Variables:**

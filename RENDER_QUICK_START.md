@@ -15,7 +15,7 @@
    Branch: main
    Root Directory: (leave empty)
    Runtime: Node
-   Build Command: pnpm install && bunx prisma generate
+   Build Command: pnpm install (Prisma generates automatically)
    Start Command: pnpm run worker:export
    ```
 4. Add **SAME** environment variables (especially `REDIS_URL`)
