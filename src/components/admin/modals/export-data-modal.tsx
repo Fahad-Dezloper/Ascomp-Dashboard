@@ -402,7 +402,7 @@ export default function ExportDataModal({
         latestRecordsOnly,
         conditions: filterConditions.filter(c => c.value.trim()), // Only include conditions with values
         logic: filterLogic,
-        currentFilters: useCurrentFilter && filterType === "current" ? filters : undefined,
+        currentFilters: useCurrentFilter ? filters : undefined,
       },
       email: email || undefined,
     };

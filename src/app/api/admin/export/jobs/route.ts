@@ -12,21 +12,37 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    const jobs = await exportQueue.getJobs(["waiting", "active", "completed", "failed"], 0, 100);
+    const jobs = await exportQueue.getJobs(
+      ["waiting", "active", "completed", "failed"],
+      0,
+      100
+    );
 
     const userJobs = await Promise.all(
       jobs.map(async (job) => {
         const state = await job.getState();
         const progress = (await job.progress) as number;
-        let result = null;
-        try {
-          result = await job.returnvalue;
-          if (result) {
-            console.log(`📦 Job ${job.id} result:`, JSON.stringify(result, null, 2));
+        let result: any = null;
+
+        // Only fetch the full result for completed jobs to avoid
+        // extra Redis calls on every polling tick
+        if (state === "completed") {
+          try {
+            result = await job.returnvalue;
+            if (result) {
+              console.log(
+                `📦 Job ${job.id} result:`,
+                JSON.stringify(result, null, 2)
+              );
+            }
+          } catch (error) {
+            console.error(
+              `Error getting return value for job ${job.id}:`,
+              error
+            );
           }
-        } catch (error) {
-          console.error(`Error getting return value for job ${job.id}:`, error);
         }
+
         const failedReason = job.failedReason;
         const jobData = job.data;
 
@@ -41,13 +57,18 @@ export async function GET(request: NextRequest) {
           result: result || null,
           failedReason,
           createdAt: new Date(job.timestamp).toISOString(),
-          completedAt: result && job.finishedOn ? new Date(job.finishedOn).toISOString() : null,
+          completedAt:
+            result && job.finishedOn
+              ? new Date(job.finishedOn).toISOString()
+              : null,
           email: jobData.email,
           totalRecords: result?.totalRecords ?? null,
         };
 
         if (state === "completed" && !result) {
-          console.warn(`⚠️ Job ${job.id} is completed but has no result. finishedOn: ${job.finishedOn}, processedOn: ${job.processedOn}`);
+          console.warn(
+            `⚠️ Job ${job.id} is completed but has no result. finishedOn: ${job.finishedOn}, processedOn: ${job.processedOn}`
+          );
         }
 
         return jobResult;

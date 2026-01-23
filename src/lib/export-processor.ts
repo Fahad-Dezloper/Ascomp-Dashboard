@@ -247,6 +247,7 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
     return records;
   }
 
+  // Process basic filters from currentFilters (only for "current" type, "custom" type handles them separately)
   if (jobData.filters.type === "current" && jobData.filters.currentFilters) {
     const { workerFilter, startDate } = jobData.filters.currentFilters;
 
@@ -275,7 +276,10 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
       if (condition.table === "projector") {
         fieldWhere.projector = {};
         if (condition.operator === "equals") {
-          fieldWhere.projector[condition.field] = condition.value;
+          fieldWhere.projector[condition.field] = {
+            equals: condition.value,
+            mode: "insensitive",
+          };
         } else if (condition.operator === "contains") {
           fieldWhere.projector[condition.field] = {
             contains: condition.value,
@@ -293,13 +297,32 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
           };
         } else if (condition.operator === "notEquals") {
           fieldWhere.projector[condition.field] = {
-            not: condition.value,
+            not: {
+              equals: condition.value,
+              mode: "insensitive",
+            },
+          };
+        } else if (condition.operator === "greaterThan") {
+          fieldWhere.projector[condition.field] = {
+            gt: Number(condition.value),
+          };
+        } else if (condition.operator === "lessThan") {
+          fieldWhere.projector[condition.field] = {
+            lt: Number(condition.value),
+          };
+        } else if (condition.operator === "between" && condition.value2) {
+          fieldWhere.projector[condition.field] = {
+            gte: Number(condition.value),
+            lte: Number(condition.value2),
           };
         }
       } else if (condition.table === "site") {
         fieldWhere.site = {};
         if (condition.operator === "equals") {
-          fieldWhere.site[condition.field] = condition.value;
+          fieldWhere.site[condition.field] = {
+            equals: condition.value,
+            mode: "insensitive",
+          };
         } else if (condition.operator === "contains") {
           fieldWhere.site[condition.field] = {
             contains: condition.value,
@@ -317,7 +340,10 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
           };
         } else if (condition.operator === "notEquals") {
           fieldWhere.site[condition.field] = {
-            not: condition.value,
+            not: {
+              equals: condition.value,
+              mode: "insensitive",
+            },
           };
         }
       } else if (condition.table === "serviceRecord") {

@@ -2191,7 +2191,8 @@ function ExportJobsHistoryDialog({
   useEffect(() => {
     if (open) {
       fetchJobs()
-      const interval = setInterval(fetchJobs, 3000)
+      // Poll less aggressively to reduce Redis reads
+      const interval = setInterval(fetchJobs, 10000)
       return () => clearInterval(interval)
     }
   }, [open])
