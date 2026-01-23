@@ -20,6 +20,7 @@ enum ServiceStatus {
   COMPLETED
   PENDING
   CANCELLED
+  PACKED
 }
 
 model User {
@@ -48,6 +49,7 @@ model Site {
   address        String
   contactDetails String
   siteCode       String?
+  email          String?
   projector      Projector[]
   serviceRecords ServiceRecord[]
 

@@ -122,3 +122,38 @@ export async function GET(
   }
 }
 
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ siteId: string }> }
+) {
+  try {
+    const { siteId } = await context.params
+
+    const existing = await prisma.site.findUnique({
+      where: { id: siteId },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Site not found" }, { status: 404 })
+    }
+
+    // Delete all service records and projectors for this site, then the site itself
+    await prisma.$transaction([
+      prisma.serviceRecord.deleteMany({
+        where: { siteId },
+      }),
+      prisma.projector.deleteMany({
+        where: { siteId },
+      }),
+      prisma.site.delete({
+        where: { id: siteId },
+      }),
+    ])
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting site:", error)
+    return NextResponse.json({ error: "Failed to delete site" }, { status: 500 })
+  }
+}
+

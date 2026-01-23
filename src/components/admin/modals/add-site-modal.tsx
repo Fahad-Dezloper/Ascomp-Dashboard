@@ -16,6 +16,8 @@ export default function AddSiteModal({ onClose, onSuccess }: AddSiteModalProps) 
     siteName: "",
     address: "",
     contactDetails: "",
+    siteCode: "",
+    email: "",
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,7 +25,7 @@ export default function AddSiteModal({ onClose, onSuccess }: AddSiteModalProps) 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.siteName || !formData.address || !formData.contactDetails) {
-      setError("All fields are required")
+      setError("Site name, address and contact details are required")
       return
     }
 
@@ -36,7 +38,13 @@ export default function AddSiteModal({ onClose, onSuccess }: AddSiteModalProps) 
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          siteName: formData.siteName,
+          address: formData.address,
+          contactDetails: formData.contactDetails,
+          siteCode: formData.siteCode || null,
+          email: formData.email || null,
+        }),
       })
 
       const result = await response.json()
@@ -95,8 +103,30 @@ export default function AddSiteModal({ onClose, onSuccess }: AddSiteModalProps) 
                 value={formData.contactDetails}
                 onChange={(e) => setFormData({ ...formData, contactDetails: e.target.value })}
                 className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Phone number or contact info"
+                placeholder="Mr. XYZ - 123456789"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">Site Code</label>
+              <input
+                type="text"
+                value={formData.siteCode}
+                onChange={(e) => setFormData({ ...formData, siteCode: e.target.value })}
+                className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Unique code for this site"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Contact email for this site"
               />
             </div>
 

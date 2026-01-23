@@ -53,6 +53,8 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
   const [error, setError] = useState<string | null>(null)
   const [showSchedule, setShowSchedule] = useState(false)
   const [previewServiceId, setPreviewServiceId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
     const fetchProjector = async () => {
@@ -85,6 +87,35 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
   }, [siteId, projectorId])
 
   const projector = useMemo(() => site?.projectors.find((p) => p.id === projectorId) ?? null, [site, projectorId])
+
+  const handleDeleteProjector = async () => {
+    if (!projectorId) return
+
+    try {
+      setDeleting(true)
+      const response = await fetch("/api/admin/projectors", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ projectorId }),
+      })
+
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to delete projector")
+      }
+
+      router.push(`/admin/dashboard/sites/${siteId}`)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete projector"
+      console.error("Failed to delete projector:", message)
+    } finally {
+      setDeleting(false)
+      setShowDeleteDialog(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -163,13 +194,20 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
             Schedule Service
           </Button>
         )}
+        <Button
+          variant="destructive"
+          onClick={() => setShowDeleteDialog(true)}
+          disabled={deleting}
+        >
+          {deleting ? "Deleting..." : "Delete Projector"}
+        </Button>
       </div>
 
       <Card className="border-border bg-white shadow-sm">
         <CardHeader className="pb-4 border-b border-border">
           <CardTitle className="text-lg">Service History</CardTitle>
         </CardHeader>
-        <CardContent className="p-6">
+        <CardContent className="p-6 grid grid-cols-3">
           {projector.serviceHistory.length === 0 ? (
             <div className="text-center py-8 border border-dashed border-border rounded-lg">
                <p className="text-sm text-muted-foreground">No service records available yet.</p>
@@ -189,7 +227,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
 
                 return (
                   <Card key={service.id} className="border border-border shadow-sm">
-                    <CardContent className="p-5">
+                    <CardContent className="">
                       {/* Header */}
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
@@ -212,7 +250,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
                         <Badge className={`${statusStyles} text-xs px-2.5 py-0.5`}>{statusLabel}</Badge>
                       </div>
 
-                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 pt-4 border-t border-border">
+                       <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4 pt-4 border-t border-border">
                           <div>
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Technician</p>
                             <p className="text-sm font-medium text-foreground">{service.technician || "Unassigned"}</p>
@@ -266,6 +304,38 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
           }}
           serviceRecordId={previewServiceId}
         />
+      )}
+
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-foreground mb-2">Delete Projector</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to delete this projector?
+              <br />
+              <span className="font-semibold text-destructive">
+                All details of this projector and its service records will be permanently deleted.
+              </span>
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                className="border-border"
+                onClick={() => !deleting && setShowDeleteDialog(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteProjector}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
