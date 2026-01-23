@@ -25,6 +25,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
   const [_showSchedule, setShowSchedule] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deletingSite, setDeletingSite] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchSite = async () => {
@@ -58,6 +59,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
 
     try {
       setDeletingSite(true)
+      setDeleteError(null)
       const response = await fetch(`/api/admin/sites/${siteId}`, {
         method: "DELETE",
       })
@@ -70,10 +72,11 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
 
       router.push("/admin/dashboard/sites")
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete site"
       console.error("Failed to delete site:", error)
+      setDeleteError(message)
     } finally {
       setDeletingSite(false)
-      setShowDeleteDialog(false)
     }
   }
 
@@ -264,22 +267,42 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
                 All projectors from this site and all their service records will be permanently deleted.
               </span>
             </p>
+            {deleteError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p className="text-sm text-red-700 dark:text-red-400">{deleteError}</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 className="border-border"
-                onClick={() => !deletingSite && setShowDeleteDialog(false)}
+                onClick={() => {
+                  if (!deletingSite) {
+                    setShowDeleteDialog(false)
+                    setDeleteError(null)
+                  }
+                }}
                 disabled={deletingSite}
               >
-                Cancel
+                {deleteError ? "Close" : "Cancel"}
               </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteSite}
-                disabled={deletingSite}
-              >
-                {deletingSite ? "Deleting..." : "Delete"}
-              </Button>
+              {deleteError ? (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteSite}
+                  disabled={deletingSite}
+                >
+                  {deletingSite ? "Retrying..." : "Retry"}
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteSite}
+                  disabled={deletingSite}
+                >
+                  {deletingSite ? "Deleting..." : "Delete"}
+                </Button>
+              )}
             </div>
           </div>
         </div>

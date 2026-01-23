@@ -55,6 +55,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
   const [previewServiceId, setPreviewServiceId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchProjector = async () => {
@@ -93,6 +94,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
 
     try {
       setDeleting(true)
+      setDeleteError(null)
       const response = await fetch("/api/admin/projectors", {
         method: "DELETE",
         headers: {
@@ -111,9 +113,9 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to delete projector"
       console.error("Failed to delete projector:", message)
+      setDeleteError(message)
     } finally {
       setDeleting(false)
-      setShowDeleteDialog(false)
     }
   }
 
@@ -317,22 +319,42 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
                 All details of this projector and its service records will be permanently deleted.
               </span>
             </p>
+            {deleteError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p className="text-sm text-red-700 dark:text-red-400">{deleteError}</p>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
                 className="border-border"
-                onClick={() => !deleting && setShowDeleteDialog(false)}
+                onClick={() => {
+                  if (!deleting) {
+                    setShowDeleteDialog(false)
+                    setDeleteError(null)
+                  }
+                }}
                 disabled={deleting}
               >
-                Cancel
+                {deleteError ? "Close" : "Cancel"}
               </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteProjector}
-                disabled={deleting}
-              >
-                {deleting ? "Deleting..." : "Delete"}
-              </Button>
+              {deleteError ? (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteProjector}
+                  disabled={deleting}
+                >
+                  {deleting ? "Retrying..." : "Retry"}
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteProjector}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </Button>
+              )}
             </div>
           </div>
         </div>
