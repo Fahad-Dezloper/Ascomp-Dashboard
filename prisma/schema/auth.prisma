@@ -69,10 +69,27 @@ model Projector {
   siteId         String
   site           Site            @relation(fields: [siteId], references: [id])
   serviceRecords ServiceRecord[]
+  moveHistory    ProjectorMoveHistory[]
   lastServiceAt  DateTime?
 
   @@index([lastServiceAt])
   @@map("projector")
+}
+
+model ProjectorMoveHistory {
+  id            String    @id @default(cuid()) @map("_id")
+  projectorId   String
+  projector     Projector @relation(fields: [projectorId], references: [id], onDelete: Cascade)
+  fromSiteId    String
+  fromSiteName  String
+  fromAddress   String
+  toSiteId      String
+  toSiteName    String
+  toAddress     String
+  movedAt       DateTime  @default(now())
+  
+  @@index([projectorId])
+  @@map("projector_move_history")
 }
 
 enum PVR {

@@ -13,6 +13,11 @@ export async function GET(
       include: {
         projector: {
           include: {
+            moveHistory: {
+              orderBy: {
+                movedAt: "desc",
+              }
+            },
             serviceRecords: {
               orderBy: {
                 createdAt: "desc",
@@ -109,6 +114,14 @@ export async function GET(
           status,
           nextServiceDue,
           serviceHistory,
+          moveHistory: proj.moveHistory.map(h => ({
+            id: h.id,
+            fromSiteName: h.fromSiteName,
+            fromAddress: h.fromAddress,
+            toSiteName: h.toSiteName,
+            toAddress: h.toAddress,
+            movedAt: h.movedAt.toISOString(),
+          }))
         }
       }),
     }
