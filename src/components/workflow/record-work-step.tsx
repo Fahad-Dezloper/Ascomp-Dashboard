@@ -551,6 +551,59 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     return () => subscription.unsubscribe()
   }, [watch, data?.selectedService?.id])
 
+  // Pre-fill Software & Screen Information from last service record (already fetched with service data)
+  useEffect(() => {
+    const lastServiceData = data?.selectedService?.lastServiceData
+    if (!lastServiceData) return
+
+    const preFillLastServiceData = () => {
+      const currentValues = getValues()
+
+      // Only pre-fill fields that are currently empty
+      // This ensures we don't override user input or saved data
+      const fieldsToPreFill: Array<{
+        key: keyof RecordWorkForm
+        value: string | number | null | undefined
+      }> = [
+        { key: 'softwareVersion', value: lastServiceData.softwareVersion },
+        { key: 'screenGain', value: lastServiceData.screenGain },
+        { key: 'screenMake', value: lastServiceData.screenMake },
+        { key: 'throwDistance', value: lastServiceData.throwDistance },
+        { key: 'screenHeight', value: lastServiceData.screenHeight },
+        { key: 'screenWidth', value: lastServiceData.screenWidth },
+        { key: 'flatHeight', value: lastServiceData.flatHeight },
+        { key: 'flatWidth', value: lastServiceData.flatWidth },
+      ]
+
+      let hasUpdates = false
+      fieldsToPreFill.forEach(({ key, value }) => {
+        // Only set if current value is empty/null/undefined and lastService has a value
+        const currentValue = currentValues[key]
+        if ((!currentValue || currentValue === '') && value != null && value !== '') {
+          // Convert number to string for form fields
+          const stringValue = typeof value === 'number' ? String(value) : String(value)
+          setValue(key, stringValue, { shouldDirty: false })
+          hasUpdates = true
+        }
+      })
+
+      // If we updated any fields, save to localStorage
+      if (hasUpdates && typeof window !== 'undefined' && data?.selectedService?.id) {
+        const updatedValues = getValues()
+        const storageKey = `recordWorkFormData_${data.selectedService.id}`
+        localStorage.setItem(storageKey, JSON.stringify(updatedValues))
+      }
+    }
+
+    // Wait for form to be initialized before pre-filling
+    // This ensures we don't override the initial form reset
+    const timeoutId = setTimeout(() => {
+      preFillLastServiceData()
+    }, 1000)
+
+    return () => clearTimeout(timeoutId)
+  }, [data?.selectedService?.lastServiceData, getValues, setValue, data?.selectedService?.id])
+
   useEffect(() => {
     beforeImagesRef.current = beforeImages
   }, [beforeImages])
