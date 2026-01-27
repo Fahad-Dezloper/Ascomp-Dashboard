@@ -116,6 +116,10 @@ export async function GET(
           status,
           nextServiceDue,
           serviceHistory,
+          address: proj.address,
+          state: proj.state,
+          region: proj.region,
+          pvr: proj.pvr,
           moveHistory: proj.moveHistory.map(h => ({
             id: h.id,
             fromSiteName: h.fromSiteName,
@@ -169,6 +173,40 @@ export async function DELETE(
   } catch (error) {
     console.error("Error deleting site:", error)
     return NextResponse.json({ error: "Failed to delete site" }, { status: 500 })
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ siteId: string }> }
+) {
+  try {
+    const { siteId } = await context.params
+    const { siteName, address, contactDetails, siteCode, email } = await request.json()
+
+    const existing = await prisma.site.findUnique({
+      where: { id: siteId },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Site not found" }, { status: 404 })
+    }
+
+    const updated = await prisma.site.update({
+      where: { id: siteId },
+      data: {
+        siteName: siteName || undefined,
+        address: address || undefined,
+        contactDetails: contactDetails || undefined,
+        siteCode: siteCode || undefined,
+        email: email || undefined,
+      },
+    })
+
+    return NextResponse.json({ success: true, site: updated })
+  } catch (error) {
+    console.error("Error updating site:", error)
+    return NextResponse.json({ error: "Failed to update site" }, { status: 500 })
   }
 }
 

@@ -554,6 +554,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
   // Pre-fill Software & Screen Information from last service record (already fetched with service data)
   useEffect(() => {
     const lastServiceData = data?.selectedService?.lastServiceData
+    console.log("selected service", data?.selectedService);
     if (!lastServiceData) return
 
     const preFillLastServiceData = () => {
@@ -565,15 +566,15 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         key: keyof RecordWorkForm
         value: string | number | null | undefined
       }> = [
-        { key: 'softwareVersion', value: lastServiceData.softwareVersion },
-        { key: 'screenGain', value: lastServiceData.screenGain },
-        { key: 'screenMake', value: lastServiceData.screenMake },
-        { key: 'throwDistance', value: lastServiceData.throwDistance },
-        { key: 'screenHeight', value: lastServiceData.screenHeight },
-        { key: 'screenWidth', value: lastServiceData.screenWidth },
-        { key: 'flatHeight', value: lastServiceData.flatHeight },
-        { key: 'flatWidth', value: lastServiceData.flatWidth },
-      ]
+          { key: 'softwareVersion', value: lastServiceData.softwareVersion },
+          { key: 'screenGain', value: lastServiceData.screenGain },
+          { key: 'screenMake', value: lastServiceData.screenMake },
+          { key: 'throwDistance', value: lastServiceData.throwDistance },
+          { key: 'screenHeight', value: lastServiceData.screenHeight },
+          { key: 'screenWidth', value: lastServiceData.screenWidth },
+          { key: 'flatHeight', value: lastServiceData.flatHeight },
+          { key: 'flatWidth', value: lastServiceData.flatWidth },
+        ]
 
       let hasUpdates = false
       fieldsToPreFill.forEach(({ key, value }) => {

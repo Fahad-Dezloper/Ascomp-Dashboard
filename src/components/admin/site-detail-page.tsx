@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import ProjectorDetails from "./projector-details"
 import AddProjectorModal from "./modals/add-projector-modal"
 import ScheduleServiceModal from "./modals/schedule-service-modal"
+import EditSiteModal from "./modals/edit-site-modal"
 import { useState, useEffect } from "react"
 import type { Site, Projector } from "@/lib/types"
 
@@ -21,6 +22,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
   const [site, setSite] = useState<Site | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAddProjector, setShowAddProjector] = useState(false)
+  const [showEditSite, setShowEditSite] = useState(false)
   const [selectedProjector, setSelectedProjector] = useState<{ siteId: string; projectorId: string } | null>(null)
   const [_showSchedule, setShowSchedule] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -112,13 +114,21 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-2xl">{site.name}</CardTitle>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={deletingSite}
-            >
-              {deletingSite ? "Deleting..." : "Delete Site"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditSite(true)}
+              >
+                Edit Site
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deletingSite}
+              >
+                {deletingSite ? "Deleting..." : "Delete Site"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -144,7 +154,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
       </Card>
 
       {/* Site Statistics - Simplified */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-border bg-white shadow-sm">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Projectors</p>
@@ -227,6 +237,29 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
           </div>
         </CardContent>
       </Card>
+
+      {showEditSite && (
+        <EditSiteModal
+          site={site}
+          onClose={() => setShowEditSite(false)}
+          onSuccess={() => {
+            router.refresh()
+            // Re-fetch site data locally to update the UI
+            const fetchSite = async () => {
+              try {
+                const response = await fetch(`/api/admin/sites/${siteId}`)
+                if (response.ok) {
+                  const data = await response.json()
+                  setSite(data.site)
+                }
+              } catch (err) {
+                console.error("Error refreshing site:", err)
+              }
+            }
+            fetchSite()
+          }}
+        />
+      )}
 
       {showAddProjector && (
         <AddProjectorModal

@@ -19,7 +19,7 @@ export function DynamicFormField<T extends FieldValues>({
   onChange,
   className = "border-2 border-black text-sm",
 }: DynamicFormFieldProps<T>) {
-  const fieldKey = field.key as Path<T>
+  const fieldKey = (field.key || (field as any).id) as Path<T>
 
   if (field.type === "select") {
     return (

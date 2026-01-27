@@ -14,10 +14,11 @@ export async function PATCH(
         }
 
         const { projectorId } = await context.params
-        const { status, action } = await request.json()
+        const body = await request.json()
+        const { status, action, modelNo, serialNo, address, state, region, pvr, siteId } = body
 
         if (action === "unpack") {
-            // Logic to unpack and set status back to COMPLETED or PENDING based on service history
+            // ... (keep existing unpack logic)
             const sixMonthsAgo = new Date()
             sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
@@ -56,21 +57,30 @@ export async function PATCH(
             })
         }
 
-        if (!status) {
-            return NextResponse.json({ error: "Status or action is required" }, { status: 400 })
+        // Handle general updates
+        const updateData: any = {}
+        if (modelNo) updateData.modelNo = modelNo
+        if (serialNo) updateData.serialNo = serialNo
+        if (address) updateData.address = address
+        if (state) updateData.state = state
+        if (region) updateData.region = region
+        if (pvr) updateData.pvr = pvr
+        if (siteId) updateData.siteId = siteId
+
+        if (status) {
+            const upperStatus = status.toUpperCase() as keyof typeof ServiceStatus
+            if (ServiceStatus[upperStatus]) {
+                updateData.status = ServiceStatus[upperStatus]
+            }
         }
 
-        // Verify status is valid
-        const upperStatus = status.toUpperCase() as keyof typeof ServiceStatus
-        if (!ServiceStatus[upperStatus]) {
-            return NextResponse.json({ error: "Invalid status" }, { status: 400 })
+        if (Object.keys(updateData).length === 0) {
+            return NextResponse.json({ error: "No fields to update" }, { status: 400 })
         }
 
         const updatedProjector = await prisma.projector.update({
             where: { id: projectorId },
-            data: {
-                status: ServiceStatus[upperStatus],
-            },
+            data: updateData,
         })
 
         return NextResponse.json({

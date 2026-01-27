@@ -13,15 +13,11 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id
 
-    // Fetch scheduled and in-progress services assigned to this user
-    // These are service records that aren't fully completed yet (no endTime or reportGenerated)
+    // Fetch services and their historical technical data in one single database call
     const services = await prisma.serviceRecord.findMany({
       where: {
         assignedToId: userId,
-        OR: [
-          { endTime: null },
-          { reportGenerated: false },
-        ],
+        endTime: null,
       },
       include: {
         site: {
@@ -37,7 +33,45 @@ export async function GET(request: NextRequest) {
             id: true,
             modelNo: true,
             serialNo: true,
-            serviceRecords: true,
+            // Fetch only the most recent COMPLETED record that has technical data
+            serviceRecords: {
+              where: {
+                // Remove endTime requirement since some historical records are "filled" but have null endTime
+                OR: [
+                  { softwareVersion: { not: "" } },
+                  { screenMake: { not: "" } },
+                  { screenHeight: { not: null } },
+                  { screenWidth: { not: null } },
+                  { flatHeight: { not: null } },
+                  { flatWidth: { not: null } },
+                  { throwDistance: { not: null } },
+                  { screenGain: { not: null } },
+                  { lampMakeModel: { not: "" } },
+                  { contentPlayerModel: { not: "" } },
+                  { lightEngineSerialNumber: { not: "" } },
+                ],
+              },
+              orderBy: [
+                { endTime: "desc" },
+                { date: "desc" },
+                { createdAt: "desc" },
+              ],
+              take: 1,
+              select: {
+                softwareVersion: true,
+                screenGain: true,
+                screenMake: true,
+                throwDistance: true,
+                screenHeight: true,
+                screenWidth: true,
+                flatHeight: true,
+                flatWidth: true,
+                lampMakeModel: true,
+                contentPlayerModel: true,
+                lightEngineSerialNumber: true,
+                screenNumber: true,
+              },
+            },
           },
         },
       },
@@ -46,57 +80,15 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    // Fetch last service data for each unique projector
-    const uniqueProjectorIds = [...new Set(services.map(s => s.projectorId))]
-    const lastServiceDataMap = new Map<string, any>()
-
-    // Fetch last completed service for each projector
-    for (const projectorId of uniqueProjectorIds) {
-      const lastService = await prisma.serviceRecord.findFirst({
-        where: {
-          projectorId: projectorId,
-          OR: [
-            { endTime: { not: null } },
-            { reportGenerated: true },
-          ],
-        },
-        orderBy: [
-          { endTime: 'desc' },
-          { date: 'desc' },
-          { createdAt: 'desc' },
-        ],
-        select: {
-          softwareVersion: true,
-          screenGain: true,
-          screenMake: true,
-          throwDistance: true,
-          screenHeight: true,
-          screenWidth: true,
-          flatHeight: true,
-          flatWidth: true,
-        },
-      })
-
-      if (lastService) {
-        lastServiceDataMap.set(projectorId, {
-          softwareVersion: lastService.softwareVersion || null,
-          screenGain: lastService.screenGain || null,
-          screenMake: lastService.screenMake || null,
-          throwDistance: lastService.throwDistance || null,
-          screenHeight: lastService.screenHeight || null,
-          screenWidth: lastService.screenWidth || null,
-          flatHeight: lastService.flatHeight || null,
-          flatWidth: lastService.flatWidth || null,
-        })
-      }
-    }
-
     // Format services for the frontend
     const formattedServices = services.map((service) => {
       const serviceDate = service.createdAt ? new Date(service.createdAt) : null
       const formattedDate = serviceDate
         ? `${String(serviceDate.getDate()).padStart(2, "0")}/${String(serviceDate.getMonth() + 1).padStart(2, "0")}/${serviceDate.getFullYear()}`
         : "Not scheduled"
+
+      // The historical data is now nested inside projector.serviceRecords[0]
+      const lastService = service.projector.serviceRecords?.[0] || null
 
       return {
         id: service.id,
@@ -105,7 +97,7 @@ export async function GET(request: NextRequest) {
         siteId: service.site.id,
         address: service.site.address,
         contactDetails: service.site.contactDetails,
-        screenNumber: service.projector.serviceRecords[0]?.screenNumber || null,
+        screenNumber: lastService?.screenNumber || null,
         projector: service.projector.serialNo,
         projectorId: service.projector.id,
         projectorModel: service.projector.modelNo,
@@ -113,15 +105,22 @@ export async function GET(request: NextRequest) {
         date: formattedDate,
         rawDate: service.date?.toISOString() || null,
         status: service.startTime !== null ? "in_progress" : "scheduled",
-        lastServiceData: lastServiceDataMap.get(service.projectorId) || null,
+        lastServiceData: lastService ? {
+          softwareVersion: lastService.softwareVersion || null,
+          screenGain: lastService.screenGain || null,
+          screenMake: lastService.screenMake || null,
+          throwDistance: lastService.throwDistance || null,
+          screenHeight: lastService.screenHeight || null,
+          screenWidth: lastService.screenWidth || null,
+          flatHeight: lastService.flatHeight || null,
+          flatWidth: lastService.flatWidth || null,
+          lampMakeModel: lastService.lampMakeModel || null,
+          contentPlayerModel: lastService.contentPlayerModel || null,
+          lightEngineSerialNumber: lastService.lightEngineSerialNumber || null,
+          screenNumber: lastService.screenNumber || null,
+        } : null,
       }
     })
-
-    // formattedServices.forEach(service => {
-    //   if (service.id == "5a50de978114331245978fa2"){
-    //     console.log("service", service);
-    //   }
-    // })
 
     return NextResponse.json({
       services: formattedServices,

@@ -28,6 +28,10 @@ export interface Projector {
   status: "completed" | "pending" | "scheduled" | "packed"
   nextServiceDue: string
   serviceHistory: Service[]
+  address?: string | null
+  state?: string | null
+  region?: string | null
+  pvr?: string | null
 }
 
 export interface Site {
@@ -37,6 +41,9 @@ export interface Site {
   address: string
   createdDate: string
   projectors: Projector[]
+  contactDetails: string
+  siteCode?: string | null
+  email?: string | null
 }
 
 export interface ScheduledTask {

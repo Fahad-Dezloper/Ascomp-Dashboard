@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import ScheduleServiceModal from "./modals/schedule-service-modal"
 import PdfPreviewDialog from "./pdf-preview-dialog"
+import EditProjectorModal from "./modals/edit-projector-modal"
 import { FileText } from "lucide-react"
 
 interface ProjectorDetailPageProps {
@@ -24,6 +25,10 @@ interface ProjectorData {
   lastServiceDate: string
   status: "completed" | "pending" | "scheduled" | "packed"
   nextServiceDue: string
+  address?: string | null
+  state?: string | null
+  region?: string | null
+  pvr?: string | null
   serviceHistory: Array<{
     id: string
     date: string | null
@@ -65,6 +70,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [showMoveDialog, setShowMoveDialog] = useState(false)
+  const [showEditProjector, setShowEditProjector] = useState(false)
   const [moving, setMoving] = useState(false)
   const [moveError, setMoveError] = useState<string | null>(null)
   const [targetSiteId, setTargetSiteId] = useState<string>("")
@@ -365,6 +371,12 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
           </Button>
         )}
         <Button
+          variant="outline"
+          onClick={() => setShowEditProjector(true)}
+        >
+          Edit Projector
+        </Button>
+        <Button
           variant="destructive"
           onClick={() => setShowDeleteDialog(true)}
           disabled={deleting}
@@ -505,6 +517,39 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {showEditProjector && (
+        <EditProjectorModal
+          projector={{
+            id: projector.id,
+            serialNo: projector.serialNumber,
+            modelNo: projector.model,
+            status: projector.status.toUpperCase(),
+            address: projector.address,
+            state: projector.state,
+            region: projector.region,
+            pvr: projector.pvr,
+            siteId: siteId,
+          }}
+          onClose={() => setShowEditProjector(false)}
+          onSuccess={() => {
+            router.refresh()
+            // Re-fetch site data to update local state
+            const fetchProjector = async () => {
+              try {
+                const response = await fetch(`/api/admin/sites/${siteId}`)
+                if (response.ok) {
+                  const data = await response.json()
+                  setSite(data.site)
+                }
+              } catch (err) {
+                console.error("Error refreshing projector:", err)
+              }
+            }
+            fetchProjector()
+          }}
+        />
       )}
 
       {showSchedule && (
