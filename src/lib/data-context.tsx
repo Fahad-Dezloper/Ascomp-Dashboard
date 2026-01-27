@@ -76,6 +76,7 @@ const mockSites: Site[] = [
     location: "Downtown District",
     address: "123 Main St, City Center",
     createdDate: "2024-01-10",
+    contactDetails: "Mr. Downtown - 1234567890",
     projectors: [
       {
         id: "proj1",
@@ -130,6 +131,7 @@ const mockSites: Site[] = [
     location: "North District",
     address: "456 Shopping Blvd, North End",
     createdDate: "2024-02-15",
+    contactDetails: "Ms. Mall - 9876543210",
     projectors: [
       {
         id: "proj3",
@@ -165,6 +167,7 @@ const mockSites: Site[] = [
     location: "West District",
     address: "789 Convention Ln, West Side",
     createdDate: "2024-03-01",
+    contactDetails: "Mr. Convention - 5555555555",
     projectors: [
       {
         id: "proj4",
@@ -230,9 +233,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sites.map((site) =>
         site.id === siteId
           ? {
-              ...site,
-              projectors: [...site.projectors, { ...projector, id: `proj${Date.now()}` }],
-            }
+            ...site,
+            projectors: [...site.projectors, { ...projector, id: `proj${Date.now()}` }],
+          }
           : site,
       ),
     )
@@ -243,9 +246,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sites.map((site) =>
         site.id === siteId
           ? {
-              ...site,
-              projectors: site.projectors.filter((p) => p.id !== projectorId),
-            }
+            ...site,
+            projectors: site.projectors.filter((p) => p.id !== projectorId),
+          }
           : site,
       ),
     )
@@ -256,21 +259,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       sites.map((site) =>
         site.id === siteId
           ? {
-              ...site,
-              projectors: site.projectors.map((p) =>
-                p.id === projectorId
-                  ? {
-                      ...p,
-                      lastServiceDate,
-                      status: "completed" as const,
-                      nextServiceDue:
-                        new Date(new Date(lastServiceDate).getTime() + 180 * 24 * 60 * 60 * 1000)
-                          .toISOString()
-                          .split("T")[0] || "",
-                    }
-                  : p,
-              ),
-            }
+            ...site,
+            projectors: site.projectors.map((p) =>
+              p.id === projectorId
+                ? {
+                  ...p,
+                  lastServiceDate,
+                  status: "completed" as const,
+                  nextServiceDue:
+                    new Date(new Date(lastServiceDate).getTime() + 180 * 24 * 60 * 60 * 1000)
+                      .toISOString()
+                      .split("T")[0] || "",
+                }
+                : p,
+            ),
+          }
           : site,
       ),
     )
@@ -293,11 +296,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       scheduledTasks.map((task) =>
         task.id === taskId
           ? {
-              ...task,
-              status: "completed",
-              completedDate: new Date().toISOString().split("T")[0],
-              notes,
-            }
+            ...task,
+            status: "completed",
+            completedDate: new Date().toISOString().split("T")[0],
+            notes,
+          }
           : task,
       ),
     )

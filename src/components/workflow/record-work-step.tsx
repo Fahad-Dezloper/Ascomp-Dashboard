@@ -554,7 +554,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
   // Pre-fill Software & Screen Information from last service record (already fetched with service data)
   useEffect(() => {
     const lastServiceData = data?.selectedService?.lastServiceData
-    console.log("selected service", data?.selectedService);
     if (!lastServiceData) return
 
     const preFillLastServiceData = () => {
