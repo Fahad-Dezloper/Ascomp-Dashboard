@@ -133,7 +133,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { siteName, address, contactDetails } = await request.json()
+    const { siteName, address, contactDetails, siteCode, email } = await request.json()
 
     if (!siteName || !address || !contactDetails) {
       return NextResponse.json(
@@ -157,6 +157,8 @@ export async function POST(request: NextRequest) {
         siteName,
         address,
         contactDetails,
+        siteCode: siteCode || null,
+        email: email || null,
       },
       include: {
         projector: true,
@@ -171,6 +173,8 @@ export async function POST(request: NextRequest) {
         address: site.address,
         location: site.address,
         contactDetails: site.contactDetails,
+        siteCode: site.siteCode || null,
+        email: site.email || null,
         projectors: [],
       },
     })

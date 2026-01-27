@@ -19,6 +19,16 @@ interface Service {
   date: string
   rawDate: string | null
   status: string
+  lastServiceData: {
+    softwareVersion: string | null
+    screenGain: number | null
+    screenMake: string | null
+    throwDistance: number | null
+    screenHeight: number | null
+    screenWidth: number | null
+    flatHeight: number | null
+    flatWidth: number | null
+  } | null
 }
 
 export default function SelectServiceStep({ onNext }: any) {

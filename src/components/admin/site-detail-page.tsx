@@ -23,6 +23,9 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
   const [showAddProjector, setShowAddProjector] = useState(false)
   const [selectedProjector, setSelectedProjector] = useState<{ siteId: string; projectorId: string } | null>(null)
   const [_showSchedule, setShowSchedule] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deletingSite, setDeletingSite] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchSite = async () => {
@@ -50,6 +53,32 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
 
     fetchSite()
   }, [siteId])
+
+  const handleDeleteSite = async () => {
+    if (!siteId) return
+
+    try {
+      setDeletingSite(true)
+      setDeleteError(null)
+      const response = await fetch(`/api/admin/sites/${siteId}`, {
+        method: "DELETE",
+      })
+
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to delete site")
+      }
+
+      router.push("/admin/dashboard/sites")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete site"
+      console.error("Failed to delete site:", error)
+      setDeleteError(message)
+    } finally {
+      setDeletingSite(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -81,7 +110,16 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
       {/* Site Header Info */}
       <Card className="border-border bg-white">
         <CardHeader className="pb-3">
-          <CardTitle className="text-2xl">{site.name}</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl">{site.name}</CardTitle>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={deletingSite}
+            >
+              {deletingSite ? "Deleting..." : "Delete Site"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -149,7 +187,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
           </Button>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-3 gap-4">
           {site.projectors.length === 0 ? (
             <p className="text-sm text-muted-foreground">No projectors added to this site yet.</p>
           ) : (
@@ -216,6 +254,58 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
             setShowSchedule(false)
           }}
         />
+      )}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-foreground mb-2">Delete Site</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Are you sure you want to delete the site{" "}
+              <span className="font-semibold text-foreground">{site.name}</span>?
+              <br />
+              <span className="font-semibold text-destructive">
+                All projectors from this site and all their service records will be permanently deleted.
+              </span>
+            </p>
+            {deleteError && (
+              <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
+                <p className="text-sm text-red-700 dark:text-red-400">{deleteError}</p>
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                className="border-border"
+                onClick={() => {
+                  if (!deletingSite) {
+                    setShowDeleteDialog(false)
+                    setDeleteError(null)
+                  }
+                }}
+                disabled={deletingSite}
+              >
+                {deleteError ? "Close" : "Cancel"}
+              </Button>
+              {deleteError ? (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteSite}
+                  disabled={deletingSite}
+                >
+                  {deletingSite ? "Retrying..." : "Retry"}
+                </Button>
+              ) : (
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteSite}
+                  disabled={deletingSite}
+                >
+                  {deletingSite ? "Deleting..." : "Delete"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

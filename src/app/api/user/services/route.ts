@@ -46,6 +46,51 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // Fetch last service data for each unique projector
+    const uniqueProjectorIds = [...new Set(services.map(s => s.projectorId))]
+    const lastServiceDataMap = new Map<string, any>()
+
+    // Fetch last completed service for each projector
+    for (const projectorId of uniqueProjectorIds) {
+      const lastService = await prisma.serviceRecord.findFirst({
+        where: {
+          projectorId: projectorId,
+          OR: [
+            { endTime: { not: null } },
+            { reportGenerated: true },
+          ],
+        },
+        orderBy: [
+          { endTime: 'desc' },
+          { date: 'desc' },
+          { createdAt: 'desc' },
+        ],
+        select: {
+          softwareVersion: true,
+          screenGain: true,
+          screenMake: true,
+          throwDistance: true,
+          screenHeight: true,
+          screenWidth: true,
+          flatHeight: true,
+          flatWidth: true,
+        },
+      })
+
+      if (lastService) {
+        lastServiceDataMap.set(projectorId, {
+          softwareVersion: lastService.softwareVersion || null,
+          screenGain: lastService.screenGain || null,
+          screenMake: lastService.screenMake || null,
+          throwDistance: lastService.throwDistance || null,
+          screenHeight: lastService.screenHeight || null,
+          screenWidth: lastService.screenWidth || null,
+          flatHeight: lastService.flatHeight || null,
+          flatWidth: lastService.flatWidth || null,
+        })
+      }
+    }
+
     // Format services for the frontend
     const formattedServices = services.map((service) => {
       const serviceDate = service.createdAt ? new Date(service.createdAt) : null
@@ -68,6 +113,7 @@ export async function GET(request: NextRequest) {
         date: formattedDate,
         rawDate: service.date?.toISOString() || null,
         status: service.startTime !== null ? "in_progress" : "scheduled",
+        lastServiceData: lastServiceDataMap.get(service.projectorId) || null,
       }
     })
 

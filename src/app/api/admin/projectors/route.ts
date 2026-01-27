@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import prisma from "@/lib/db"
+import prisma, { ServiceStatus } from "@/lib/db"
 
 // Helper function to generate MongoDB-style ObjectId
 function generateObjectId(): string {
@@ -8,17 +8,30 @@ function generateObjectId(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const { siteId, projectorModel, serialNo } = await request.json()
+    const { siteId, modelNo, serialNo, status, address, state, region, pvr } = await request.json()
 
-    if (!siteId || !projectorModel || !serialNo) {
+    if (!siteId || !modelNo || !serialNo) {
       return NextResponse.json(
-        { error: "Site ID, projector model, and serial number are required" },
+        { error: "Site ID, model number, and serial number are required" },
         { status: 400 },
       )
     }
 
-    // Map projectorModel to modelNo for schema compatibility
-    const modelNo = projectorModel
+    let mappedStatus: ServiceStatus | undefined
+    if (status && typeof status === "string") {
+      const upper = status.toUpperCase() as keyof typeof ServiceStatus
+      if (ServiceStatus[upper]) {
+        mappedStatus = ServiceStatus[upper]
+      }
+    }
+
+    let mappedPvr: string | undefined
+    if (pvr && typeof pvr === "string") {
+      const normalized = pvr === "Non PVR" ? "NonPVR" : pvr
+      if (normalized === "PVR" || normalized === "NonPVR") {
+        mappedPvr = normalized
+      }
+    }
 
     // Check if projector with same serial number already exists
     const existingProjector = await prisma.projector.findUnique({
@@ -47,7 +60,11 @@ export async function POST(request: NextRequest) {
         modelNo,
         serialNo,
         siteId,
-
+        status: mappedStatus ?? ServiceStatus.DRAFT,
+        address: address || null,
+        state: state || null,
+        region: region || null,
+        pvr: mappedPvr as any,
       },
       include: {
         site: {
@@ -75,6 +92,38 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating projector:", error)
     return NextResponse.json({ error: "Failed to create projector" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { projectorId } = await request.json()
+
+    if (!projectorId) {
+      return NextResponse.json(
+        { error: "Projector ID is required" },
+        { status: 400 },
+      )
+    }
+
+    const existing = await prisma.projector.findUnique({
+      where: { id: projectorId },
+    })
+
+    if (!existing) {
+      return NextResponse.json({ error: "Projector not found" }, { status: 404 })
+    }
+
+    // ServiceRecord has onDelete: Cascade on projector relation in Prisma schema,
+    // so all related service records will be removed automatically.
+    await prisma.projector.delete({
+      where: { id: projectorId },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting projector:", error)
+    return NextResponse.json({ error: "Failed to delete projector" }, { status: 500 })
   }
 }
 
