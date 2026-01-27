@@ -27,6 +27,7 @@ export async function GET() {
       // Count pending projectors (no service or service > 6 months ago)
       prisma.projector.count({
         where: {
+          status: { notIn: ["PACKED", "SCHEDULED", "IN_PROGRESS"] },
           OR: [
             { lastServiceAt: null },
             { lastServiceAt: { lt: sixMonthsAgo } },
@@ -54,6 +55,7 @@ export async function GET() {
       // Get top 5 pending projectors with site info
       prisma.projector.findMany({
         where: {
+          status: { notIn: ["PACKED", "SCHEDULED", "IN_PROGRESS"] },
           OR: [
             { lastServiceAt: null },
             { lastServiceAt: { lt: sixMonthsAgo } },

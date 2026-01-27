@@ -73,11 +73,13 @@ export async function GET(
         const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
 
         // Default to pending
-        let status: "completed" | "pending" | "scheduled" = "pending"
+        let status: "completed" | "pending" | "scheduled" | "packed" = "pending"
         const projectorStatus = proj.status
 
         if (projectorStatus === ServiceStatus.SCHEDULED || projectorStatus === ServiceStatus.IN_PROGRESS) {
           status = "scheduled"
+        } else if (projectorStatus === ServiceStatus.PACKED) {
+          status = "packed"
         } else if (effectiveLastServiceDate && effectiveLastServiceDate >= sixMonthsAgo) {
           // If last service was within 6 months, it's completed (good standing)
           status = "completed"

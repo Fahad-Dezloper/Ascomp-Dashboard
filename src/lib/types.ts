@@ -25,7 +25,7 @@ export interface Projector {
   serialNumber: string
   installDate: string
   lastServiceDate: string
-  status: "completed" | "pending" | "scheduled"
+  status: "completed" | "pending" | "scheduled" | "packed"
   nextServiceDue: string
   serviceHistory: Service[]
 }

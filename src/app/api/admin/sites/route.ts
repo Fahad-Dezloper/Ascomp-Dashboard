@@ -77,7 +77,7 @@ export async function GET() {
           const now = new Date()
           const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
 
-          let status: "completed" | "pending" | "scheduled"
+          let status: "completed" | "pending" | "scheduled" | "packed"
 
           if (
             proj.status === ServiceStatus.SCHEDULED ||
@@ -85,6 +85,8 @@ export async function GET() {
           ) {
             // Any scheduled / in-progress work is treated as scheduled
             status = "scheduled"
+          } else if (proj.status === ServiceStatus.PACKED) {
+            status = "packed"
           } else if (effectiveLastServiceDate && effectiveLastServiceDate >= sixMonthsAgo) {
             // Serviced within last ~6 months → completed
             status = "completed"
