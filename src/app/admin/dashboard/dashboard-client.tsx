@@ -109,6 +109,7 @@ type DashboardData = {
     all: number
     scheduled: number
     pending: number
+    packed: number
     projectors: number
     engineers: number
     completed: number
@@ -117,6 +118,7 @@ type DashboardData = {
   servicesByMonth: ServiceByMonth[]
   lowFlProjectors: LowFlProjector[]
   pendingProjectors: PendingProjector[]
+  packedProjectors: PendingProjector[]
 }
 
 type EngineerStatsResponse = {
@@ -182,7 +184,7 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [serviceViewMode, setServiceViewMode] = useState<"weekly" | "monthly">("weekly")
-  
+
   // Engineer stats state
   const [engineerStats, setEngineerStats] = useState<EngineerStat[]>([])
   const [engineerStatsLoading, setEngineerStatsLoading] = useState(false)
@@ -306,7 +308,7 @@ export default function DashboardClient() {
     }))
   }, [serviceViewMode, data])
 
-  const totalServices = useMemo(() => 
+  const totalServices = useMemo(() =>
     servicePieData.reduce((acc, item) => acc + item.value, 0),
     [servicePieData]
   )
@@ -333,7 +335,7 @@ export default function DashboardClient() {
     )
   }
 
-  const { totals, lowFlProjectors, pendingProjectors } = data
+  const { totals, lowFlProjectors, packedProjectors } = data
 
   return (
     <div className="flex flex-col gap-6">
@@ -349,7 +351,7 @@ export default function DashboardClient() {
               This projector has a low light output and may need attention.
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedLowFlProjector && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -394,7 +396,7 @@ export default function DashboardClient() {
               </div>
             </div>
           )}
-          
+
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setIsLowFlDialogOpen(false)}>
               Close
@@ -429,7 +431,7 @@ export default function DashboardClient() {
         <MetricCard title="Total Services" value={totals.all} icon={Activity} />
         <MetricCard title="Completed Projectors" value={totals.completed} icon={CheckCircle2} />
         <MetricCard title="Scheduled Projectors" value={totals.scheduled} icon={Clock} />
-        <MetricCard title="Pending Projectors" value={totals.pending} icon={AlertTriangle} trendLabel="Need attention" trend="down" />
+        <MetricCard title="Packed Projectors" value={totals.packed} icon={CheckCircle2} />
         <MetricCard title="Total Projectors" value={totals.projectors} icon={Projector} />
         <MetricCard title="Engineers" value={totals.engineers} icon={Users} />
       </div>
@@ -443,27 +445,25 @@ export default function DashboardClient() {
             <div className="flex items-center gap-1 bg-muted/50 rounded-md p-1">
               <button
                 onClick={() => setServiceViewMode("weekly")}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                  serviceViewMode === "weekly"
-                    ? "bg-white text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${serviceViewMode === "weekly"
+                  ? "bg-white text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 Last 7 Days
               </button>
               <button
                 onClick={() => setServiceViewMode("monthly")}
-                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-                  serviceViewMode === "monthly"
-                    ? "bg-white text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
+                className={`px-3 py-1 text-xs font-medium rounded transition-colors ${serviceViewMode === "monthly"
+                  ? "bg-white text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
               >
                 Monthly
               </button>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-6">
             <ChartContainer config={chartConfig} className="h-[200px] flex-1">
               <ResponsiveContainer width="100%" height="100%">
@@ -485,7 +485,7 @@ export default function DashboardClient() {
                 </PieChart>
               </ResponsiveContainer>
             </ChartContainer>
-            
+
             <div className="flex flex-col gap-2">
               <div className="text-center mb-2">
                 <p className="text-2xl font-bold text-foreground">{totalServices}</p>
@@ -504,20 +504,20 @@ export default function DashboardClient() {
           </div>
         </div>
 
-        {/* Pending Projectors Quick View */}
+        {/* Packed Projectors Quick View */}
         <div className="border border-border rounded-lg bg-white">
           <div className="flex items-center justify-between p-4 pb-2">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <Clock className="h-4 w-4 text-muted-foreground" />
-              Projectors Needing Service
+              Packed Projectors
             </h3>
-            <Badge variant="outline" className="text-xs">{pendingProjectors.length} Projectors</Badge>
+            <Badge variant="outline" className="text-xs">{packedProjectors.length} Projectors</Badge>
           </div>
-          
-          {pendingProjectors.length === 0 ? (
+
+          {packedProjectors.length === 0 ? (
             <div className="p-6 text-center">
               <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">All projectors are up to date</p>
+              <p className="text-sm text-muted-foreground">No packed projectors</p>
             </div>
           ) : (
             <div className="max-h-[260px] overflow-auto">
@@ -532,7 +532,7 @@ export default function DashboardClient() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendingProjectors.slice(0, 10).map((proj) => (
+                  {packedProjectors.slice(0, 10).map((proj) => (
                     <TableRow key={proj.id} className="hover:bg-muted/20">
                       <TableCell className="text-xs font-medium">{proj.serialNo}</TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-[120px]">
@@ -586,7 +586,7 @@ export default function DashboardClient() {
             </h3>
             <Badge variant="destructive" className="text-xs">{lowFlProjectors.length} Found</Badge>
           </div>
-          
+
           {lowFlProjectors.length === 0 ? (
             <div className="p-6 text-center">
               <CheckCircle2 className="h-8 w-8 text-green-500 mx-auto mb-2" />
@@ -634,7 +634,7 @@ export default function DashboardClient() {
         <div className="border border-border rounded-lg bg-white p-4">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold text-foreground">Engineer Performance</h3>
-            
+
             {/* Date Filter Dropdown */}
             <Popover open={isFilterDropdownOpen} onOpenChange={setIsFilterDropdownOpen}>
               <PopoverTrigger asChild>
@@ -685,7 +685,7 @@ export default function DashboardClient() {
               </PopoverContent>
             </Popover>
           </div>
-          
+
           {engineerStatsLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />

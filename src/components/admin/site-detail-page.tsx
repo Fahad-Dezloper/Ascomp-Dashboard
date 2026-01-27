@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import ProjectorDetails from "./projector-details"
 import AddProjectorModal from "./modals/add-projector-modal"
 import ScheduleServiceModal from "./modals/schedule-service-modal"
+import EditSiteModal from "./modals/edit-site-modal"
 import { useState, useEffect } from "react"
 import type { Site, Projector } from "@/lib/types"
 
@@ -21,6 +22,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
   const [site, setSite] = useState<Site | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAddProjector, setShowAddProjector] = useState(false)
+  const [showEditSite, setShowEditSite] = useState(false)
   const [selectedProjector, setSelectedProjector] = useState<{ siteId: string; projectorId: string } | null>(null)
   const [_showSchedule, setShowSchedule] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -112,13 +114,21 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-2xl">{site.name}</CardTitle>
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteDialog(true)}
-              disabled={deletingSite}
-            >
-              {deletingSite ? "Deleting..." : "Delete Site"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditSite(true)}
+              >
+                Edit Site
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => setShowDeleteDialog(true)}
+                disabled={deletingSite}
+              >
+                {deletingSite ? "Deleting..." : "Delete Site"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -132,7 +142,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
               <p className="text-foreground">{site.location}</p>
             </div>
             <div>
-             <p className="text-sm font-medium text-muted-foreground mb-1">Created Date</p>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Created Date</p>
               <p className="text-foreground font-medium">{new Date(site.createdDate).toLocaleDateString()}</p>
             </div>
             <div>
@@ -144,31 +154,37 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
       </Card>
 
       {/* Site Statistics - Simplified */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-border bg-white shadow-sm">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Projectors</p>
-                  <p className="text-2xl font-bold mt-1 text-foreground">{site.projectors.length}</p>
-            </CardContent>
-          </Card>
-           <Card className="border-border bg-white shadow-sm">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Services</p>
-                  <p className="text-2xl font-bold mt-1 text-foreground">{totalServices}</p>
-            </CardContent>
-          </Card>
-           <Card className="border-border bg-white shadow-sm">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending</p>
-                  <p className="text-2xl font-bold mt-1 text-red-600">{pendingProjectors}</p>
-            </CardContent>
-          </Card>
-            <Card className="border-border bg-white shadow-sm">
-            <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending</p>
-                  <p className="text-2xl font-bold mt-1 text-green-600">{site.projectors.filter(p => p.status === 'completed').length}</p>
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="border-border bg-white shadow-sm">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Projectors</p>
+            <p className="text-2xl font-bold mt-1 text-foreground">{site.projectors.length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-white shadow-sm">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Services</p>
+            <p className="text-2xl font-bold mt-1 text-foreground">{totalServices}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-white shadow-sm">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending</p>
+            <p className="text-2xl font-bold mt-1 text-red-600">{pendingProjectors}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-white shadow-sm">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Completed</p>
+            <p className="text-2xl font-bold mt-1 text-green-600">{site.projectors.filter(p => p.status === 'completed').length}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-white shadow-sm">
+          <CardContent className="p-4 flex flex-col items-center justify-center text-center">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Packed</p>
+            <p className="text-2xl font-bold mt-1 text-amber-600">{site.projectors.filter(p => p.status === 'packed').length}</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Projectors Section */}
@@ -188,39 +204,62 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-3 gap-4">
-          {site.projectors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No projectors added to this site yet.</p>
-          ) : (
-            site.projectors.map((projector) => {
-              // Convert to Projector type for ProjectorDetails component
-              const projectorForDetails: Projector = {
-                id: projector.id,
-                name: projector.name,
-                model: projector.model,
-                serialNumber: projector.serialNumber,
-                installDate: projector.installDate,
-                lastServiceDate: projector.lastServiceDate,
-                status: projector.status,
-                nextServiceDue: projector.nextServiceDue,
-                serviceHistory: projector.serviceHistory || [],
-              }
-              return (
-                <ProjectorDetails
-                  key={projector.id}
-                  site={site}
-                  projector={projectorForDetails}
-                  onSchedule={() => {
-                    setSelectedProjector({ siteId: site.id, projectorId: projector.id })
-                    setShowSchedule(true)
-                  }}
-                  onViewDetails={() => router.push(`/admin/dashboard/sites/${site.id}/projectors/${projector.id}`)}
-                />
-              )
-            })
-          )}
-        </div>
-      </CardContent>
+            {site.projectors.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No projectors added to this site yet.</p>
+            ) : (
+              site.projectors.map((projector) => {
+                // Convert to Projector type for ProjectorDetails component
+                const projectorForDetails: Projector = {
+                  id: projector.id,
+                  name: projector.name,
+                  model: projector.model,
+                  serialNumber: projector.serialNumber,
+                  installDate: projector.installDate,
+                  lastServiceDate: projector.lastServiceDate,
+                  status: projector.status,
+                  nextServiceDue: projector.nextServiceDue,
+                  serviceHistory: projector.serviceHistory || [],
+                }
+                return (
+                  <ProjectorDetails
+                    key={projector.id}
+                    site={site}
+                    projector={projectorForDetails}
+                    onSchedule={() => {
+                      setSelectedProjector({ siteId: site.id, projectorId: projector.id })
+                      setShowSchedule(true)
+                    }}
+                    onViewDetails={() => router.push(`/admin/dashboard/sites/${site.id}/projectors/${projector.id}`)}
+                  />
+                )
+              })
+            )}
+          </div>
+        </CardContent>
       </Card>
+
+      {showEditSite && (
+        <EditSiteModal
+          site={site}
+          onClose={() => setShowEditSite(false)}
+          onSuccess={() => {
+            router.refresh()
+            // Re-fetch site data locally to update the UI
+            const fetchSite = async () => {
+              try {
+                const response = await fetch(`/api/admin/sites/${siteId}`)
+                if (response.ok) {
+                  const data = await response.json()
+                  setSite(data.site)
+                }
+              } catch (err) {
+                console.error("Error refreshing site:", err)
+              }
+            }
+            fetchSite()
+          }}
+        />
+      )}
 
       {showAddProjector && (
         <AddProjectorModal

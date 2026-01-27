@@ -28,11 +28,14 @@ export async function GET() {
       pendingProjectorCount,
       totalProjectorCount,
       engineerCount,
+      packedCount,
       recentServiceRecords,
       // Fetch only projectors that might have low fL (have service records with fL data)
       lowFlCandidates,
       // Pending projectors needing service
       pendingProjectors,
+      // Packed projectors
+      packedProjectors,
     ] = await Promise.all([
       // Total service records (all time)
       prisma.serviceRecord.count(),
@@ -41,6 +44,7 @@ export async function GET() {
       prisma.projector.count({
         where: {
           status: "COMPLETED",
+          NOT: { status: "PACKED" },
         }
       }),
 
@@ -51,7 +55,10 @@ export async function GET() {
 
       // Projectors with PENDING status (need service)
       prisma.projector.count({
-        where: { status: "PENDING" },
+        where: {
+          status: "PENDING",
+          NOT: { status: "PACKED" },
+        },
       }),
 
       // Total projectors
@@ -60,6 +67,11 @@ export async function GET() {
       // Engineers count (FIELD_WORKER role only)
       prisma.user.count({
         where: { role: "FIELD_WORKER" },
+      }),
+
+      // Count of packed projectors
+      prisma.projector.count({
+        where: { status: "PACKED" },
       }),
 
       // Service records from last 6 months (for charts) - only completed ones
@@ -107,6 +119,7 @@ export async function GET() {
       // Pending projectors that need service
       prisma.projector.findMany({
         where: {
+          status: { notIn: ["PACKED", "SCHEDULED", "IN_PROGRESS"] },
           OR: [
             { status: "PENDING" },
             { lastServiceAt: { lt: sixMonthsAgo } },
@@ -123,6 +136,22 @@ export async function GET() {
         },
         take: 20,
         orderBy: { lastServiceAt: "asc" },
+      }),
+
+      // Packed projectors
+      prisma.projector.findMany({
+        where: {
+          status: "PACKED",
+        },
+        include: {
+          site: true,
+          serviceRecords: {
+            orderBy: { date: "desc" },
+            take: 1,
+            select: { screenNumber: true },
+          },
+        },
+        take: 20,
       }),
     ])
 
@@ -214,6 +243,7 @@ export async function GET() {
         completed: completedServiceCount,
         scheduled: scheduledProjectorCount,
         pending: pendingProjectorCount,
+        packed: packedCount,
         projectors: totalProjectorCount,
         engineers: engineerCount,
       },
@@ -221,6 +251,17 @@ export async function GET() {
       servicesByMonth: servicesByMonthData,
       lowFlProjectors,
       pendingProjectors: pendingProjectors.map((p) => ({
+        id: p.id,
+        serialNo: p.serialNo,
+        modelNo: p.modelNo,
+        status: p.status,
+        siteId: p.siteId,
+        siteName: p.site?.siteName || "Unknown",
+        siteAddress: p.site?.address || "",
+        screenNumber: p.serviceRecords[0]?.screenNumber || null,
+        lastServiceDate: formatDate(p.lastServiceAt),
+      })),
+      packedProjectors: packedProjectors.map((p) => ({
         id: p.id,
         serialNo: p.serialNo,
         modelNo: p.modelNo,

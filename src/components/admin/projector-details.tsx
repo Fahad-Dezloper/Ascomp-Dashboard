@@ -8,10 +8,11 @@ interface ProjectorDetailsProps {
   site: Site
   projector: Projector
   onSchedule: () => void
+  onEdit?: () => void
   onViewDetails?: () => void
 }
 
-export default function ProjectorDetails({ site: _site, projector, onSchedule, onViewDetails }: ProjectorDetailsProps) {
+export default function ProjectorDetails({ site: _site, projector, onSchedule, onEdit, onViewDetails }: ProjectorDetailsProps) {
   const statusColor =
     projector.status.toLowerCase() === "pending"
       ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100"
@@ -46,17 +47,17 @@ export default function ProjectorDetails({ site: _site, projector, onSchedule, o
         </div>
 
         {/* Serial and Model aligned in a neat row */}
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 mt-0.5">
-              <div className="flex items-center min-w-0">
-                <span className="text-xs text-muted-foreground font-medium">Serial:</span>
-                <span className="ml-1.5 text-xs font-medium text-foreground truncate">{projector.serialNumber}</span>
-              </div>
-              <div className="flex items-center min-w-0">
-                <span className="text-xs text-muted-foreground font-medium">Model:</span>
-                <span className="ml-1.5 text-xs font-medium text-foreground truncate">{projector.model}</span>
-              </div>
-            </div>
-            
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 mt-0.5">
+          <div className="flex items-center min-w-0">
+            <span className="text-xs text-muted-foreground font-medium">Serial:</span>
+            <span className="ml-1.5 text-xs font-medium text-foreground truncate">{projector.serialNumber}</span>
+          </div>
+          <div className="flex items-center min-w-0">
+            <span className="text-xs text-muted-foreground font-medium">Model:</span>
+            <span className="ml-1.5 text-xs font-medium text-foreground truncate">{projector.model}</span>
+          </div>
+        </div>
+
         {/* Metrics Row: only Last Service and Completed Services */}
         <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
           <div className="flex flex-col items-start">
@@ -75,13 +76,23 @@ export default function ProjectorDetails({ site: _site, projector, onSchedule, o
         className="flex items-center justify-between gap-3 border-t border-border px-4 py-3"
         onClick={(e) => e.stopPropagation()}
       >
+        <Button
+          size="sm"
+          onClick={onSchedule}
+          className="bg-black text-white hover:bg-gray-800 px-4"
+        >
+          Schedule
+        </Button>
+        {onEdit && (
           <Button
             size="sm"
-            onClick={onSchedule}
-            className="bg-black text-white hover:bg-gray-800 px-4"
+            variant="outline"
+            onClick={onEdit}
+            className="border-border px-4"
           >
-            Schedule
+            Edit
           </Button>
+        )}
       </div>
     </div>
   )

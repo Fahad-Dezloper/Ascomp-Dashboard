@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import ScheduleServiceModal from "./modals/schedule-service-modal"
 import PdfPreviewDialog from "./pdf-preview-dialog"
+import EditProjectorModal from "./modals/edit-projector-modal"
 import { FileText } from "lucide-react"
 
 interface ProjectorDetailPageProps {
@@ -24,6 +25,10 @@ interface ProjectorData {
   lastServiceDate: string
   status: "completed" | "pending" | "scheduled" | "packed"
   nextServiceDue: string
+  address?: string | null
+  state?: string | null
+  region?: string | null
+  pvr?: string | null
   serviceHistory: Array<{
     id: string
     date: string | null
@@ -65,10 +70,13 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [showMoveDialog, setShowMoveDialog] = useState(false)
+  const [showEditProjector, setShowEditProjector] = useState(false)
   const [moving, setMoving] = useState(false)
   const [moveError, setMoveError] = useState<string | null>(null)
   const [targetSiteId, setTargetSiteId] = useState<string>("")
   const [siteSearchQuery, setSiteSearchQuery] = useState<string>("")
+  const [markingPacked, setMarkingPacked] = useState(false)
+  const [unmarkingPacked, setUnmarkingPacked] = useState(false)
   const [sites, setAllSites] = useState<Array<{ id: string; siteName: string; address: string }>>([])
 
   useEffect(() => {
@@ -148,6 +156,83 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
       setMoveError(message)
     } finally {
       setMoving(false)
+    }
+  }
+
+  const handleMarkAsPacked = async () => {
+    if (!projectorId) return
+
+    try {
+      setMarkingPacked(true)
+      const response = await fetch(`/api/admin/projectors/${projectorId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "PACKED" }),
+      })
+
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to update status")
+      }
+
+      // Refresh data
+      router.refresh()
+      // Locally update state to reflect change immediately if router.refresh is not enough
+      if (site) {
+        setSite({
+          ...site,
+          projectors: site.projectors.map(p =>
+            p.id === projectorId ? { ...p, status: 'packed' as const } : p
+          )
+        })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update status"
+      console.error("Failed to mark as packed:", message)
+      alert(message)
+    } finally {
+      setMarkingPacked(false)
+    }
+  }
+
+  const handleUnpackProjector = async () => {
+    if (!projectorId) return
+
+    try {
+      setUnmarkingPacked(true)
+      const response = await fetch(`/api/admin/projectors/${projectorId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "unpack" }),
+      })
+
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to unpack projector")
+      }
+
+      // Refresh data
+      router.refresh()
+      if (site) {
+        setSite({
+          ...site,
+          projectors: site.projectors.map(p =>
+            p.id === projectorId ? { ...p, status: (result.calculatedStatus || 'pending') as any } : p
+          )
+        })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to unpack projector"
+      console.error("Failed to unpack projector:", message)
+      alert(message)
+    } finally {
+      setUnmarkingPacked(false)
     }
   }
 
@@ -255,7 +340,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
         <Button variant="outline" onClick={() => router.push(`/admin/dashboard/sites/${siteId}`)}>
           Back to Site
         </Button>
-        {projector.status === "pending" && (
+        {(projector.status === "pending" || projector.status === "packed") && (
           <Button onClick={() => setShowSchedule(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
             Schedule Service
           </Button>
@@ -263,9 +348,33 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
         <Button
           variant="outline"
           onClick={() => setShowMoveDialog(true)}
-          disabled={moving}
+          disabled={moving || markingPacked}
         >
           {moving ? "Moving..." : "Packed & Move"}
+        </Button>
+        {projector.status !== "packed" && (
+          <Button
+            variant="outline"
+            onClick={handleMarkAsPacked}
+            disabled={markingPacked || moving}
+          >
+            {markingPacked ? "Marking..." : "Mark as Packed"}
+          </Button>
+        )}
+        {projector.status === "packed" && (
+          <Button
+            variant="outline"
+            onClick={handleUnpackProjector}
+            disabled={unmarkingPacked || moving}
+          >
+            {unmarkingPacked ? "Unpacking..." : "Unpack Projector"}
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          onClick={() => setShowEditProjector(true)}
+        >
+          Edit Projector
         </Button>
         <Button
           variant="destructive"
@@ -280,13 +389,13 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
         <CardHeader className="pb-4 border-b border-border">
           <CardTitle className="text-lg">Service History</CardTitle>
         </CardHeader>
-        <CardContent className="p-6 grid grid-cols-3">
+        <CardContent className="p-6 w-full">
           {projector.serviceHistory.length === 0 ? (
             <div className="text-center py-8 border border-dashed border-border rounded-lg">
-               <p className="text-sm text-muted-foreground">No service records available yet.</p>
+              <p className="text-sm text-muted-foreground">No service records available yet.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 w-full grid grid-cols-4 gap-4 ">
               {projector.serviceHistory.map((service, index) => {
                 const statusLabel = service.status
                   ? service.status.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())
@@ -299,50 +408,50 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
                       : "bg-green-100 text-green-700"
 
                 return (
-                  <Card key={service.id} className="border border-border shadow-sm">
+                  <Card key={service.id} className="border h-[25vh] border-border shadow-sm">
                     <CardContent className="">
                       {/* Header */}
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                           <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm">
-                             #{projector.serviceHistory.length - index}
-                           </div>
-                           <div>
-                             <h4 className="text-sm font-semibold text-foreground">
-                               Service Record
-                             </h4>
-                             <p className="text-xs text-muted-foreground">
-                               {service.date ? new Date(service.date).toLocaleDateString("en-US", {
-                                 year: "numeric",
-                                 month: "short",
-                                 day: "numeric",
-                               }) : "—"}
-                             </p>
-                           </div>
+                          <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm">
+                            #{projector.serviceHistory.length - index}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              Service Record
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              {service.date ? new Date(service.date).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                              }) : "—"}
+                            </p>
+                          </div>
                         </div>
                         <Badge className={`${statusStyles} text-xs px-2.5 py-0.5`}>{statusLabel}</Badge>
                       </div>
 
-                       <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4 pt-4 border-t border-border">
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Technician</p>
-                            <p className="text-sm font-medium text-foreground">{service.technician || "Unassigned"}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4 pt-4 border-t border-border">
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Technician</p>
+                          <p className="text-sm font-medium text-foreground">{service.technician || "Unassigned"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Date</p>
+                          <p className="text-sm font-medium text-foreground">
+                            {service.date
+                              ? new Date(service.date).toLocaleDateString()
+                              : "—"}
+                          </p>
+                        </div>
+                        {service.notes && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notes</p>
+                            <p className="text-sm text-foreground line-clamp-1" title={service.notes}>{service.notes}</p>
                           </div>
-                           <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Date</p>
-                            <p className="text-sm font-medium text-foreground">
-                                {service.date
-                                  ? new Date(service.date).toLocaleDateString()
-                                  : "—"}
-                            </p>
-                          </div>
-                            {service.notes && (
-                            <div className="col-span-2">
-                                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Notes</p>
-                                <p className="text-sm text-foreground line-clamp-1" title={service.notes}>{service.notes}</p>
-                            </div>
-                            )}
-                       </div>
+                        )}
+                      </div>
 
                       {/* Preview & Download Button */}
                       <div className="flex justify-end pt-3 border-t border-border">
@@ -408,6 +517,39 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {showEditProjector && (
+        <EditProjectorModal
+          projector={{
+            id: projector.id,
+            serialNo: projector.serialNumber,
+            modelNo: projector.model,
+            status: projector.status.toUpperCase(),
+            address: projector.address,
+            state: projector.state,
+            region: projector.region,
+            pvr: projector.pvr,
+            siteId: siteId,
+          }}
+          onClose={() => setShowEditProjector(false)}
+          onSuccess={() => {
+            router.refresh()
+            // Re-fetch site data to update local state
+            const fetchProjector = async () => {
+              try {
+                const response = await fetch(`/api/admin/sites/${siteId}`)
+                if (response.ok) {
+                  const data = await response.json()
+                  setSite(data.site)
+                }
+              } catch (err) {
+                console.error("Error refreshing projector:", err)
+              }
+            }
+            fetchProjector()
+          }}
+        />
       )}
 
       {showSchedule && (
@@ -483,7 +625,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
             <p className="text-sm text-muted-foreground mb-4">
               Mark this projector as <span className="font-semibold text-foreground">PACKED</span> and move it to a new site.
             </p>
-            
+
             <div className="space-y-4 mb-6">
               <div>
                 <label className="text-sm font-medium text-foreground mb-1.5 block">
@@ -504,7 +646,7 @@ export default function ProjectorDetailPage({ siteId: siteIdProp, projectorId: p
                   >
                     <option value="">Select a site...</option>
                     {sites
-                      .filter((s: any) => 
+                      .filter((s: any) =>
                         (s.address || "").toLowerCase().includes(siteSearchQuery.toLowerCase()) ||
                         (s.name || s.siteName || "").toLowerCase().includes(siteSearchQuery.toLowerCase())
                       )

@@ -195,7 +195,7 @@ const FILTER_FIELDS: {
     { key: "region", label: "Region", type: "string" },
     { key: "state", label: "State", type: "string" },
     { key: "pvr", label: "PVR/Non-PVR", type: "enum", options: ["PVR", "NonPVR"] },
-    { key: "status", label: "Status", type: "enum", options: ["DRAFT", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "PENDING", "CANCELLED"] },
+    { key: "status", label: "Status", type: "enum", options: ["DRAFT", "SCHEDULED", "IN_PROGRESS", "COMPLETED", "PENDING", "CANCELLED", "PACKED"] },
     { key: "address", label: "Address", type: "string" },
     { key: "noOfservices", label: "Number of Services", type: "number" },
   ],

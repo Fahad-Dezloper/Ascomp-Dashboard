@@ -36,6 +36,7 @@ export default function WorkflowPage() {
       const savedStep = localStorage.getItem("workflowStep")
 
       if (savedData) {
+        console.log("saved data", savedData)
         setWorkflowData(JSON.parse(savedData))
       }
       if (savedStep) {
@@ -194,10 +195,10 @@ export default function WorkflowPage() {
               <div
                 key={index}
                 className={`flex-none min-w-[100px] sm:min-w-[110px] sm:flex-1 py-2 px-2 sm:px-3 border-2 text-center font-bold text-xs sm:text-sm transition-all duration-300 rounded-sm whitespace-nowrap ${isActive
-                    ? 'bg-black text-white border-black shadow-md transform scale-105 z-10'
-                    : isCompleted
-                      ? 'bg-gray-100 text-gray-800 border-gray-200'
-                      : 'bg-white text-gray-400 border-gray-100'
+                  ? 'bg-black text-white border-black shadow-md transform scale-105 z-10'
+                  : isCompleted
+                    ? 'bg-gray-100 text-gray-800 border-gray-200'
+                    : 'bg-white text-gray-400 border-gray-100'
                   }`}
               >
                 {step.name}

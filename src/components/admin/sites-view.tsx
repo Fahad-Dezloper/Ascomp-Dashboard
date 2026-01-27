@@ -8,10 +8,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import SearchBar from "../search-bar"
 
 import AddSiteModal from "./modals/add-site-modal"
+import EditSiteModal from "./modals/edit-site-modal"
 import AddProjectorModal from "./modals/add-projector-modal"
+import EditProjectorModal from "./modals/edit-projector-modal"
 import ScheduleServiceModal from "./modals/schedule-service-modal"
 import ProjectorDetails from "./projector-details"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp, Edit } from "lucide-react"
 import type { Site, Projector } from "@/lib/types"
 
 interface ProjectorData {
@@ -21,7 +23,7 @@ interface ProjectorData {
   serialNumber: string
   installDate: string
   lastServiceDate: string
-  status: "completed" | "pending" | "scheduled"
+  status: "completed" | "pending" | "scheduled" | "packed"
   nextServiceDue: string
   serviceHistory: any[]
 }
@@ -44,6 +46,10 @@ export default function SitesView() {
   const [loading, setLoading] = useState(true)
   const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set())
   const [showAddSite, setShowAddSite] = useState(false)
+  const [showEditSite, setShowEditSite] = useState(false)
+  const [siteToEdit, setSiteToEdit] = useState<SiteData | null>(null)
+  const [showEditProjector, setShowEditProjector] = useState(false)
+  const [projectorToEdit, setProjectorToEdit] = useState<any>(null)
   const [selectedSite, setSelectedSite] = useState<string | null>(null)
   const [selectedProjector, setSelectedProjector] = useState<{ siteId: string; projectorId: string } | null>(null)
   const [_showSchedule, setShowSchedule] = useState(false)
@@ -181,18 +187,34 @@ export default function SitesView() {
                             <p className="text-xs text-muted-foreground">Site Code: {siteInfo.siteCode}</p>
                           )}
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            router.push(`/admin/dashboard/sites/${site.id}`)
-                          }}
-                          className="border-border shrink-0 h-8 text-xs px-3"
-                        >
-                          View Details
-                        </Button>
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setSiteToEdit(site)
+                              setShowEditSite(true)
+                            }}
+                            className="border-border h-8 text-xs px-2"
+                            title="Edit Site"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              router.push(`/admin/dashboard/sites/${site.id}`)
+                            }}
+                            className="border-border h-8 text-xs px-3"
+                          >
+                            View Details
+                          </Button>
+                        </div>
                       </div>
                     </div>
 
@@ -318,6 +340,9 @@ export default function SitesView() {
                               address: site.address,
                               createdDate: site.createdDate,
                               projectors: [],
+                              contactDetails: site.contactDetails,
+                              siteCode: (site as any).siteCode,
+                              email: (site as any).email,
                             }
                             return (
                               <ProjectorDetails
@@ -327,6 +352,13 @@ export default function SitesView() {
                                 onSchedule={() => {
                                   setSelectedProjector({ siteId: site.id, projectorId: projector.id })
                                   setShowSchedule(true)
+                                }}
+                                onEdit={() => {
+                                  setProjectorToEdit({
+                                    ...projector,
+                                    siteId: site.id
+                                  })
+                                  setShowEditProjector(true)
                                 }}
                                 onViewDetails={() =>
                                   router.push(`/admin/dashboard/sites/${site.id}/projectors/${projector.id}`)
@@ -353,6 +385,18 @@ export default function SitesView() {
           }}
         />
       )}
+      {showEditSite && siteToEdit && (
+        <EditSiteModal
+          site={siteToEdit}
+          onClose={() => {
+            setShowEditSite(false)
+            setSiteToEdit(null)
+          }}
+          onSuccess={() => {
+            fetchSites()
+          }}
+        />
+      )}
       {selectedSite && (
         <AddProjectorModal
           siteId={selectedSite}
@@ -360,6 +404,28 @@ export default function SitesView() {
           onSuccess={() => {
             fetchSites()
             setSelectedSite(null)
+          }}
+        />
+      )}
+      {showEditProjector && projectorToEdit && (
+        <EditProjectorModal
+          projector={{
+            id: projectorToEdit.id,
+            serialNo: projectorToEdit.serialNumber,
+            modelNo: projectorToEdit.model,
+            status: projectorToEdit.status.toUpperCase(),
+            address: projectorToEdit.address,
+            state: projectorToEdit.state,
+            region: projectorToEdit.region,
+            pvr: projectorToEdit.pvr,
+            siteId: projectorToEdit.siteId,
+          }}
+          onClose={() => {
+            setShowEditProjector(false)
+            setProjectorToEdit(null)
+          }}
+          onSuccess={() => {
+            fetchSites()
           }}
         />
       )}

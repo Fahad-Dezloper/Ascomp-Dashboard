@@ -54,6 +54,7 @@ export default function SelectServiceStep({ onNext }: any) {
           throw new Error("Failed to fetch services")
         }
         const result = await response.json()
+        console.log("result", result);
         setServices(result.services || [])
       } catch (err) {
         console.error("Error fetching services:", err)
@@ -204,8 +205,8 @@ export default function SelectServiceStep({ onNext }: any) {
             key={service.id}
             onClick={() => handleSelect(service)}
             className={`relative p-4 border-2 cursor-pointer transition-all duration-200 ${selected === service.id
-                ? 'border-black bg-gray-50 text-black shadow-md'
-                : 'border-gray-300 bg-white text-black hover:border-gray-400 hover:shadow-sm'
+              ? 'border-black bg-gray-50 text-black shadow-md'
+              : 'border-gray-300 bg-white text-black hover:border-gray-400 hover:shadow-sm'
               }`}
           >
             {selected === service.id && (
