@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id
     const body = await request.json()
-    const { serviceRecordId, workDetails, signatures, images, brokenImages, afterImages } = body
+    const { serviceRecordId, workDetails, signatures, images, brokenImages, afterImages, logs } = body
 
     if (!serviceRecordId) {
       return NextResponse.json({ error: "Service record ID is required" }, { status: 400 })
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
       'pixelDefects', 'imageVibration', 'liteloc',
       'hcho', 'tvoc', 'pm1', 'pm2_5', 'pm10', 'temperature', 'humidity',
       'remarks', 'lightEngineSerialNumber', 'signatures', 'recommendedParts',
-      'images', 'brokenImages', 'afterImages', 'reportUrl', 'photosDriveLink',
+      'images', 'brokenImages', 'afterImages', 'reportUrl', 'photosDriveLink', 'logs',
       // Note fields
       'reflectorNote', 'uvFilterNote', 'integratorRodNote', 'coldMirrorNote', 'foldMirrorNote',
       'touchPanelNote', 'evbBoardNote', 'ImcbBoardNote', 'pibBoardNote', 'IcpBoardNote', 'imbSBoardNote',
@@ -303,6 +303,10 @@ export async function POST(request: NextRequest) {
       } else {
         updateData.afterImages = []
       }
+    }
+
+    if (logs !== undefined) {
+      updateData.logs = logs
     }
 
     // Clean up undefined values and filter to only valid schema fields (Prisma doesn't accept undefined)

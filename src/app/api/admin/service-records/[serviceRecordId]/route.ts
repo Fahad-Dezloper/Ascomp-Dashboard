@@ -75,6 +75,7 @@ export async function GET(
       images: service.images || [],
       afterImages: service.afterImages || [],
       brokenImages: service.brokenImages || [],
+      logs: (service as any).logs || '',
       signatures: service.signatures,
       reportGenerated: service.reportGenerated,
       reportUrl: service.reportUrl,
@@ -231,7 +232,7 @@ export async function PUT(
 
     const { serviceRecordId } = await context.params
     const body = await request.json()
-    const { workDetails, signatures, images, afterImages, brokenImages } = body
+    const { workDetails, signatures, images, afterImages, brokenImages, logs } = body
 
     // Verify the service record exists
     const serviceRecord = await prisma.serviceRecord.findUnique({
@@ -324,7 +325,7 @@ export async function PUT(
       'convergence', 'channelsChecked', 'pixelDefects', 'imageVibration', 'liteloc',
       'hcho', 'tvoc', 'pm1', 'pm2_5', 'pm10', 'temperature', 'humidity',
       'remarks', 'lightEngineSerialNumber', 'signatures', 'recommendedParts',
-      'images', 'afterImages', 'brokenImages', 'reportUrl', 'photosDriveLink',
+      'images', 'afterImages', 'brokenImages', 'logs', 'reportUrl', 'photosDriveLink',
       'reflectorNote', 'uvFilterNote', 'integratorRodNote', 'coldMirrorNote', 'foldMirrorNote',
       'touchPanelNote', 'evbBoardNote', 'ImcbBoardNote', 'pibBoardNote', 'IcpBoardNote', 'imbSBoardNote',
       'serialNumberVerifiedNote', 'AirIntakeLadRadNote', 'coolantLevelColorNote',
@@ -457,6 +458,10 @@ export async function PUT(
       } else {
         updateData.brokenImages = []
       }
+    }
+
+    if (logs !== undefined) {
+      updateData.logs = logs || null
     }
 
     // Clean up undefined values

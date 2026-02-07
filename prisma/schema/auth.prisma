@@ -306,6 +306,8 @@ model ServiceRecord {
   BW_Step_10_4Ky                String?
   BW_Step_10_4Kfl               String?
   photosDriveLink               String?
+  replacementRequired           Boolean?  @default(false)
+  logs                          String?
 
   @@unique([projectorId, serviceNumber])
   @@index([projectorId, serviceNumber])

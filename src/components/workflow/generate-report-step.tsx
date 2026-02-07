@@ -148,6 +148,7 @@ export default function GenerateReportStep({ data, onBack }: any) {
         images: images.before,
         afterImages: images.after,
         brokenImages: images.broken,
+        logs: data.workDetails?.logs || null,
       }),
     })
 
@@ -337,23 +338,23 @@ export default function GenerateReportStep({ data, onBack }: any) {
         siteSignatureUrl: fullService.signatures?.site || fullService.signatures?.siteSignatureUrl || "",
         imagesLink: (() => {
           if (fullService.workDetails?.photosDriveLink) {
-              return fullService.workDetails.photosDriveLink;
+            return fullService.workDetails.photosDriveLink;
           }
 
           const hasImages =
-              (Array.isArray(fullService.images) && fullService.images.length > 0) ||
-              (Array.isArray(fullService.afterImages) && fullService.afterImages.length > 0) ||
-              (Array.isArray(fullService.brokenImages) && fullService.brokenImages.length > 0);
+            (Array.isArray(fullService.images) && fullService.images.length > 0) ||
+            (Array.isArray(fullService.afterImages) && fullService.afterImages.length > 0) ||
+            (Array.isArray(fullService.brokenImages) && fullService.brokenImages.length > 0);
 
           if (hasImages) {
-              const baseUrl = process.env.CORS_ORIGIN || '';
-              const imagesPath = `/share/service-images/${serviceId}`;
+            const baseUrl = process.env.CORS_ORIGIN || '';
+            const imagesPath = `/share/service-images/${serviceId}`;
 
-              return baseUrl ? `${baseUrl}${imagesPath}` : imagesPath;
+            return baseUrl ? `${baseUrl}${imagesPath}` : imagesPath;
           }
 
           return undefined;
-      })(),
+        })(),
       }
 
       // Step 3: Generate PDF (this includes loading logos and signatures)

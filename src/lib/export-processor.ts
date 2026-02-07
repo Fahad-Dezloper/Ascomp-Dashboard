@@ -20,7 +20,7 @@ function safe(val: any) {
 
 function buildPdfDataFromService(fullService: any): MaintenanceReportData {
   const workDetails = fullService.workDetails || {};
-  
+
   return {
     cinemaName: fullService.cinemaName || fullService.site?.siteName || "",
     date: fullService.date ? new Date(fullService.date).toLocaleDateString() : "",
@@ -184,9 +184,9 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
     },
     recommendedParts: Array.isArray(workDetails.recommendedParts || fullService.recommendedParts)
       ? (workDetails.recommendedParts || fullService.recommendedParts).map((part: any) => ({
-          name: String(part.name ?? part.description ?? ""),
-          partNumber: String(part.partNumber ?? part.part_number ?? ""),
-        }))
+        name: String(part.name ?? part.description ?? ""),
+        partNumber: String(part.partNumber ?? part.part_number ?? ""),
+      }))
       : [],
     issueNotes: [],
     detectedIssues: [],
@@ -425,7 +425,7 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
     // Also apply basic filters from currentFilters if they exist (for useCurrentFilter with advanced filters)
     // These should be combined with AND logic (both advanced filters AND basic filters must match)
     const basicFilterConditions: any[] = [];
-    
+
     if (jobData.filters.currentFilters) {
       const { workerFilter, startDate } = jobData.filters.currentFilters;
 
@@ -567,7 +567,7 @@ function flattenRecord(record: any): Record<string, any> {
     "imageVibration", "imageVibrationNote", "liteloc", "litelocNote",
     "hcho", "tvoc", "pm1", "pm2_5", "pm10", "temperature", "humidity",
     "airPollutionLevel", "lightEngineSerialNumber", "BW_Step_10_2Kx", "BW_Step_10_2Ky",
-    "BW_Step_10_2Kfl", "BW_Step_10_4Kx", "BW_Step_10_4Ky", "BW_Step_10_4Kfl",
+    "BW_Step_10_2Kfl", "BW_Step_10_4Kx", "BW_Step_10_4Ky", "BW_Step_10_4Kfl", "logs",
   ];
 
   workDetailFields.forEach((field) => {
@@ -733,6 +733,7 @@ const COLUMN_PRIORITY = [
   "white4Kfl",
   "white4Kx",
   "white4Ky",
+  "logs",
 ];
 
 function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
@@ -747,7 +748,7 @@ function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
         }
       });
     });
-    
+
     // Sort by priority: priority fields first in order, then alphabetically for others
     const sortedKeys = Array.from(allKeys).sort((a, b) => {
       const aPriority = COLUMN_PRIORITY.indexOf(a);
@@ -757,10 +758,10 @@ function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
       if (bPriority !== -1) return 1;
       return a.localeCompare(b);
     });
-    
+
     return sortedKeys;
   }
-  
+
   // For specific columns, also sort by priority and exclude action
   return columns
     .filter(key => key !== "action")
@@ -881,7 +882,7 @@ export async function processExportJob(
 
   await updateProgress(90, "Sending email notification...");
   console.log(`📧 Sending email notification to ${jobData.email}...`);
-  
+
   try {
     await sendEmail({
       to: jobData.email,

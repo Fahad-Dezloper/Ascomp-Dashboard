@@ -1,5 +1,24 @@
-https://www.amazon.in/dp/B0DL9T1PMQ?ref=nb_sb_ss_w_as-reorder_k0_1_4&amp=&crid=3QRHY2XEDKGDH&sprefix=opti&th=1
+Add Logs option in Form (below image on engineer form , 
+upload to cloud , schema update , update all place where form data is showing.) — done
 
-projector and site edit details functionality
+Export of the report are need to correct (PDF + E-Mail), show columns filter that are being exported.
 
-move functionality  -- done                                                                                                                       
+Logic for prevent conflict of projector running hour & lamp running hours 
+1) projector running hours always greater & not equal then lamp total running hours 
+2) CFM value for CP2220 , 4220 = LOWER 6.6 - 7.3 GREATER HIGH
+CFM value for CP2230 , CP4230 = LOWER 8.8 - 9.5 GREATER HIGH
+3) FL Valueless then 10 is low 
+4) if fse write in white coloum it should also write in black and vise versa
+
+
+Change name of PDF Site_Code_address_SC#screen-no_serialnumber_servicevisit
+
+Excel export date are not managed. (Date format change)
+
+Projector region should be coming in table coloum when we select 
+
+Need to Yes Types option for better form handling (Status select with notes with more option)
+
+In form contact details coloum should visible like name.(Mr._________ - ________________)
+
+

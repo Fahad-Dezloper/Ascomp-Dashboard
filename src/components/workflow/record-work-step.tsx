@@ -29,7 +29,6 @@ type RecommendedPart = {
 }
 type RecordWorkForm = ReturnType<typeof createInitialFormData>
 
-// Color Accuracy structure - kept for complex nested rendering
 const COLOR_ACCURACY = [
   { name: 'White', fields: ['white2Kx', 'white2Ky', 'white2Kfl', 'white4Kx', 'white4Ky', 'white4Kfl'] },
   { name: 'Red', fields: ['red2Kx', 'red2Ky', 'red2Kfl', 'red4Kx', 'red4Ky', 'red4Kfl'] },
@@ -189,6 +188,7 @@ const createInitialFormData = () => ({
   reportGenerated: false,
   reportUrl: '',
   photosDriveLink: '',
+  logs: '',
   issueNotes: {} as IssueNotes,
   recommendedParts: [] as RecommendedPart[],
 })
@@ -221,22 +221,15 @@ const FormField = ({
   </div>
 )
 
-// Utility function to clean repeated/duplicated patterns from note values
-// Handles corrupted data like "Chipped - text - Chipped - text - Chipped - text"
 const cleanRepeatedNote = (noteValue: string): string => {
   if (!noteValue || typeof noteValue !== 'string') return noteValue
 
-  // Split by " - " separator
   const parts = noteValue.split(' - ')
-  if (parts.length <= 2) return noteValue // Normal format: "Choice - Text" or just "Choice"
+  if (parts.length <= 2) return noteValue
 
-  // Check if there's a repeating pattern
-  // Pattern would be: Choice - Text - Choice - Text - Choice - Text...
-  // So parts would be: [Choice, Text, Choice, Text, Choice, Text]
   const firstPart = parts[0]?.trim() || ''
   const secondPart = parts[1]?.trim() || ''
 
-  // Check if the pattern repeats
   let isRepeating = true
   for (let i = 2; i < parts.length; i += 2) {
     if ((parts[i]?.trim() || '') !== firstPart) {
@@ -250,7 +243,7 @@ const cleanRepeatedNote = (noteValue: string): string => {
   }
 
   if (isRepeating && firstPart) {
-    // Return the cleaned version: just first occurrence
+
     if (secondPart) {
       return `${firstPart} - ${secondPart}`
     }
@@ -281,8 +274,7 @@ const StatusSelectWithNote = ({
 }) => {
   const { watch, register, setValue, getValues } = form
   const statusVal = (watch(field as keyof RecordWorkForm) as string)
-  // If options are provided (custom dropdown), default to empty string to force selection if not set.
-  // If no options (standard OK/YES), default to 'OK' if not set.
+
   const status = statusVal || (options ? '' : 'OK')
   const noteField = `${field}Note` as keyof RecordWorkForm
   const initialChoice = noteDefault || noteOptions?.[0] || ''
@@ -303,7 +295,6 @@ const StatusSelectWithNote = ({
     ? issueValues.includes(status)
     : (status === 'YES' || status === 'Concern' || status.startsWith('YES') || status.includes('Concern'))
 
-  // Format note as "Choice - Text" for the note field only
   const formatNote = (choice: string, text: string) => {
     const c = choice?.trim()
     const t = text?.trim()
@@ -313,52 +304,45 @@ const StatusSelectWithNote = ({
     return ''
   }
 
-  // Parse existing note value to extract choice and text
   const parseExistingNote = (noteValue: string): { choice: string; text: string } => {
     if (!noteValue || typeof noteValue !== 'string') {
       return { choice: initialChoice, text: '' }
     }
 
-    // Clean any repeated/corrupted patterns first
     const cleanedValue = cleanRepeatedNote(noteValue)
 
-    // Check if cleanedValue matches any of the noteOptions
     if (noteOptions && noteOptions.length > 0) {
       for (const opt of noteOptions) {
-        // Check if it starts with "Option - " pattern
+
         if (cleanedValue.startsWith(`${opt} - `)) {
           return { choice: opt, text: cleanedValue.slice(opt.length + 3) }
         }
-        // Check if it's exactly the option
+
         if (cleanedValue === opt) {
           return { choice: opt, text: '' }
         }
       }
     }
 
-    // If no match found, treat the whole thing as text
     return { choice: initialChoice, text: cleanedValue }
   }
 
-  // Handle reason dropdown change - update the NOTE field with combined format
   const handleReasonChange = (val: string) => {
     setNoteChoice(val)
     if (isIssue) {
-      // Only update the NOTE field, never the status field
+
       setValue(noteField, formatNote(val, noteText), { shouldDirty: true })
     }
   }
 
-  // Handle note text change - update the NOTE field with combined format
   const handleNoteTextChange = (text: string) => {
     setNoteText(text)
     if (isIssue) {
-      // Only update the NOTE field, never the status field
+
       setValue(noteField, formatNote(noteChoice, text), { shouldDirty: true })
     }
   }
 
-  // Initialize from existing form value on mount (only once)
   useEffect(() => {
     if (hasInitialized) return
 
@@ -369,9 +353,8 @@ const StatusSelectWithNote = ({
       setNoteText(parsed.text)
     }
     setHasInitialized(true)
-  }, []) // Empty dependency array - run only on mount
+  }, [])
 
-  // Clear on status change away from Issue
   useEffect(() => {
     if (!isIssue && hasInitialized) {
       const currentNote = getValues(noteField)
@@ -379,7 +362,7 @@ const StatusSelectWithNote = ({
       if (noteText) setNoteText('')
       if (currentNote) setValue(noteField, '', { shouldDirty: true })
     }
-  }, [isIssue]) // Only depend on isIssue changing
+  }, [isIssue])
 
   return (
     <FormField label={label} required={required}>
@@ -478,9 +461,9 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       reset({
         ...initial,
         ...data.workDetails,
-        // Override with selectedService values to ensure they take precedence
+
         cinemaName: data.selectedService?.site || data.workDetails.cinemaName || initial.cinemaName,
-        // Use saved workDetails date if exists, otherwise use today's date (initial.date)
+
         date: data.workDetails.date || initial.date,
         address: data.selectedService?.address || data.workDetails.address || initial.address,
         contactDetails: data.selectedService?.contactDetails || data.workDetails.contactDetails || initial.contactDetails,
@@ -498,9 +481,9 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         reset({
           ...initial,
           ...parsed,
-          // Override with selectedService values to ensure they take precedence
+
           cinemaName: data.selectedService?.site || parsed.cinemaName || initial.cinemaName,
-          // Use saved form date if exists, otherwise use today's date (initial.date)
+
           date: parsed.date || initial.date,
           address: data.selectedService?.address || parsed.address || initial.address,
           contactDetails: data.selectedService?.contactDetails || parsed.contactDetails || initial.contactDetails,
@@ -511,11 +494,11 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           recommendedParts: parsed.recommendedParts || [],
         })
       } else {
-        // No saved data, but we have service details - use today's date
+
         reset({
           ...initial,
           cinemaName: data.selectedService?.site || initial.cinemaName,
-          // Use today's date for new form entries
+
           date: initial.date,
           address: data.selectedService?.address || initial.address,
           contactDetails: data.selectedService?.contactDetails || initial.contactDetails,
@@ -551,7 +534,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     return () => subscription.unsubscribe()
   }, [watch, data?.selectedService?.id])
 
-  // Pre-fill Software & Screen Information from last service record (already fetched with service data)
   useEffect(() => {
     const lastServiceData = data?.selectedService?.lastServiceData
     if (!lastServiceData) return
@@ -559,8 +541,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     const preFillLastServiceData = () => {
       const currentValues = getValues()
 
-      // Only pre-fill fields that are currently empty
-      // This ensures we don't override user input or saved data
       const fieldsToPreFill: Array<{
         key: keyof RecordWorkForm
         value: string | number | null | undefined
@@ -577,17 +557,16 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
       let hasUpdates = false
       fieldsToPreFill.forEach(({ key, value }) => {
-        // Only set if current value is empty/null/undefined and lastService has a value
+
         const currentValue = currentValues[key]
         if ((!currentValue || currentValue === '') && value != null && value !== '') {
-          // Convert number to string for form fields
+
           const stringValue = typeof value === 'number' ? String(value) : String(value)
           setValue(key, stringValue, { shouldDirty: false })
           hasUpdates = true
         }
       })
 
-      // If we updated any fields, save to localStorage
       if (hasUpdates && typeof window !== 'undefined' && data?.selectedService?.id) {
         const updatedValues = getValues()
         const storageKey = `recordWorkFormData_${data.selectedService.id}`
@@ -595,8 +574,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       }
     }
 
-    // Wait for form to be initialized before pre-filling
-    // This ensures we don't override the initial form reset
     const timeoutId = setTimeout(() => {
       preFillLastServiceData()
     }, 1000)
@@ -616,7 +593,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     brokenImagesRef.current = brokenImages
   }, [brokenImages])
 
-  // Load projector parts data
   useEffect(() => {
     const loadPartsData = async () => {
       try {
@@ -632,7 +608,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     loadPartsData()
   }, [])
 
-  // Load lamp models data structure
   useEffect(() => {
     const loadLampModelsData = async () => {
       try {
@@ -647,7 +622,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     loadLampModelsData()
   }, [])
 
-  // Filter lamp models based on selected projector model
   useEffect(() => {
     const projectorModel = watch('projectorModel')
     if (!projectorModel || lampModelsData.length === 0) {
@@ -655,13 +629,12 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       return
     }
 
-    // Find matching projector model (case-insensitive)
     const matchingProjector = lampModelsData.find(
       (item) => item.projector_model?.toLowerCase() === projectorModel.toLowerCase()
     )
 
     if (matchingProjector && Array.isArray(matchingProjector.Models)) {
-      // Filter out invalid values and get unique models
+
       const cleaned = matchingProjector.Models.filter(
         (model): model is string => typeof model === 'string' && model.trim().length > 0 && model.toUpperCase() !== 'NA'
       )
@@ -671,7 +644,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     }
   }, [watch('projectorModel'), lampModelsData])
 
-  // Load software versions for dropdown
   useEffect(() => {
     const loadSoftwareVersions = async () => {
       try {
@@ -686,7 +658,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     loadSoftwareVersions()
   }, [])
 
-  // Load content players for dropdown
   useEffect(() => {
     const loadContentPlayers = async () => {
       try {
@@ -701,7 +672,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     loadContentPlayers()
   }, [])
 
-  // Sync selected parts when dialog opens
   useEffect(() => {
     if (isDialogOpen) {
       const currentParts = getValues('recommendedParts') || []
@@ -710,7 +680,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       } else {
         setSelectedPartIds(new Set())
       }
-      // Reset search query when dialog opens
+
       setPartSearchQuery('')
     }
   }, [isDialogOpen, getValues])
@@ -725,21 +695,26 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     }
   }
 
-  const uploadToBlob = async (file: File, category: 'before' | 'after' | 'broken'): Promise<UploadedImage> => {
-    // Compress image before upload (resize to max 1200x1200, JPEG 80% quality)
-    const { compressImage } = await import('@/lib/image-compression')
-    const compressedBlob = await compressImage(file, 1200, 1200, 0.8)
+  const uploadToBlob = async (file: File, category: 'before' | 'after' | 'broken' | 'logs'): Promise<UploadedImage> => {
+    let fileToUpload = file
+    let folderName = `${category}-images`
 
-    // Create a new File from the compressed blob
-    const compressedFile = new File(
-      [compressedBlob],
-      file.name.replace(/\.[^/.]+$/, '.jpg'), // Change extension to .jpg
-      { type: 'image/jpeg' }
-    )
+    if (category !== 'logs') {
+      const { compressImage } = await import('@/lib/image-compression')
+      const compressedBlob = await compressImage(file, 1200, 1200, 0.8)
+
+      fileToUpload = new File(
+        [compressedBlob],
+        file.name.replace(/\.[^/.]+$/, '.jpg'),
+        { type: 'image/jpeg' }
+      )
+    } else {
+      folderName = 'projector-logs'
+    }
 
     const formData = new FormData()
-    formData.append('file', compressedFile)
-    formData.append('folder', `${category}-images`)
+    formData.append('file', fileToUpload)
+    formData.append('folder', folderName)
 
     const response = await fetch('/api/blob/upload', {
       method: 'POST',
@@ -753,6 +728,24 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
     const result = await response.json()
     return { name: file.name, url: result.url, size: result.size }
+  }
+
+  const handleLogsUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true)
+    try {
+      const file = files[0]
+      if (file) {
+        const upload = await uploadToBlob(file, 'logs')
+        setValue('logs', upload.url, { shouldDirty: true })
+        setImageError(null)
+      }
+    } catch (error) {
+      console.error('Logs upload failed:', error)
+      setImageError('Failed to upload logs. Please try again.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleImageUpload = async (type: 'before' | 'after' | 'broken', files: FileList | null) => {
@@ -784,7 +777,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       const newImages = [...afterImages]
       newImages.splice(index, 1)
       persistImages(beforeImages, newImages, brokenImages)
-    } else { // type === 'broken'
+    } else {
       const newImages = [...brokenImages]
       newImages.splice(index, 1)
       persistImages(beforeImages, afterImages, newImages)
@@ -804,9 +797,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     }
   }
 
-
-
-  // Filter parts by projector model and search query
   const projectorModel = watch('projectorModel')
   const filteredParts = partsData.filter((part) => {
     const matchesModel = part.projector_model.toLowerCase() === projectorModel?.toLowerCase()
@@ -828,7 +818,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     return num < min || num > max
   }
 
-  // Handle part selection
   const handlePartToggle = (part: ProjectorPart) => {
     const newSelectedIds = new Set(selectedPartIds)
     if (newSelectedIds.has(part.part_number)) {
@@ -839,7 +828,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     setSelectedPartIds(newSelectedIds)
   }
 
-  // Save selected parts to form
   const handleSaveSelectedParts = () => {
     const selectedParts: RecommendedPart[] = filteredParts
       .filter((part) => selectedPartIds.has(part.part_number))
@@ -853,18 +841,15 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
   const recommendedParts = watch('recommendedParts') || []
 
-  // Helper function to render fields dynamically based on config
   const renderFieldsBySection = (sectionTitle: string) => {
     if (!formConfig || formConfig.length === 0) {
       return null
     }
 
-    // Filter section fields and exclude duplicate dimension fields for "Software & Screen Information"
-    // These are handled separately with "Scope Dimensions" and "Flat Dimensions" headings
     const excludedFields = ['screenHeight', 'screenWidth', 'flatHeight', 'flatWidth']
     const sectionFields = formConfig.filter((f) => {
       if (f.section === sectionTitle) {
-        // Exclude dimension fields from "Software & Screen Information" section
+
         if (sectionTitle === 'Software & Screen Information' && excludedFields.includes(f.key)) {
           return false
         }
@@ -876,13 +861,12 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       return null
     }
 
-    // Group fields into rows (2 columns on larger screens)
     const rows: typeof sectionFields[] = []
     let currentRow: typeof sectionFields = []
 
     sectionFields.forEach((field, idx) => {
       currentRow.push(field)
-      // Create a new row every 2 fields, or if it's a textarea/select that should be full width
+
       if (currentRow.length >= 2 || field.type === 'textarea' || idx === sectionFields.length - 1) {
         rows.push([...currentRow])
         currentRow = []
@@ -896,7 +880,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
             {row.map((field) => {
               if (!field) return null
 
-              // Handle StatusSelectWithNote component type
               if (field.componentType === "statusSelectWithNote") {
                 const selectOptions = field.options?.map(opt => ({
                   value: opt,
@@ -922,7 +905,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 )
               }
 
-              // Special handling for dropdowns that load from external data
               if (field.key === 'softwareVersion' && softwareVersions.length > 0) {
                 return (
                   <FormField key={field.key} label={field.label} required={field.required}>
@@ -974,7 +956,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 )
               }
 
-              // Special validation for running hours
               if (field.key === 'projectorRunningHours') {
                 const runningHours = watch('projectorRunningHours')
                 const min = field.min !== undefined ? field.min : -Infinity
@@ -1051,7 +1032,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 )
               }
 
-              // Default rendering for other fields
               return (
                 <FormField key={field.key} label={field.label} required={field.required}>
                   <DynamicFormField
@@ -1067,8 +1047,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       </>
     )
   }
-
-
 
   const onSubmit = (values: RecordWorkForm) => {
     const validationErrors: string[] = []
@@ -1111,12 +1089,10 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     })
   }
 
-  // Force re-render when config changes
   useEffect(() => {
-    // Config change triggers re-render via key prop on form div
+
   }, [configLoading, formConfig])
 
-  // Don't render form until config is loaded (unless it's taking too long)
   if (configLoading && formConfig.length === 0) {
     return (
       <div className="flex items-center justify-center p-8">
@@ -1370,7 +1346,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           {renderFieldsBySection("Air Pollution Data")}
         </FormSection>
 
-
         <FormSection title="Recommended Parts">
           <div className="space-y-3">
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -1502,9 +1477,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         </FormSection>
 
         <FormSection title="Service Images">
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Before Images */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="font-semibold text-sm text-black mb-2">Before Images (Optional)</p>
               <input
@@ -1534,7 +1507,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
               )}
             </div>
 
-            {/* After Images */}
             <div>
               <p className="font-semibold text-sm text-black mb-2">After Images (Optional)</p>
               <input
@@ -1564,7 +1536,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
               )}
             </div>
 
-            {/* Broken Images */}
             <div>
               <p className="font-semibold text-sm text-black mb-2">Broken Parts Images (Optional)</p>
               <input
@@ -1593,9 +1564,31 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 </div>
               )}
             </div>
+
+            <div>
+              <p className="font-semibold text-sm text-black mb-2">Projector Logs (Zip/Folder)</p>
+              <input
+                type="file"
+                accept=".zip,.rar,.7z"
+                onChange={(e) => handleLogsUpload(e.target.files)}
+                className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50"
+              />
+              {watch('logs') && (
+                <div className="mt-2 p-2 border-2 border-black bg-gray-50 flex items-center justify-between">
+                  <span className="text-xs font-medium truncate flex-1">Logs Uploaded</span>
+                  <button
+                    type="button"
+                    onClick={() => setValue('logs', '', { shouldDirty: true })}
+                    className="text-red-500 text-xs font-bold ml-2"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           {imageError && <p className="text-sm text-red-600 mt-2">{imageError}</p>}
-          {uploading && <p className="text-xs text-gray-500 mt-2">Uploading images...</p>}
+          {uploading && <p className="text-xs text-gray-500 mt-2">Uploading...</p>}
         </FormSection>
       </div>
 

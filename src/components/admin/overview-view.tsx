@@ -150,6 +150,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   endTime: "End Time",
   flLeft: "Fl Before",
   flRight: "Fl After",
+  logs: "Projector Logs",
 }
 
 // Default columns to show on initial load
@@ -471,6 +472,7 @@ const createInitialFormData = () => ({
   photosDriveLink: '',
   issueNotes: {} as IssueNotes,
   recommendedParts: [] as RecommendedPart[],
+  logs: '',
 })
 
 type RecordWorkForm = ReturnType<typeof createInitialFormData>
@@ -726,7 +728,7 @@ function EditServiceDialog({
     defaultValues: createInitialFormData(),
   })
 
-  const { register, handleSubmit, reset, watch } = form
+  const { register, handleSubmit, reset, watch, setValue } = form
 
   // Recommended Parts selection Logic
   const [partsDialogOpen, setPartsDialogOpen] = useState(false)
@@ -1108,7 +1110,7 @@ function EditServiceDialog({
     toast.success(`${type === 'site' ? 'Site' : 'Engineer'} signature removed`)
   }
 
-  const handleImageUpload = async (type: 'before' | 'after' | 'broken', files: FileList | null) => {
+  const handleImageUpload = async (type: 'before' | 'after' | 'broken' | 'logs', files: FileList | null) => {
     if (!files || files.length === 0) return
 
     try {
@@ -1116,26 +1118,31 @@ function EditServiceDialog({
       setImageError(null)
       const newImages: UploadedImage[] = []
 
-      // Import compression utility
-      const { compressImage } = await import('@/lib/image-compression')
-
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         if (!file) continue
 
-        // Compress image before upload (resize to max 1200x1200, JPEG 80% quality)
-        const compressedBlob = await compressImage(file, 1200, 1200, 0.8)
+        let fileToUpload = file
+        let folderName = `${type}-images`
 
-        // Create a new File from the compressed blob
-        const compressedFile = new File(
-          [compressedBlob],
-          file.name.replace(/\.[^/.]+$/, '.jpg'), // Change extension to .jpg
-          { type: 'image/jpeg' }
-        )
+        if (type !== 'logs') {
+          // Import compression utility
+          const { compressImage } = await import('@/lib/image-compression')
+          // Compress image before upload (resize to max 1200x1200, JPEG 80% quality)
+          const compressedBlob = await compressImage(file, 1200, 1200, 0.8)
+          // Create a new File from the compressed blob
+          fileToUpload = new File(
+            [compressedBlob],
+            file.name.replace(/\.[^/.]+$/, '.jpg'), // Change extension to .jpg
+            { type: 'image/jpeg' }
+          )
+        } else {
+          folderName = 'projector-logs'
+        }
 
         const formData = new FormData()
-        formData.append('file', compressedFile)
-        formData.append('folder', `${type}-images`)
+        formData.append('file', fileToUpload)
+        formData.append('folder', folderName)
 
         const res = await fetch('/api/blob/upload', {
           method: 'POST',
@@ -1159,10 +1166,11 @@ function EditServiceDialog({
     }
   }
 
-  const handleRemoveImage = (type: 'before' | 'after' | 'broken', index: number) => {
+  const handleRemoveImage = (type: 'before' | 'after' | 'broken' | 'logs', index: number) => {
     if (type === 'before') setBeforeImages((prev) => prev.filter((_, i) => i !== index))
     else if (type === 'after') setAfterImages((prev) => prev.filter((_, i) => i !== index))
-    else setBrokenImages((prev) => prev.filter((_, i) => i !== index))
+    else if (type === 'broken') setBrokenImages((prev) => prev.filter((_, i) => i !== index))
+    else if (type === 'logs') setValue('logs', '', { shouldDirty: true })
   }
 
   const onSubmit = async (values: RecordWorkForm) => {
@@ -1668,6 +1676,47 @@ function EditServiceDialog({
                           </button>
                         </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Projector Logs */}
+                <div className="sm:col-span-3 border-t pt-4">
+                  <p className="font-semibold text-sm text-black mb-2 flex items-center gap-2">
+                    <Folder className="h-4 w-4" />
+                    Projector Logs (Zip/Folder)
+                  </p>
+                  <input
+                    type="file"
+                    accept=".zip,.rar,.7z"
+                    onChange={(e) => handleImageUpload('logs', e.target.files)}
+                    className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 mb-2"
+                  />
+                  {watch('logs') && (
+                    <div className="mt-2 p-3 border-2 border-black bg-white flex items-center justify-between shadow-sm">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <div className="bg-green-100 p-2 rounded-full">
+                          <Download className="h-4 w-4 text-green-700" />
+                        </div>
+                        <span className="text-xs font-bold text-black truncate">Logs Uploaded</span>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <a
+                          href={watch('logs')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 text-xs font-bold hover:underline bg-blue-50 px-3 py-1.5 border border-blue-200 rounded"
+                        >
+                          Download
+                        </a>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage('logs', 0)}
+                          className="text-red-600 text-xs font-bold hover:text-red-700 bg-red-50 px-3 py-1.5 border border-red-200 rounded"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2578,6 +2627,20 @@ www.ascompinc.co.in`)
                     <div>
                       <span className="font-medium">Projector Model:</span> {serviceData.projector.model || serviceData.modelNo || "N/A"}
                     </div>
+                    {serviceData.logs && (
+                      <div className="col-span-2 mt-2">
+                        <span className="font-medium">Projector Logs:</span>{" "}
+                        <a
+                          href={serviceData.logs}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
+                        >
+                          <Folder className="h-4 w-4" />
+                          <span>Download Logs</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -3237,6 +3300,21 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
         )
       }
       return "—"
+    }
+
+    // Handle logs download
+    if (key === "logs" && value && typeof value === "string") {
+      return (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          <Folder className="h-4 w-4" />
+          <span>Download</span>
+        </a>
+      )
     }
 
     // Handle remarks with expand/collapse
