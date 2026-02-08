@@ -520,8 +520,8 @@ function flattenRecord(record: any): Record<string, any> {
   const flattened: Record<string, any> = {
     id: record.id,
     serviceNumber: record.serviceNumber,
-    date: record.date ? new Date(record.date).toLocaleDateString() : "",
-    createdAt: record.createdAt ? new Date(record.createdAt).toLocaleDateString() : "",
+    date: record.date ? new Date(record.date) : null,
+    createdAt: record.createdAt ? new Date(record.createdAt) : null,
     cinemaName: record.cinemaName || record.site?.siteName || "",
     screenNumber: record.screenNumber || "",
     location: record.location || "",
@@ -533,8 +533,8 @@ function flattenRecord(record: any): Record<string, any> {
     contactDetails: record.contactDetails || record.site?.contactDetails || "",
     projectorRunningHours: record.projectorRunningHours?.toString() || "",
     remarks: record.remarks || "",
-    startTime: record.startTime ? new Date(record.startTime).toISOString() : "",
-    endTime: record.endTime ? new Date(record.endTime).toISOString() : "",
+    startTime: record.startTime ? new Date(record.startTime) : null,
+    endTime: record.endTime ? new Date(record.endTime) : null,
     reportGenerated: record.reportGenerated?.toString() || "",
     reportUrl: record.reportUrl || "",
   };
@@ -576,7 +576,7 @@ function flattenRecord(record: any): Record<string, any> {
       if (typeof value === "number" || typeof value === "boolean") {
         flattened[field] = String(value);
       } else if (value instanceof Date) {
-        flattened[field] = value.toISOString();
+        flattened[field] = value;
       } else {
         flattened[field] = String(value);
       }
@@ -835,12 +835,42 @@ export async function processExportJob(
 
   await updateProgress(75, "Creating Excel file...");
   console.log(`📝 Creating Excel file...`);
+  console.log(`📝 Creating Excel file...`);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Service Records");
 
-  const headers = ["PDF", ...columnHeaders];
-  worksheet.addRow(headers);
+  // Define columns with proper formatting
+  const columns: Partial<ExcelJS.Column>[] = [
+    { header: "PDF Report", key: "pdf", width: 15 },
+    ...columnHeaders.map(colKey => {
+      // Determine if this is a date or time column
+      let numFmt: string | undefined;
+      const keyLower = colKey.toLowerCase();
+      
+      if (colKey === 'date' || colKey === 'createdAt' || keyLower.includes('date')) {
+        numFmt = 'd mmmm yyyy';
+      } else if (colKey === 'startTime' || colKey === 'endTime' || keyLower.includes('time')) {
+        numFmt = 'mm/dd/yyyy hh:mm AM/PM';
+      }
 
+      // Convert camelCase to Title Case for better header readability
+      const label = colKey
+        .replace(/_/g, " ")
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/\b\w/g, c => c.toUpperCase());
+
+      return {
+        header: label,
+        key: colKey,
+        width: 20,
+        style: numFmt ? { numFmt } : undefined
+      };
+    })
+  ];
+
+  worksheet.columns = columns;
+
+  // Style the header row
   const headerRow = worksheet.getRow(1);
   headerRow.font = { bold: true };
   headerRow.fill = {
@@ -852,22 +882,23 @@ export async function processExportJob(
   records.forEach((record) => {
     const flattened = flattenRecord(record);
     const pdfUrl = pdfUrls.get(record.id) || "";
-    const row: any[] = [pdfUrl, ...columnHeaders.map((col) => flattened[col] || "")];
-    worksheet.addRow(row);
+    
+    // Create row object mapping keys to values
+    const rowData: Record<string, any> = { pdf: pdfUrl };
+    columnHeaders.forEach(key => {
+      rowData[key] = flattened[key];
+    });
 
+    const row = worksheet.addRow(rowData);
+
+    // Add hyperlink to PDF column
     if (pdfUrl) {
-      const pdfCell = worksheet.getCell(worksheet.rowCount, 1);
+      const pdfCell = row.getCell("pdf");
       pdfCell.value = {
-        text: pdfUrl,
+        text: "Download PDF",
         hyperlink: pdfUrl,
       };
       pdfCell.font = { color: { argb: "FF0000FF" }, underline: true };
-    }
-  });
-
-  worksheet.columns.forEach((column) => {
-    if (column.header) {
-      column.width = 15;
     }
   });
 
