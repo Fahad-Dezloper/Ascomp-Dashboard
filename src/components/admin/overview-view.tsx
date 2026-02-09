@@ -3007,7 +3007,20 @@ www.ascompinc.co.in`);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${serviceData?.projector?.serialNo || serviceData?.projectorSerial || "Service_Report"}.pdf`;
+      const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9-_#]/g, "_");
+      console.log("serviceData", serviceData);
+      const siteCode =
+        serviceData?.site?.siteCode || serviceData?.siteCode || "NA";
+      const address =
+        serviceData?.address || serviceData?.site?.address || "NA";
+      const screenNo = serviceData?.screenNumber || "NA";
+      const serialNo =
+        serviceData?.projector?.serialNo ||
+        serviceData?.projectorSerial ||
+        "NA";
+      const serviceVisit = serviceData?.serviceNumber || "NA";
+
+      link.download = `${sanitize(String(siteCode))}_${sanitize(String(address))}_SC#${sanitize(String(screenNo))}_${sanitize(String(serialNo))}_${sanitize(String(serviceVisit))}.pdf`;
       link.click();
       window.URL.revokeObjectURL(url);
 

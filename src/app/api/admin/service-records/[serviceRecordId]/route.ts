@@ -27,6 +27,7 @@ export async function GET(
           select: {
             id: true,
             siteName: true,
+            siteCode: true,
             address: true,
             contactDetails: true,
           },
@@ -53,6 +54,7 @@ export async function GET(
       site: {
         id: service.site.id,
         name: service.site.siteName,
+        siteCode: service.site.siteCode,
         address: service.site.address,
         contactDetails: service.site.contactDetails,
         screenNo: service.screenNumber,
