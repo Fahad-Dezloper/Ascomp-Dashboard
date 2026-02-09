@@ -456,6 +456,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
   const [lampModels, setLampModels] = useState<string[]>([])
   const [softwareVersions, setSoftwareVersions] = useState<string[]>([])
   const [contentPlayers, setContentPlayers] = useState<string[]>([])
+  const [contactName, setContactName] = useState<string>('')
+  const [contactPhone, setContactPhone] = useState<string>('')
   const beforeImagesRef = useRef<UploadedImage[]>([])
   const afterImagesRef = useRef<UploadedImage[]>([])
   const brokenImagesRef = useRef<UploadedImage[]>([])
@@ -472,21 +474,48 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     defaultValues: createInitialFormData(),
   })
 
+  // Helper function to parse contactDetails into name and phone
+  const parseContactDetails = (contactDetails: string | undefined | null): { name: string; phone: string } => {
+    if (!contactDetails) return { name: '', phone: '' }
+    const parts = contactDetails.split(' - ')
+    if (parts.length >= 2 && parts[0] !== undefined) {
+      return { name: parts[0].trim(), phone: parts.slice(1).join(' - ').trim() }
+    }
+    return { name: contactDetails.trim(), phone: '' }
+  }
+
+  // Helper function to combine name and phone into contactDetails format
+  const combineContactDetails = (name: string, phone: string): string => {
+    const nameTrimmed = name.trim()
+    const phoneTrimmed = phone.trim()
+    if (nameTrimmed && phoneTrimmed) {
+      return `${nameTrimmed} - ${phoneTrimmed}`
+    }
+    if (nameTrimmed) return nameTrimmed
+    if (phoneTrimmed) return phoneTrimmed
+    return ''
+  }
+
   useEffect(() => {
     const initial = createInitialFormData()
     if (data?.workDetails) {
+      const contactDetails = data.workDetails.contactDetails || data.selectedService?.contactDetails || initial.contactDetails
+      const parsedContact = parseContactDetails(contactDetails)
+      setContactName(parsedContact.name)
+      setContactPhone(parsedContact.phone)
+
       reset({
         ...initial,
         ...data.workDetails,
-        // Override with selectedService values to ensure they take precedence
-        cinemaName: data.selectedService?.site || data.workDetails.cinemaName || initial.cinemaName,
+        // Override with selectedService values only if workDetails doesn't have them (user's saved changes take precedence)
+        cinemaName: data.workDetails.cinemaName || data.selectedService?.site || initial.cinemaName,
         // Use saved workDetails date if exists, otherwise use today's date (initial.date)
         date: data.workDetails.date || initial.date,
-        address: data.selectedService?.address || data.workDetails.address || initial.address,
-        contactDetails: data.selectedService?.contactDetails || data.workDetails.contactDetails || initial.contactDetails,
-        projectorModel: data.selectedService?.projectorModel || data.workDetails.projectorModel || initial.projectorModel,
-        projectorSerialNumber: data.selectedService?.projector || data.workDetails.projectorSerialNumber || initial.projectorSerialNumber,
-        screenNumber: data.selectedService?.screenNumber || data.workDetails.screenNumber || initial.screenNumber,
+        address: data.workDetails.address || data.selectedService?.address || initial.address,
+        contactDetails: contactDetails,
+        projectorModel: data.workDetails.projectorModel || data.selectedService?.projectorModel || initial.projectorModel,
+        projectorSerialNumber: data.workDetails.projectorSerialNumber || data.selectedService?.projector || initial.projectorSerialNumber,
+        screenNumber: data.workDetails.screenNumber || data.selectedService?.screenNumber || initial.screenNumber,
         issueNotes: data.workDetails.issueNotes || {},
         recommendedParts: data.workDetails.recommendedParts || [],
       })
@@ -495,30 +524,40 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       const savedFormData = localStorage.getItem(storageKey)
       if (savedFormData) {
         const parsed = JSON.parse(savedFormData)
+        const contactDetails = parsed.contactDetails || data.selectedService?.contactDetails || initial.contactDetails
+        const parsedContact = parseContactDetails(contactDetails)
+        setContactName(parsedContact.name)
+        setContactPhone(parsedContact.phone)
+
         reset({
           ...initial,
           ...parsed,
-          // Override with selectedService values to ensure they take precedence
-          cinemaName: data.selectedService?.site || parsed.cinemaName || initial.cinemaName,
+          // Override with selectedService values only if parsed doesn't have them (user's saved changes take precedence)
+          cinemaName: parsed.cinemaName || data.selectedService?.site || initial.cinemaName,
           // Use saved form date if exists, otherwise use today's date (initial.date)
           date: parsed.date || initial.date,
-          address: data.selectedService?.address || parsed.address || initial.address,
-          contactDetails: data.selectedService?.contactDetails || parsed.contactDetails || initial.contactDetails,
-          projectorModel: data.selectedService?.projectorModel || parsed.projectorModel || initial.projectorModel,
-          projectorSerialNumber: data.selectedService?.projector || parsed.projectorSerialNumber || initial.projectorSerialNumber,
-          screenNumber: data.selectedService?.screenNumber || parsed.screenNumber || initial.screenNumber,
+          address: parsed.address || data.selectedService?.address || initial.address,
+          contactDetails: contactDetails,
+          projectorModel: parsed.projectorModel || data.selectedService?.projectorModel || initial.projectorModel,
+          projectorSerialNumber: parsed.projectorSerialNumber || data.selectedService?.projector || initial.projectorSerialNumber,
+          screenNumber: parsed.screenNumber || data.selectedService?.screenNumber || initial.screenNumber,
           issueNotes: parsed.issueNotes || {},
           recommendedParts: parsed.recommendedParts || [],
         })
       } else {
         // No saved data, but we have service details - use today's date
+        const contactDetails = data.selectedService?.contactDetails || initial.contactDetails
+        const parsedContact = parseContactDetails(contactDetails)
+        setContactName(parsedContact.name)
+        setContactPhone(parsedContact.phone)
+
         reset({
           ...initial,
           cinemaName: data.selectedService?.site || initial.cinemaName,
           // Use today's date for new form entries
           date: initial.date,
           address: data.selectedService?.address || initial.address,
-          contactDetails: data.selectedService?.contactDetails || initial.contactDetails,
+          contactDetails: contactDetails,
           projectorModel: data.selectedService?.projectorModel || initial.projectorModel,
           projectorSerialNumber: data.selectedService?.projector || initial.projectorSerialNumber,
           screenNumber: data.selectedService?.screenNumber || initial.screenNumber,
@@ -542,14 +581,23 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     }
   }, [data, reset])
 
+  // Update contactDetails when contactName or contactPhone changes
+  useEffect(() => {
+    const combined = combineContactDetails(contactName, contactPhone)
+    setValue('contactDetails', combined, { shouldDirty: true })
+  }, [contactName, contactPhone, setValue])
+
   useEffect(() => {
     if (typeof window === 'undefined' || !data?.selectedService?.id) return
     const subscription = watch((value) => {
+      // Ensure contactDetails is updated with current split values before saving
+      const combined = combineContactDetails(contactName, contactPhone)
+      const updatedValue = { ...value, contactDetails: combined }
       const storageKey = `recordWorkFormData_${data.selectedService.id}`
-      localStorage.setItem(storageKey, JSON.stringify(value))
+      localStorage.setItem(storageKey, JSON.stringify(updatedValue))
     })
     return () => subscription.unsubscribe()
-  }, [watch, data?.selectedService?.id])
+  }, [watch, data?.selectedService?.id, contactName, contactPhone])
 
   // Pre-fill Software & Screen Information from last service record (already fetched with service data)
   useEffect(() => {
@@ -796,6 +844,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       return
     }
     reset(createInitialFormData())
+    setContactName('')
+    setContactPhone('')
     persistImages([], [], [])
     setImageError(null)
     if (typeof window !== 'undefined' && data?.selectedService?.id) {
@@ -895,6 +945,53 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           <div key={rowIdx} className={row.length > 1 && row[0]?.type !== 'textarea' ? "grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3" : ""}>
             {row.map((field) => {
               if (!field) return null
+
+              // Explicit handling for contactDetails - split into name and phone inputs
+              if (field.key === 'contactDetails') {
+                return (
+                  <FormField key={field.key} label={field.label} required={field.required}>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="text"
+                        value={contactName}
+                        onChange={(e) => {
+                          setContactName(e.target.value)
+                        }}
+                        placeholder="Mr. Name"
+                        className="border-2 border-black text-sm flex-1"
+                      />
+                      <span className="text-black font-semibold">-</span>
+                      <Input
+                        type="text"
+                        value={contactPhone}
+                        onChange={(e) => {
+                          setContactPhone(e.target.value)
+                        }}
+                        placeholder="Phone Number"
+                        className="border-2 border-black text-sm flex-1"
+                      />
+                    </div>
+                    {/* Hidden input to maintain form field registration */}
+                    <input type="hidden" {...register(field.key as keyof RecordWorkForm)} />
+                  </FormField>
+                )
+              }
+
+              // Explicit handling for exhaustCfm to ensure it's always a number input
+              // This must come before any other checks to override incorrect config
+              if (field.key === 'exhaustCfm') {
+                return (
+                  <FormField key={field.key} label={field.label} required={field.required}>
+                    <Input
+                      type="number"
+                      step="any"
+                      {...register(field.key as keyof RecordWorkForm)}
+                      placeholder={field.placeholder || "Enter exhaust CFM"}
+                      className="border-2 border-black text-sm"
+                    />
+                  </FormField>
+                )
+              }
 
               // Handle StatusSelectWithNote component type
               if (field.componentType === "statusSelectWithNote") {
@@ -1096,8 +1193,12 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       return
     }
 
+    // Ensure contactDetails is properly formatted before submission
+    const combinedContactDetails = combineContactDetails(contactName, contactPhone)
+
     const formattedValues = {
       ...values,
+      contactDetails: combinedContactDetails,
       exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/s` : '',
     }
 
