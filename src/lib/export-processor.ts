@@ -527,6 +527,9 @@ function flattenRecord(record: any): Record<string, any> {
     location: record.location || "",
     projectorSerial: record.projector?.serialNo || "",
     projectorModel: record.projector?.modelNo || "",
+    projectorState: record.projector?.state || "",
+    projectorRegion: record.projector?.region || "",
+    projectorPvr: record.projector?.pvr || "",
     engineerName: record.assignedTo?.name || "",
     engineerEmail: record.assignedTo?.email || "",
     address: record.address || record.site?.address || "",
@@ -604,6 +607,9 @@ function flattenRecord(record: any): Record<string, any> {
 
 // Column priority order matching overview-view.tsx table order
 const COLUMN_PRIORITY = [
+  "projectorState",
+  "projectorRegion",
+  "projectorPvr",
   "date",
   "serviceNumber",
   "siteName",

@@ -11,9 +11,9 @@ CFM value for CP2230 , CP4230 = LOWER 8.8 - 9.5 GREATER HIGH
 4) if fse write in white coloum it should also write in black and vise versa
 
 
-Change name of PDF Site_Code_address_SC#screen-no_serialnumber_servicevisit
+Change name of PDF Site_Code_address_SC#screen-no_serialnumber_servicevisit -- done
 
-Excel export date are not managed. (Date format change)
+Excel export date are not managed. (Date format change) -- [Pending]
 
 Projector region should be coming in table coloum when we select 
 
@@ -21,7 +21,9 @@ Need to Yes Types option for better form handling (Status select with notes with
 
 In form contact details coloum should visible like name.(Mr._________ - ________________)
 
-authentication issue
+authentication issue - [P]
+
+cfm, solarized
 
 
       const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9-_#]/g, "_");
