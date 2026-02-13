@@ -4,6 +4,7 @@ import { put } from "@vercel/blob";
 import ExcelJS from "exceljs";
 import { generateMaintenanceReport, type MaintenanceReportData, convertServiceVisitToText } from "@/components/PDFGenerator";
 import { sendEmail } from "./email";
+import { uploadPdfsToDrive } from "./google-drive";
 
 const CHUNK_SIZE = 50;
 
@@ -212,7 +213,7 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
   };
 }
 
-async function generateAndUploadPdf(service: any): Promise<string> {
+async function generateAndUploadPdf(service: any): Promise<{ url: string; buffer: Buffer }> {
   const pdfData = buildPdfDataFromService(service);
   const pdfBytes = await generateMaintenanceReport(pdfData);
   const pdfBuffer = Buffer.from(pdfBytes);
@@ -223,7 +224,7 @@ async function generateAndUploadPdf(service: any): Promise<string> {
     contentType: "application/pdf",
   });
 
-  return blob.url;
+  return { url: blob.url, buffer: pdfBuffer };
 }
 
 async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
@@ -808,6 +809,7 @@ export async function processExportJob(
   console.log(`📋 Exporting ${columnHeaders.length} columns`);
 
   const pdfUrls: Map<string, string> = new Map();
+  const pdfArtifacts: Array<{ id: string; url: string; buffer: Buffer }> = [];
   const totalChunks = Math.ceil(records.length / CHUNK_SIZE);
   const pdfProgressStart = 10;
   const pdfProgressEnd = 70;
@@ -823,17 +825,20 @@ export async function processExportJob(
 
     const pdfPromises = chunk.map(async (record) => {
       try {
-        const pdfUrl = await generateAndUploadPdf(record);
-        return { id: record.id, url: pdfUrl };
+        const { url, buffer } = await generateAndUploadPdf(record);
+        return { id: record.id, url, buffer };
       } catch (error) {
         console.error(`Failed to generate PDF for record ${record.id}:`, error);
-        return { id: record.id, url: "" };
+        return null;
       }
     });
 
     const results = await Promise.all(pdfPromises);
-    results.forEach(({ id, url }) => {
-      if (url) pdfUrls.set(id, url);
+    results.forEach((result) => {
+      if (result) {
+        pdfUrls.set(result.id, result.url);
+        pdfArtifacts.push(result);
+      }
     });
   }
 
@@ -917,6 +922,48 @@ export async function processExportJob(
 
   console.log(`✅ Excel file uploaded: ${excelBlob.url}`);
 
+  // Upload PDFs to Google Drive
+  await updateProgress(80, "Uploading PDFs to Google Drive...");
+  console.log(`📤 Uploading ${pdfUrls.size} PDFs to Google Drive...`);
+  
+  let driveFolderLink: string | null = null;
+  
+  try {
+    const folderName = `Service Records Export - ${new Date().toLocaleString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })}`;
+    
+    const pdfsToUpload = pdfArtifacts.map(({ id, url, buffer }) => {
+      const record = records.find(r => r.id === id);
+      const serviceNumber = record?.serviceNumber || id;
+      const serialNo = record?.projector?.serialNo || 'unknown';
+      return {
+        url,
+        buffer,
+        fileName: `${serialNo}_Service_${serviceNumber}.pdf`
+      };
+    });
+
+    driveFolderLink = await uploadPdfsToDrive(
+      pdfsToUpload,
+      folderName,
+      (current, total) => {
+        const progress = 80 + Math.floor((current / total) * 10);
+        updateProgress(progress, `Uploading PDFs to Drive (${current}/${total})...`);
+      }
+    );
+
+    console.log(`✅ PDFs uploaded to Google Drive: ${driveFolderLink}`);
+  } catch (driveError) {
+    console.error(`❌ Failed to upload PDFs to Google Drive:`, driveError);
+    console.error("Drive error details:", driveError instanceof Error ? driveError.message : String(driveError));
+    // Continue with email even if Drive upload fails
+  }
+
   await updateProgress(90, "Sending email notification...");
   console.log(`📧 Sending email notification to ${jobData.email}...`);
 
@@ -930,15 +977,37 @@ export async function processExportJob(
           <p>Your export is ready!</p>
           <p><strong>Total Records:</strong> ${records.length}</p>
           <p><strong>PDFs Generated:</strong> ${pdfUrls.size}</p>
-          <p style="margin-top: 30px;">
-            <a href="${excelBlob.url}" 
-               style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Download Excel File
-            </a>
-          </p>
-          <p style="color: #666; font-size: 12px; margin-top: 30px;">
-            The Excel file contains all the data plus links to individual PDF reports for each service record.
-          </p>
+          
+          <div style="margin-top: 30px;">
+            <p style="margin-bottom: 15px;"><strong>Download Options:</strong></p>
+            
+            <!-- Excel Download Button -->
+            <p style="margin-bottom: 15px;">
+              <a href="${excelBlob.url}" 
+                 style="background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                📊 Download Excel File
+              </a>
+            </p>
+            
+            ${driveFolderLink ? `
+            <!-- Google Drive Link -->
+            <p style="margin-bottom: 15px;">
+              <a href="${driveFolderLink}" 
+                 style="background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                📁 View All PDFs in Google Drive
+              </a>
+            </p>
+            ` : ''}
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 30px;">
+            <p style="color: #666; font-size: 12px; margin: 0;">
+              <strong>What's included:</strong><br>
+              • Excel file contains all service record data with PDF links<br>
+              ${driveFolderLink ? '• Google Drive folder contains all PDF reports for easy access and sharing<br>' : ''}
+              • Individual PDFs are also linked in the Excel file
+            </p>
+          </div>
         </div>
       `,
     });
@@ -954,5 +1023,6 @@ export async function processExportJob(
     fileUrl: excelBlob.url,
     fileName: excelFileName,
     totalRecords: records.length,
+    driveFolderLink: driveFolderLink || undefined,
   };
 }

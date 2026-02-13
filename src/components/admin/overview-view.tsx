@@ -2819,18 +2819,37 @@ function ExportJobsHistoryDialog({
                           ? job.totalRecords
                           : (job.result?.totalRecords ?? "N/A")}
                       </div>
-                      {job.result?.fileUrl &&
-                        job.result.fileUrl.startsWith("http") && (
+                      <div className="flex flex-col gap-2">
+                        {job.result?.fileUrl &&
+                          job.result.fileUrl.startsWith("http") && (
+                            <a
+                              href={job.result.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 text-sm text-green-600 hover:text-green-800 hover:underline font-medium"
+                            >
+                              <Download className="h-4 w-4" />
+                              Download Excel File
+                            </a>
+                          )}
+                        {job.result?.driveFolderLink && (
                           <a
-                            href={job.result.fileUrl}
+                            href={job.result.driveFolderLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                            className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium"
                           >
-                            <Download className="h-4 w-4" />
-                            Download Excel File
+                            <svg
+                              className="h-4 w-4"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M7.71 3.5L1.15 15l3.58 6.5L11.29 10l-3.58-6.5zM2.73 15l5.01-8.5 2.58 4.5-5.01 8.5L2.73 15zm6.86 0L15.6 3.5l3.58 6.5L13.17 21.5 9.59 15zm6.01-8.5L10.59 15l2.58 4.5 5.01-8.5-2.58-4.5z" />
+                            </svg>
+                            View PDFs in Google Drive
                           </a>
                         )}
+                      </div>
                       {job.result?.fileUrl &&
                         !job.result.fileUrl.startsWith("http") && (
                           <div className="text-xs text-red-600">

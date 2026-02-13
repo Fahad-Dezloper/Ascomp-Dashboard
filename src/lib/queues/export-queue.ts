@@ -28,6 +28,7 @@ export interface ExportJobResult {
   fileUrl: string;
   fileName: string;
   totalRecords: number;
+  driveFolderLink?: string;
 }
 
 const redisUrl = process.env.REDIS_URL as string;
