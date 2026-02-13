@@ -71,6 +71,7 @@
     "dotenv": "^17.2.3",
     "embla-carousel-react": "8.5.1",
     "exceljs": "^4.4.0",
+    "google-auth-library": "^10.5.0",
     "googleapis": "^171.4.0",
     "input-otp": "1.4.1",
     "ioredis": "^5.4.1",

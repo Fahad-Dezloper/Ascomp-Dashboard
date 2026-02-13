@@ -1,44 +1,33 @@
 Add Logs option in Form (below image on engineer form , 
 upload to cloud , schema update , update all place where form data is showing.) — done
 
-Export of the report are need to correct (PDF + E-Mail), show columns filter that are being exported.
+Export of the report are need to correct (PDF + E-Mail), show columns filter that are being exported. -- done
 
 Logic for prevent conflict of projector running hour & lamp running hours 
-1) projector running hours always greater & not equal then lamp total running hours 
-2) CFM value for CP2220 , 4220 = LOWER 6.6 - 7.3 GREATER HIGH
-CFM value for CP2230 , CP4230 = LOWER 8.8 - 9.5 GREATER HIGH
-3) FL Valueless then 10 is low 
+1) projector running hours always greater & not equal then lamp total running hours -- done
+2) CFM value for CP2220 , CP4220 = LOWER 6.6 - 7.3 GREATER HIGH -- done
+CFM value for CP2230 , CP4230 = LOWER 8.8 - 9.5 GREATER HIGH -- done
+3) FL Value less then 10 is low  -- done
 4) if fse write in white coloum it should also write in black and vise versa
 
 
 Change name of PDF Site_Code_address_SC#screen-no_serialnumber_servicevisit -- done
 
-Excel export date are not managed. (Date format change) -- [Pending]
+Excel export date are not managed. (Date format change) -- done
 
-Projector region should be coming in table coloum when we select 
+Projector region should be coming in table coloum when we select -- done
 
 Need to Yes Types option for better form handling (Status select with notes with more option)
 
-In form contact details coloum should visible like name.(Mr._________ - ________________)
-
-authentication issue - [P]
-
-cfm, solarized
+In form contact details coloum should visible like name.(Mr._________ - ________________) -- done
 
 
-      const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9-_#]/g, "_");
-      console.log("serviceData", serviceData);
-      const siteCode =
-        serviceData?.site?.siteCode || serviceData?.siteCode || "NA";
-      const address =
-        serviceData?.address || serviceData?.site?.address || "NA";
-      const screenNo = serviceData?.screenNumber || "NA";
-      const serialNo =
-        serviceData?.projector?.serialNo ||
-        serviceData?.projectorSerial ||
-        "NA";
-      const serviceVisit = serviceData?.serviceNumber || "NA";
 
-      link.download = `${sanitize(String(siteCode))}_${sanitize(String(address))}_SC#${sanitize(String(screenNo))}_${sanitize(String(serialNo))}_${sanitize(String(serviceVisit))}.pdf`;
+// pending
+4) if fse write in white coloum it should also write in black and vise versa
+Need to Yes Types option for better form handling (Status select with notes with more option)
+drive bulk pdf of filters -- done
+authentication issue
+email bug update -- done
 
 
