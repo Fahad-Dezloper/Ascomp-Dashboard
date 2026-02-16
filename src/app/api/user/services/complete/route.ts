@@ -145,55 +145,6 @@ export async function POST(request: NextRequest) {
       'pixelDefectsNote', 'imageVibrationNote', 'litelocNote'
     ])
 
-    // Status fields that should NEVER contain note-like patterns
-    // These fields should only contain dropdown values like "OK (Part is Ok)", "YES (Needs Replacement)", "Concern"
-    const statusFields = new Set([
-      'reflector', 'uvFilter', 'integratorRod', 'coldMirror', 'foldMirror',
-      'touchPanel', 'evbBoard', 'ImcbBoard', 'pibBoard', 'IcpBoard', 'imbSBoard',
-      'serialNumberVerified', 'AirIntakeLadRad', 'coolantLevelColor',
-      'lightEngineWhite', 'lightEngineRed', 'lightEngineGreen', 'lightEngineBlue', 'lightEngineBlack',
-      'acBlowerVane', 'extractorVane', 'lightEngineFans', 'cardCageFans',
-      'radiatorFanPump', 'pumpConnectorHose', 'securityLampHouseLock', 'lampLocMechanism',
-      'focusBoresight', 'integratorPosition', 'spotsOnScreen',
-      'screenCropping', 'convergence', 'channelsChecked',
-      'pixelDefects', 'imageVibration', 'liteloc', 'leStatus', 'acStatus'
-    ])
-
-    // Known valid status values (the part before any " - ")
-    const validStatusPrefixes = [
-      'OK', 'YES', 'Concern', 'Working', 'Not Working', 'Not Available',
-      'Removed', 'Not removed', 'OK (Part is Ok)', 'YES (Needs Replacement)'
-    ]
-
-    // Sanitize status field value - removes any note-like patterns
-    // e.g., "Concern - Red colour on screen" → "Concern"
-    // e.g., "YES (Needs Replacement) - some note" → "YES (Needs Replacement)"
-    const sanitizeStatusValue = (value: string): string => {
-      if (!value || typeof value !== 'string') return value
-
-      // Check if the value contains " - " which indicates note was incorrectly appended
-      const separatorIndex = value.indexOf(' - ')
-      if (separatorIndex === -1) return value // No separator, value is clean
-
-      // Extract the part before " - "
-      const statusPart = value.substring(0, separatorIndex).trim()
-
-      // Check if the extracted part looks like a valid status
-      const isValidStatus = validStatusPrefixes.some(prefix =>
-        statusPart === prefix || statusPart.startsWith(prefix)
-      )
-
-      if (isValidStatus) {
-        // Return just the status part, removing the note
-        return statusPart
-      }
-
-      // If we can't identify a valid status prefix, return original
-      // (this handles edge cases where "-" might be part of a legitimate value)
-      return value
-    }
-
-    // Map legacy/mismatched form fields to DB schema fields
     if (workDetails) {
       if (workDetails.screenCroppingOk !== undefined) workDetails.screenCropping = workDetails.screenCroppingOk
       if (workDetails.screenCroppingOkNote !== undefined) workDetails.screenCroppingNote = workDetails.screenCroppingOkNote
@@ -204,12 +155,8 @@ export async function POST(request: NextRequest) {
       if (workDetails.channelsCheckedOk !== undefined) workDetails.channelsChecked = workDetails.channelsCheckedOk
       if (workDetails.channelsCheckedOkNote !== undefined) workDetails.channelsCheckedNote = workDetails.channelsCheckedOkNote
 
-      // Sanitize all status fields to remove any accidentally appended note text
-      statusFields.forEach(field => {
-        if (workDetails[field] && typeof workDetails[field] === 'string') {
-          workDetails[field] = sanitizeStatusValue(workDetails[field])
-        }
-      })
+      // Note: Status fields may contain sub-option values in "STATUS - SubOption" format
+      // (e.g., "YES - Solarized"). Do not sanitize these as the sub-option data is intentional.
     }
 
 

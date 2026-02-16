@@ -9,6 +9,8 @@ export type FieldConfig = {
   required?: boolean
   placeholder?: string
   options?: string[]
+  subOptions?: Record<string, string[]>
+  subOptionsInput?: Record<string, boolean>
   section?: string
   defaultValue?: string
   min?: number

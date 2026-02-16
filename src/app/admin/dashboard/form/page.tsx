@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
 import { Plus, Trash2, Save, RefreshCw } from "lucide-react"
+import { FormFieldConfigCard } from "@/components/admin/form-field-config-card"
 import { toast } from "sonner"
 
 type FieldType = "text" | "number" | "date" | "textarea" | "select" | "checkbox"
@@ -24,15 +24,12 @@ type FieldConfig = {
   required?: boolean
   placeholder?: string
   options?: string[]
+  subOptions?: Record<string, string[]>
+  subOptionsInput?: Record<string, boolean>
   section?: string
   defaultValue?: string
   min?: number
   max?: number
-  componentType?: "statusSelectWithNote"
-  noteOptions?: string[]
-  noteDefault?: string
-  issueValues?: string[]
-  optionDescriptions?: Record<string, string>
 }
 
 type ProjectorPart = {
@@ -67,7 +64,6 @@ const FORM_SECTIONS = [
 
 const getInitialFieldConfigs = (): FieldConfig[] => {
   return [
-    // Cinema Details
     { key: "cinemaName", label: "Cinema Name", type: "text", required: true, section: "Cinema Details" },
     { key: "date", label: "Date", type: "date", required: true, section: "Cinema Details" },
     { key: "address", label: "Address", type: "textarea", required: true, section: "Cinema Details" },
@@ -80,24 +76,20 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
       section: "Cinema Details",
       options: ["1", "2", "3", "4", "5", "6", "special"],
     },
-    // Projector Information
     { key: "projectorModel", label: "Projector Model", type: "text", required: true, section: "Projector Information" },
     { key: "projectorSerialNumber", label: "Serial Number", type: "text", required: true, section: "Projector Information" },
     { key: "projectorRunningHours", label: "Running Hours", type: "number", required: true, section: "Projector Information" },
-    // Opticals
     { key: "reflector", label: "Reflector", type: "select", section: "Opticals", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "uvFilter", label: "UV Filter", type: "select", section: "Opticals", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "integratorRod", label: "Integrator Rod", type: "select", section: "Opticals", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "coldMirror", label: "Cold Mirror", type: "select", section: "Opticals", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "foldMirror", label: "Fold Mirror", type: "select", section: "Opticals", options: ["OK", "YES"], defaultValue: "OK" },
-    // Electronics
     { key: "touchPanel", label: "Touch Panel", type: "select", section: "Electronics", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "evbBoard", label: "EVB Board", type: "select", section: "Electronics", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "ImcbBoard", label: "IMCB Board", type: "select", section: "Electronics", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "pibBoard", label: "PIB Board", type: "select", section: "Electronics", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "IcpBoard", label: "ICP Board", type: "select", section: "Electronics", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "imbSBoard", label: "IMB/S Board", type: "select", section: "Electronics", options: ["OK", "YES"], defaultValue: "OK" },
-    // Mechanical
     { key: "acBlowerVane", label: "AC Blower Vane", type: "select", section: "Mechanical", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "extractorVane", label: "Extractor Vane", type: "select", section: "Mechanical", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "lightEngineFans", label: "Light Engine Fans", type: "select", section: "Mechanical", options: ["OK", "YES"], defaultValue: "OK" },
@@ -108,7 +100,6 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
     { key: "lampLocMechanism", label: "Lamp LOC Mechanism", type: "select", section: "Mechanical", options: ["OK", "YES"], defaultValue: "OK" },
     { key: "exhaustCfm", label: "Exhaust CFM (M/s)", type: "number", section: "Mechanical" },
     { key: "projectorPlacementEnvironment", label: "Projector Placement & Environment", type: "textarea", section: "Mechanical" },
-    // Software & Screen Information
     { key: "softwareVersion", label: "Software Version", type: "select", section: "Software & Screen Information" },
     { key: "screenHeight", label: "Screen Height (m)", type: "number", section: "Software & Screen Information" },
     { key: "screenWidth", label: "Screen Width (m)", type: "number", section: "Software & Screen Information" },
@@ -117,22 +108,17 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
     { key: "screenGain", label: "Screen Gain", type: "number", section: "Software & Screen Information" },
     { key: "screenMake", label: "Screen Make", type: "text", section: "Software & Screen Information" },
     { key: "throwDistance", label: "Throw Distance (m)", type: "number", section: "Software & Screen Information" },
-    // Lamp Information
     { key: "lampMakeModel", label: "Lamp Make & Model", type: "select", section: "Lamp Information" },
     { key: "lampTotalRunningHours", label: "Total Running Hours", type: "number", section: "Lamp Information" },
     { key: "lampCurrentRunningHours", label: "Current Running Hours", type: "number", section: "Lamp Information" },
-    // Voltage Parameters
     { key: "pvVsN", label: "P vs N", type: "number", section: "Voltage Parameters" },
     { key: "pvVsE", label: "P vs E", type: "number", section: "Voltage Parameters" },
     { key: "nvVsE", label: "N vs E", type: "number", section: "Voltage Parameters" },
-    // fL Measurements
     { key: "flLeft", label: "Before", type: "number", section: "fL Measurements" },
     { key: "flRight", label: "After", type: "number", section: "fL Measurements" },
-    // Content Player & AC Status
     { key: "contentPlayerModel", label: "Content Player Model", type: "select", section: "Content Player & AC Status" },
     { key: "acStatus", label: "AC Status", type: "select", section: "Content Player & AC Status", options: ["Working", "Not Working", "Not Available"] },
     { key: "leStatus", label: "LE Status", type: "select", section: "Content Player & AC Status", options: ["Removed", "Not removed – Good fL", "Not removed – De-bonded"] },
-    // Image Evaluation
     { key: "focusBoresight", label: "Focus/Boresight OK", type: "select", section: "Image Evaluation", options: ["OK", "YES"] },
     { key: "integratorPosition", label: "Integrator Position OK", type: "select", section: "Image Evaluation", options: ["OK", "YES"] },
     { key: "spotsOnScreen", label: "Spots on Screen OK", type: "select", section: "Image Evaluation", options: ["OK", "YES"] },
@@ -142,7 +128,6 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
     { key: "pixelDefects", label: "Pixel Defects", type: "select", section: "Image Evaluation", options: ["OK", "YES"] },
     { key: "imageVibration", label: "Image Vibration", type: "select", section: "Image Evaluation", options: ["OK", "YES"] },
     { key: "liteloc", label: "LiteLOC Status", type: "select", section: "Image Evaluation", options: ["OK", "YES"] },
-    // Air Pollution Data
     { key: "hcho", label: "HCHO", type: "number", section: "Air Pollution Data" },
     { key: "tvoc", label: "TVOC", type: "number", section: "Air Pollution Data" },
     { key: "pm1", label: "PM1", type: "number", section: "Air Pollution Data" },
@@ -151,7 +136,6 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
     { key: "temperature", label: "Temperature (°C)", type: "number", section: "Air Pollution Data" },
     { key: "humidity", label: "Humidity (%)", type: "number", section: "Air Pollution Data" },
     { key: "airPollutionLevel", label: "Air Pollution Level", type: "text", section: "Air Pollution Data" },
-    // Remarks
     { key: "remarks", label: "Remarks", type: "textarea", section: "Remarks" },
     { key: "lightEngineSerialNumber", label: "Light Engine Serial Number", type: "text", section: "Remarks" },
   ]
@@ -160,8 +144,9 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
 export default function FormBuilderPage() {
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(getInitialFieldConfigs())
   const [newOption, setNewOption] = useState<Record<string, string>>({})
-  
-  // Data file management
+  const [newSubOption, setNewSubOption] = useState<Record<string, string>>({})
+  const [expandedSubOptions, setExpandedSubOptions] = useState<Set<string>>(new Set())
+
   const [contentPlayers, setContentPlayers] = useState<string[]>([])
   const [lampModelsData, setLampModelsData] = useState<Array<{ projector_model: string; Models: string[] }>>([])
   const [softwareVersions, setSoftwareVersions] = useState<string[]>([])
@@ -172,8 +157,7 @@ export default function FormBuilderPage() {
   const [newProjectorModel, setNewProjectorModel] = useState("")
   
   const [selectedProjectorIndex, setSelectedProjectorIndex] = useState<number | null>(null)
-  
-  // Projector Parts State
+
   const [selectedPartsProjector, setSelectedPartsProjector] = useState<string | null>(null)
   const [newPartValue, setNewPartValue] = useState<{ part_number: string; description: string }>({ part_number: "", description: "" })
   const [newPartsProjectorModel, setNewPartsProjectorModel] = useState("")
@@ -197,7 +181,6 @@ export default function FormBuilderPage() {
     loadConfig()
   }, [])
 
-  // Load data files
   useEffect(() => {
     const loadDataFiles = async () => {
       setLoadingDataFiles(true)
@@ -236,7 +219,6 @@ export default function FormBuilderPage() {
 
         if (projectorRes.ok) {
           const data = await projectorRes.json()
-          // Ensure data is ProjectorPart[]
           setProjectorPartsData(data.data || [])
         } else {
            const errorText = await projectorRes.text()
@@ -251,29 +233,22 @@ export default function FormBuilderPage() {
     loadDataFiles()
   }, [])
 
-  // Derived unique projector models for parts
   const uniquePartsModels = Array.from(new Set(projectorPartsData.map(p => p.projector_model))).filter(Boolean).sort()
-  
-  // Set default selected parts projector if available
+
   useEffect(() => {
     if (uniquePartsModels.length > 0 && selectedPartsProjector === null) {
       setSelectedPartsProjector(uniquePartsModels[0] as string)
     }
   }, [uniquePartsModels, selectedPartsProjector])
 
-  // Set default selected projector and reset if invalid
   useEffect(() => {
     if (lampModelsData.length > 0) {
-      // If no projector is selected, select the first one
       if (selectedProjectorIndex === null) {
         setSelectedProjectorIndex(0)
-      }
-      // If selected index is invalid, reset to first one
-      else if (selectedProjectorIndex < 0 || selectedProjectorIndex >= lampModelsData.length) {
+      } else if (selectedProjectorIndex < 0 || selectedProjectorIndex >= lampModelsData.length) {
         setSelectedProjectorIndex(0)
       }
     } else {
-      // No projectors available, reset selection
       setSelectedProjectorIndex(null)
     }
   }, [lampModelsData, selectedProjectorIndex])
@@ -329,12 +304,71 @@ export default function FormBuilderPage() {
     const field = fieldConfigs.find((f) => f.key === fieldKey)
     if (!field?.options) return
 
+    const removedOption = field.options[optionIndex]
+    const newOptions = field.options.filter((_, i) => i !== optionIndex)
+    const currentSubOptions = { ...(field.subOptions || {}) }
+    const currentSubOptionsInput = { ...(field.subOptionsInput || {}) }
+    if (removedOption) {
+      delete currentSubOptions[removedOption]
+      delete currentSubOptionsInput[removedOption]
+    }
+
     updateField(fieldKey, {
-      options: field.options.filter((_, i) => i !== optionIndex),
+      options: newOptions,
+      subOptions: Object.keys(currentSubOptions).length > 0 ? currentSubOptions : undefined,
+      subOptionsInput: Object.keys(currentSubOptionsInput).length > 0 ? currentSubOptionsInput : undefined,
     })
   }
 
-  // Data file management functions
+  const toggleSubOptionExpand = (fieldKey: string, option: string) => {
+    const key = `${fieldKey}:${option}`
+    setExpandedSubOptions((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(key)) {
+        newSet.delete(key)
+      } else {
+        newSet.add(key)
+      }
+      return newSet
+    })
+  }
+
+  const addSubOption = (fieldKey: string, parentOption: string) => {
+    const compositeKey = `${fieldKey}:${parentOption}`
+    const subOption = newSubOption[compositeKey]?.trim()
+    if (!subOption) return
+
+    const field = fieldConfigs.find((f) => f.key === fieldKey)
+    const currentSubOptions = field?.subOptions || {}
+    const parentSubOptions = currentSubOptions[parentOption] || []
+
+    updateField(fieldKey, {
+      subOptions: {
+        ...currentSubOptions,
+        [parentOption]: [...parentSubOptions, subOption],
+      },
+    })
+
+    setNewSubOption((prev) => ({ ...prev, [compositeKey]: "" }))
+  }
+
+  const removeSubOption = (fieldKey: string, parentOption: string, subIdx: number) => {
+    const field = fieldConfigs.find((f) => f.key === fieldKey)
+    const currentSubOptions = { ...(field?.subOptions || {}) }
+    const parentSubOptions = currentSubOptions[parentOption] || []
+
+    const newParentSubOptions = parentSubOptions.filter((_, i) => i !== subIdx)
+    if (newParentSubOptions.length === 0) {
+      delete currentSubOptions[parentOption]
+    } else {
+      currentSubOptions[parentOption] = newParentSubOptions
+    }
+
+    updateField(fieldKey, {
+      subOptions: Object.keys(currentSubOptions).length > 0 ? currentSubOptions : undefined,
+    })
+  }
+
   const saveDataFile = async (fileType: "content-player" | "lamp-models" | "software" | "projector", values: any, silent = false) => {
     try {
       let bodyData: any = {}
@@ -358,8 +392,6 @@ export default function FormBuilderPage() {
         if (!silent) {
           toast.success(`Saved ${result.saved} ${fileType.replace('-', ' ')} items`)
         }
-        
-        // Update local state
         if (fileType === "content-player") setContentPlayers(values as string[])
         if (fileType === "lamp-models") setLampModelsData(values as Array<{ projector_model: string; Models: string[] }>)
         if (fileType === "software") setSoftwareVersions(values as string[])
@@ -407,7 +439,6 @@ export default function FormBuilderPage() {
   }
 
   const updateDataValue = (fileType: "content-player" | "lamp-models" | "software", index: number, newValue: string) => {
-    // Update local state immediately for UI responsiveness
     if (fileType === "content-player") {
       const updated = [...contentPlayers]
       updated[index] = newValue
@@ -421,13 +452,12 @@ export default function FormBuilderPage() {
 
   const saveDataValueOnBlur = (fileType: "content-player" | "lamp-models" | "software") => {
     if (fileType === "content-player") {
-      saveDataFile(fileType, contentPlayers, true) // silent
+      saveDataFile(fileType, contentPlayers, true)
     } else if (fileType === "software") {
-      saveDataFile(fileType, softwareVersions, true) // silent
+      saveDataFile(fileType, softwareVersions, true)
     }
   }
 
-  // Projector Parts Management
   const addProjectorPart = () => {
     if (!selectedPartsProjector || !newPartValue.part_number || !newPartValue.description) return
     const newPart: ProjectorPart = {
@@ -436,7 +466,7 @@ export default function FormBuilderPage() {
       description: newPartValue.description.trim()
     }
     const updated = [...projectorPartsData, newPart]
-    saveDataFile("projector", updated) // Autosave
+    saveDataFile("projector", updated)
     setNewPartValue({ part_number: "", description: "" })
   }
 
@@ -460,13 +490,11 @@ export default function FormBuilderPage() {
   }
 
   const saveProjectorPartsOnBlur = () => {
-    saveDataFile("projector", projectorPartsData, true) // silent
+    saveDataFile("projector", projectorPartsData, true)
   }
 
   const addNewPartsProjectorModel = () => {
     if (!newPartsProjectorModel.trim()) return
-    // Since parts list is flat, we don't really 'create' a model until we add a part.
-    // Ideally we switch selection to this new model so user can add parts.
     setSelectedPartsProjector(newPartsProjectorModel.trim())
     setNewPartsProjectorModel("")
   }
@@ -480,7 +508,6 @@ export default function FormBuilderPage() {
     }
   }
 
-  // Lamp models specific functions
   const addLampModel = (projectorModelIndex: number) => {
     const value = newLampModelValue[projectorModelIndex]?.trim()
     if (!value) return
@@ -520,7 +547,7 @@ export default function FormBuilderPage() {
   }
 
   const saveLampModelOnBlur = () => {
-    saveDataFile("lamp-models", lampModelsData, true) // silent
+    saveDataFile("lamp-models", lampModelsData, true)
   }
 
   const addProjectorModel = () => {
@@ -529,7 +556,7 @@ export default function FormBuilderPage() {
 
     const updated = [...lampModelsData, { projector_model: projectorModel, Models: [] }]
     saveDataFile("lamp-models", updated)
-    setSelectedProjectorIndex(updated.length - 1) // Select the newly added projector
+    setSelectedProjectorIndex(updated.length - 1)
     setNewProjectorModel("")
   }
 
@@ -557,7 +584,6 @@ export default function FormBuilderPage() {
     return acc
   }, {} as Record<string, FieldConfig[]>)
 
-  // Map sections to their associated data file types
   const sectionDataFileMap: Record<string, "content-player" | "lamp-models" | "software" | "projector" | null> = {
     "Lamp Information": "lamp-models",
     "Software & Screen Information": "software",
@@ -565,489 +591,158 @@ export default function FormBuilderPage() {
     "Recommended Parts": "projector",
   }
 
+  const selectTriggerClass = "h-7 text-xs font-medium rounded-md border-border/70 bg-muted/30 hover:bg-muted/50"
+  const selectContentClass = "rounded-lg border-border/80 shadow-lg py-1"
+  const inputCompact = "px-2 py-0.5"
+
+  const handleOptionRename = (fieldKey: string, oldOption: string, newOption: string) => {
+    const oldKey = `${fieldKey}:${oldOption}`
+    const newKey = `${fieldKey}:${newOption}`
+    if (expandedSubOptions.has(oldKey)) {
+      setExpandedSubOptions((prev) => {
+        const next = new Set(prev)
+        next.delete(oldKey)
+        next.add(newKey)
+        return next
+      })
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 w-full">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+    <div className="min-h-screen bg-muted/20 p-4 md:p-6 w-full">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex items-center justify-between mb-5 pb-3 border-b border-border/60">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Form Builder</h1>
-            <p className="text-sm text-muted-foreground mt-1">Customize form fields, types, and dropdown options</p>
+            <h1 className="text-lg font-semibold text-foreground">Form Builder</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">Customize form fields and dropdown options</p>
           </div>
-          <Button onClick={saveConfig} size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-4 text-sm">
-            <Save className="h-3.5 w-3.5 mr-2" />
-            Save Configuration
+          <Button onClick={saveConfig} size="sm" className="h-8 px-3 text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">
+            <Save className="h-3 w-3 mr-1.5" />
+            Save
           </Button>
         </div>
 
-        {/* Form Sections */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {FORM_SECTIONS.map((section) => {
             const fields = fieldsBySection[section] || []
             if (fields.length === 0) return null
             const associatedDataFile = sectionDataFileMap[section]
 
             return (
-              <Card key={section} className="border border-border bg-white shadow-sm">
-                <CardHeader className="py-3 px-4 border-b border-border bg-muted/30">
+              <div key={section} className="border  border-border/60 bg-card shadow-sm rounded-lg overflow-hidden">
+                <div className="py-2.5 px-4 border-b border-border/50 bg-muted/20">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold text-foreground">{section}</CardTitle>
+                    <div className="font-semibold text-foreground tracking-tight">{section}</div>
                     {associatedDataFile && (
-                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                        Has Data File
+                      <span className="text-[10px] text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-md">
+                        Data file
                       </span>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
+                </div>
+                <CardContent className="p-2.5">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {fields.map((field) => (
-                    <div key={field.key} className="border border-border rounded-md p-4 bg-background hover:bg-muted/20 transition-colors">
-                      {/* Field Header Row */}
-                      <div className="flex items-center justify-between gap-4 mb-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-base font-medium text-foreground truncate">{field.label}</span>
-                            {field.required && <span className="text-xs text-red-500 font-medium">Required</span>}
-                          </div>
-                          <p className="text-xs text-muted-foreground font-mono">key: {field.key}</p>
-                        </div>
-                        <Select
-                          value={field.type}
-                          onValueChange={(value) => updateField(field.key, { type: value as FieldType })}
-                        >
-                          <SelectTrigger className="w-36 h-9 text-sm border-border">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="text" className="text-sm">Text</SelectItem>
-                            <SelectItem value="number" className="text-sm">Number</SelectItem>
-                            <SelectItem value="date" className="text-sm">Date</SelectItem>
-                            <SelectItem value="textarea" className="text-sm">Textarea</SelectItem>
-                            <SelectItem value="select" className="text-sm">Dropdown</SelectItem>
-                            <SelectItem value="checkbox" className="text-sm">Checkbox</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Field Settings Row */}
-                      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border/50">
-                        <div>
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Label</Label>
-                          <Input
-                            value={field.label}
-                            onChange={(e) => updateField(field.key, { label: e.target.value })}
-                            className="h-9 text-sm border-border mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Placeholder</Label>
-                          <Input
-                            value={field.placeholder || ""}
-                            onChange={(e) => updateField(field.key, { placeholder: e.target.value })}
-                            className="h-9 text-sm border-border mt-1"
-                            placeholder="Optional"
-                          />
-                        </div>
-                        <div className="flex items-end">
-                          <label className="flex items-center gap-2 cursor-pointer h-9">
-                            <input
-                              type="checkbox"
-                              checked={field.required || false}
-                              onChange={(e) => updateField(field.key, { required: e.target.checked })}
-                              className="w-4 h-4 rounded border-border"
-                            />
-                            <span className="text-sm text-muted-foreground">Required</span>
-                          </label>
-                        </div>
-                      </div>
-
-                      {field.type === "number" && (
-                        <div className="mt-3 pt-3 border-t border-border/50">
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Range (Optional)</Label>
-                          <div className="grid grid-cols-2 gap-3 mt-2">
-                            <Input
-                              type="number"
-                              value={field.min !== undefined ? String(field.min) : ""}
-                              onChange={(e) => {
-                                const value = e.target.value.trim()
-                                updateField(field.key, { 
-                                  min: value === "" ? undefined : parseFloat(value) 
-                                })
-                              }}
-                              placeholder="Min"
-                              className="h-9 text-sm border-border"
-                            />
-                            <Input
-                              type="number"
-                              value={field.max !== undefined ? String(field.max) : ""}
-                              onChange={(e) => {
-                                const value = e.target.value.trim()
-                                updateField(field.key, { 
-                                  max: value === "" ? undefined : parseFloat(value) 
-                                })
-                              }}
-                              placeholder="Max"
-                              className="h-9 text-sm border-border"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      {field.type === "select" && (
-                        <div className="mt-3 pt-3 border-t border-border/50">
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">Options</Label>
-                          <div className="space-y-2 mt-2">
-                            {field.options?.map((option, idx) => (
-                              <div key={idx} className="flex items-center gap-2">
-                                <Input
-                                  value={option}
-                                  onChange={(e) => {
-                                    const newOptions = [...(field.options || [])]
-                                    newOptions[idx] = e.target.value
-                                    updateField(field.key, { options: newOptions })
-                                  }}
-                                  className="h-9 text-sm border-border flex-1"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeOption(field.key, idx)}
-                                  className="h-9 w-9 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
-                            <div className="flex items-center gap-2">
-                              <Input
-                                value={newOption[field.key] || ""}
-                                onChange={(e) => setNewOption((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                                placeholder="Add option..."
-                                className="h-9 text-sm border-border flex-1"
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault()
-                                    addOption(field.key)
-                                  }
-                                }}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => addOption(field.key)}
-                                className="h-9 w-9 p-0 border-border"
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {field.type === "select" && field.defaultValue && (
-                        <div className="mt-2">
-                          <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Default</Label>
-                          <Select
-                            value={field.defaultValue}
-                            onValueChange={(value) => updateField(field.key, { defaultValue: value })}
-                          >
-                            <SelectTrigger className="h-8 text-xs border-border mt-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {field.options?.map((opt) => (
-                                <SelectItem key={opt} value={opt} className="text-xs">
-                                  {opt}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {field.type === "select" && (
-                        <div className="border-t pt-3 space-y-2">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={field.componentType === "statusSelectWithNote"}
-                              onChange={(e) => updateField(field.key, { 
-                                componentType: e.target.checked ? "statusSelectWithNote" : undefined 
-                              })}
-                              className="border-2 border-black"
-                            />
-                            <Label className="text-sm">Use Status Select With Note Component</Label>
-                          </div>
-                          
-                          {field.componentType === "statusSelectWithNote" && (
-                            <div className="space-y-3 pl-4 border-l-2 border-gray-300">
-                              <div>
-                                <Label className="text-xs text-gray-600">Note Options (shown when status is Issue)</Label>
-                                <div className="space-y-2 mt-1">
-                                  {field.noteOptions?.map((noteOpt, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                      <Input
-                                        value={noteOpt}
-                                        onChange={(e) => {
-                                          const newNoteOptions = [...(field.noteOptions || [])]
-                                          newNoteOptions[idx] = e.target.value
-                                          updateField(field.key, { noteOptions: newNoteOptions })
-                                        }}
-                                        className="border-2 border-black text-sm flex-1"
-                                      />
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          const newNoteOptions = field.noteOptions?.filter((_, i) => i !== idx) || []
-                                          updateField(field.key, { noteOptions: newNoteOptions })
-                                        }}
-                                        className="border-red-600 text-red-600 hover:bg-red-50"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      placeholder="Add note option"
-                                      className="border-2 border-black text-sm flex-1"
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          e.preventDefault()
-                                          const value = e.currentTarget.value.trim()
-                                          if (value) {
-                                            updateField(field.key, { 
-                                              noteOptions: [...(field.noteOptions || []), value] 
-                                            })
-                                            e.currentTarget.value = ""
-                                          }
-                                        }
-                                      }}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        const input = e.currentTarget.previousElementSibling as HTMLInputElement
-                                        const value = input.value.trim()
-                                        if (value) {
-                                          updateField(field.key, { 
-                                            noteOptions: [...(field.noteOptions || []), value] 
-                                          })
-                                          input.value = ""
-                                        }
-                                      }}
-                                      className="border-black"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div>
-                                <Label className="text-xs text-gray-600">Issue Trigger Values (Status values that show note)</Label>
-                                <div className="space-y-2 mt-1">
-                                  {field.issueValues?.map((val, idx) => (
-                                    <div key={idx} className="flex items-center gap-2">
-                                      <Input
-                                        value={val}
-                                        onChange={(e) => {
-                                          const newIssueValues = [...(field.issueValues || [])]
-                                          newIssueValues[idx] = e.target.value
-                                          updateField(field.key, { issueValues: newIssueValues })
-                                        }}
-                                        className="border-2 border-black text-sm flex-1"
-                                      />
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                          const newIssueValues = field.issueValues?.filter((_, i) => i !== idx) || []
-                                          updateField(field.key, { issueValues: newIssueValues })
-                                        }}
-                                        className="border-red-600 text-red-600 hover:bg-red-50"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      placeholder="Add issue value (e.g. YES)"
-                                      className="border-2 border-black text-sm flex-1"
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                          e.preventDefault()
-                                          const value = e.currentTarget.value.trim()
-                                          if (value) {
-                                            updateField(field.key, { 
-                                              issueValues: [...(field.issueValues || []), value] 
-                                            })
-                                            e.currentTarget.value = ""
-                                          }
-                                        }
-                                      }}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        const input = e.currentTarget.previousElementSibling as HTMLInputElement
-                                        const value = input.value.trim()
-                                        if (value) {
-                                          updateField(field.key, { 
-                                            issueValues: [...(field.issueValues || []), value] 
-                                          })
-                                          input.value = ""
-                                        }
-                                      }}
-                                      className="border-black"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </div>
-                                <p className="text-[10px] text-gray-500 mt-1">If empty, defaults to "YES" and "Concern".</p>
-                              </div>
-
-                              <div>
-                                <Label className="text-xs text-gray-600">Note Default Value</Label>
-                                <Input
-                                  value={field.noteDefault || ""}
-                                  onChange={(e) => updateField(field.key, { noteDefault: e.target.value })}
-                                  placeholder="Default note value"
-                                  className="border-2 border-black text-sm"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                    <FormFieldConfigCard
+                      key={field.key}
+                      field={field}
+                      onUpdate={(updates) => updateField(field.key, updates)}
+                      expandedSubOptions={expandedSubOptions}
+                      onToggleSubExpand={(option) => toggleSubOptionExpand(field.key, option)}
+                      onOptionRename={(oldOpt, newOpt) => handleOptionRename(field.key, oldOpt, newOpt)}
+                      newOptionValue={newOption[field.key] || ""}
+                      onNewOptionChange={(v) => setNewOption((prev) => ({ ...prev, [field.key]: v }))}
+                      onAddOption={() => addOption(field.key)}
+                      onRemoveOption={(idx) => removeOption(field.key, idx)}
+                      getNewSubOptionValue={(k) => newSubOption[k] || ""}
+                      onNewSubOptionChange={(k, v) => setNewSubOption((prev) => ({ ...prev, [k]: v }))}
+                      onAddSubOption={(opt) => addSubOption(field.key, opt)}
+                      onRemoveSubOption={(opt, subIdx) => removeSubOption(field.key, opt, subIdx)}
+                    />
                   ))}
+                  </div>
 
-                  {/* Inline Data Editor for Software Versions */}
                   {associatedDataFile === "software" && (
-                    <div className="mt-4 pt-4 border-t border-dashed border-border">
-                      <div className="flex items-center justify-between mb-3">
-                        <Label className="text-sm font-semibold text-primary">Software Versions (Data File)</Label>
-                        <span className="text-xs text-muted-foreground">{softwareVersions.length} items</span>
+                    <div className="mt-3 pt-3 border-t border-dashed border-border/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Software Versions</span>
+                        <span className="text-[10px] text-muted-foreground">{softwareVersions.length} items</span>
                       </div>
-                      <div className="flex flex-wrap gap-2 mb-3">
+                      <div className="flex flex-wrap gap-1.5 mb-2">
                         {softwareVersions.map((version, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded text-sm group">
+                          <div key={idx} className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs group">
                             <span>{version}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeDataValue("software", idx)}
-                              className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
+                            <button type="button" onClick={() => removeDataValue("software", idx)} className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Trash2 className="h-2.5 w-2.5" />
                             </button>
                           </div>
                         ))}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <Input
                           value={newDataValue["software"] || ""}
                           onChange={(e) => setNewDataValue((prev) => ({ ...prev, "software": e.target.value }))}
                           placeholder="Add version..."
-                          className="h-9 text-sm border-border flex-1 max-w-xs"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault()
-                              addDataValue("software")
-                            }
-                          }}
+                          className={`h-7 text-xs border-border/60 flex-1 max-w-[180px] rounded-md ${inputCompact}`}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDataValue("software") } }}
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addDataValue("software")}
-                          className="h-9 px-3 border-border hover:bg-primary hover:text-primary-foreground"
-                        >
-                          <Plus className="h-4 w-4" />
+                        <Button type="button" variant="ghost" size="sm" onClick={() => addDataValue("software")} className="h-7 w-7 p-0 rounded-md">
+                          <Plus className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
                   )}
 
-                  {/* Inline Data Editor for Content Players */}
                   {associatedDataFile === "content-player" && (
-                    <div className="mt-4 pt-4 border-t border-dashed border-border">
-                      <div className="flex items-center justify-between mb-3">
-                        <Label className="text-sm font-semibold text-primary">Content Players (Data File)</Label>
-                        <span className="text-xs text-muted-foreground">{contentPlayers.length} items</span>
+                    <div className="mt-3 pt-3 border-t border-dashed border-border/50">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Content Players</span>
+                        <span className="text-[10px] text-muted-foreground">{contentPlayers.length} items</span>
                       </div>
-                      <div className="flex flex-wrap gap-2 mb-3">
+                      <div className="flex flex-wrap gap-1.5 mb-2">
                         {contentPlayers.map((player, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded text-sm group">
+                          <div key={idx} className="flex items-center gap-1 bg-muted/60 px-2 py-1 rounded text-xs group">
                             <span>{player}</span>
-                            <button
-                              type="button"
-                              onClick={() => removeDataValue("content-player", idx)}
-                              className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
+                            <button type="button" onClick={() => removeDataValue("content-player", idx)} className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Trash2 className="h-2.5 w-2.5" />
                             </button>
                           </div>
                         ))}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <Input
                           value={newDataValue["content-player"] || ""}
                           onChange={(e) => setNewDataValue((prev) => ({ ...prev, "content-player": e.target.value }))}
                           placeholder="Add player..."
-                          className="h-9 text-sm border-border flex-1 max-w-xs"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault()
-                              addDataValue("content-player")
-                            }
-                          }}
+                          className={`h-7 text-xs border-border/60 flex-1 max-w-[180px] rounded-md ${inputCompact}`}
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDataValue("content-player") } }}
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => addDataValue("content-player")}
-                          className="h-9 px-3 border-border hover:bg-primary hover:text-primary-foreground"
-                        >
-                          <Plus className="h-4 w-4" />
+                        <Button type="button" variant="ghost" size="sm" onClick={() => addDataValue("content-player")} className="h-7 w-7 p-0 rounded-md">
+                          <Plus className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
                   )}
 
-                  {/* Inline Data Editor for Lamp Models - simplified view */}
                   {associatedDataFile === "lamp-models" && (
-                    <div className="mt-4 pt-4 border-t border-dashed border-border">
+                    <div className="mt-3 pt-3 border-t border-dashed border-border/50">
                       <div className="flex items-center justify-between mb-2">
-                        <Label className="text-xs font-semibold text-primary">Lamp Models (Data File)</Label>
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Lamp Models</span>
                         <span className="text-[10px] text-muted-foreground">{lampModelsData.length} projectors</span>
                       </div>
                       <div className="flex gap-2 items-end">
-                        <div className="flex-1 max-w-xs">
+                        <div className="flex-1 max-w-[200px]">
                           <Select
                             value={selectedProjectorIndex !== null ? String(selectedProjectorIndex) : ""}
                             onValueChange={(value) => setSelectedProjectorIndex(value ? parseInt(value, 10) : null)}
                           >
-                            <SelectTrigger className="h-7 text-xs border-border">
-                              <SelectValue placeholder="Select projector..." />
+                            <SelectTrigger className={selectTriggerClass}>
+                              <SelectValue placeholder="Projector..." />
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className={selectContentClass}>
                               {lampModelsData.map((projectorData, idx) => (
-                                <SelectItem key={idx} value={String(idx)} className="text-xs">
-                                  {projectorData.projector_model} ({projectorData.Models?.length || 0} lamps)
+                                <SelectItem key={idx} value={String(idx)} className="text-xs py-1.5">
+                                  {projectorData.projector_model} ({projectorData.Models?.length || 0})
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -1058,31 +753,22 @@ export default function FormBuilderPage() {
                             value={newProjectorModel}
                             onChange={(e) => setNewProjectorModel(e.target.value)}
                             placeholder="New projector..."
-                            className="h-7 text-xs border-border w-32"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault()
-                                addProjectorModel()
-                              }
-                            }}
+                            className={`h-7 text-xs border-border/60 w-28 rounded-md ${inputCompact}`}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addProjectorModel() } }}
                           />
-                          <Button type="button" variant="outline" size="sm" onClick={addProjectorModel} className="h-7 px-2 border-border">
+                          <Button type="button" variant="ghost" size="sm" onClick={addProjectorModel} className="h-7 w-7 p-0 rounded-md">
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
                       {selectedProjectorIndex !== null && lampModelsData[selectedProjectorIndex] && (
-                        <div className="mt-2 p-2 bg-muted/30 rounded">
-                          <div className="flex flex-wrap gap-1.5 mb-2">
+                        <div className="mt-2 p-2 bg-muted/20 rounded-lg">
+                          <div className="flex flex-wrap gap-1 mb-1.5">
                             {lampModelsData[selectedProjectorIndex].Models?.map((model, modelIdx) => (
-                              <div key={modelIdx} className="flex items-center gap-1 bg-background px-2 py-1 rounded text-xs group border border-border">
+                              <div key={modelIdx} className="flex items-center gap-1 bg-background/80 px-2 py-0.5 rounded text-xs group border border-border/50">
                                 <span>{model}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeLampModel(selectedProjectorIndex, modelIdx)}
-                                  className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <Trash2 className="h-3 w-3" />
+                                <button type="button" onClick={() => removeLampModel(selectedProjectorIndex, modelIdx)} className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Trash2 className="h-2.5 w-2.5" />
                                 </button>
                               </div>
                             ))}
@@ -1091,17 +777,12 @@ export default function FormBuilderPage() {
                             <Input
                               value={newLampModelValue[selectedProjectorIndex] || ""}
                               onChange={(e) => setNewLampModelValue((prev) => ({ ...prev, [selectedProjectorIndex]: e.target.value }))}
-                              placeholder="Add lamp model..."
-                              className="h-7 text-xs border-border flex-1"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault()
-                                  addLampModel(selectedProjectorIndex)
-                                }
-                              }}
+                              placeholder="Add lamp..."
+                              className={`h-6 text-xs border-border/60 flex-1 rounded ${inputCompact}`}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLampModel(selectedProjectorIndex) } }}
                             />
-                            <Button type="button" variant="outline" size="sm" onClick={() => addLampModel(selectedProjectorIndex)} className="h-7 px-2 border-border">
-                              <Plus className="h-3 w-3" />
+                            <Button type="button" variant="ghost" size="sm" onClick={() => addLampModel(selectedProjectorIndex)} className="h-6 w-6 p-0 rounded">
+                              <Plus className="h-2.5 w-2.5" />
                             </Button>
                           </div>
                         </div>
@@ -1109,24 +790,25 @@ export default function FormBuilderPage() {
                     </div>
                   )}
                 </CardContent>
-              </Card>
+              </div>
             )
           })}
         </div>
 
-        {/* Data Files Management Section - Projector Parts (Advanced) */}
-        <div className="mt-8 pt-6 border-t border-border">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mt-6 pt-4 border-t border-border/60">
+          <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-lg font-bold text-foreground">Projector Parts Database</h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Manage parts by projector model. 
-                <span className="text-[10px] ml-2 text-primary">(Software, Content Players & Lamp Models are edited inline above)</span>
+              <h2 className="text-sm font-semibold text-foreground">Data Files</h2>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Software, Content Players & Lamp Models are edited inline above. Parts below.
               </p>
             </div>
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground"
+              disabled={loadingDataFiles}
               onClick={() => {
                 setLoadingDataFiles(true)
                 const loadDataFiles = async () => {
@@ -1163,25 +845,22 @@ export default function FormBuilderPage() {
                 }
                 loadDataFiles()
               }}
-              className="border-border h-9 text-sm"
-              disabled={loadingDataFiles}
             >
               <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loadingDataFiles ? "animate-spin" : ""}`} />
               Refresh
             </Button>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-            {/* Content Players */}
-            <Card className="border border-border bg-white shadow-sm">
-              <CardHeader className="py-3 px-4 border-b border-border bg-muted/30">
-                <CardTitle className="text-sm font-semibold text-foreground">Content Players</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-2">
+            <div className="border py-2 border-border/60 bg-card rounded-lg overflow-hidden">
+              <div className="py-2 px-3 border-b border-border/50 bg-muted/20">
+                <div className="text-xs font-semibold">Content Players</div>
+              </div>
+              <CardContent className="p-3 space-y-2">
                 {loadingDataFiles ? (
                   <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : contentPlayers.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">No items. Add below.</p>
+                  <p className="text-xs text-muted-foreground italic">None. Add below.</p>
                 ) : (
                   <p className="text-[10px] text-muted-foreground">{contentPlayers.length} items</p>
                 )}
@@ -1192,71 +871,51 @@ export default function FormBuilderPage() {
                         value={value}
                         onChange={(e) => updateDataValue("content-player", idx, e.target.value)}
                         onBlur={() => saveDataValueOnBlur("content-player")}
-                        className="h-7 text-xs border-border flex-1"
+                        className={`border-border/60 flex-1 rounded ${inputCompact}`}
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeDataValue("content-player", idx)}
-                        className="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3 w-3" />
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeDataValue("content-player", idx)} className="h-6 w-6 p-0 rounded text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-2.5 w-2.5" />
                       </Button>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 pt-2 border-t">
+                <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/40">
                   <Input
                     value={newDataValue["content-player"] || ""}
                     onChange={(e) => setNewDataValue((prev) => ({ ...prev, "content-player": e.target.value }))}
-                    placeholder="Add new content player"
-                    className="border-2 border-black text-sm flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        addDataValue("content-player")
-                      }
-                    }}
+                    placeholder="Add player"
+                    className={`text-xs border-border/60 flex-1 rounded ${inputCompact}`}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDataValue("content-player") } }}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addDataValue("content-player")}
-                    className="border-black"
-                  >
-                    <Plus className="h-4 w-4" />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => addDataValue("content-player")} className="h-6 w-6 p-0 rounded">
+                    <Plus className="h-2.5 w-2.5" />
                   </Button>
                 </div>
               </CardContent>
-            </Card>
+            </div>
 
-            {/* Lamp Models */}
-            <Card className="border-2 border-black col-span-2">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-black">Lamp Models (by Projector Model)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="border py-2 border-border/60 bg-card rounded-lg overflow-hidden col-span-2">
+              <div className="py-2 px-3 border-b border-border/50 bg-muted/20">
+                <div className="text-xs font-semibold">Lamp Models</div>
+              </div>
+              <CardContent className="p-3 space-y-3">
                 {loadingDataFiles ? (
-                  <p className="text-sm text-gray-500">Loading lamp models...</p>
+                  <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : lampModelsData.length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">No projector models found. Add one below.</p>
+                  <p className="text-xs text-muted-foreground italic">No projectors. Add below.</p>
                 ) : (
                   <>
-                    {/* Projector Selection Dropdown */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-black">Select Projector Model</Label>
+                    <div className="flex items-center gap-2">
                       <Select
                         value={selectedProjectorIndex !== null ? String(selectedProjectorIndex) : ""}
                         onValueChange={(value) => setSelectedProjectorIndex(value ? parseInt(value, 10) : null)}
                       >
-                        <SelectTrigger className="border-2 border-black">
-                          <SelectValue placeholder="Choose a projector model..." />
+                        <SelectTrigger className={selectTriggerClass}>
+                          <SelectValue placeholder="Projector..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className={selectContentClass}>
                           {lampModelsData.map((projectorData, idx) => (
-                            <SelectItem key={idx} value={String(idx)}>
+                            <SelectItem key={idx} value={String(idx)} className="text-xs py-1.5">
                               {projectorData.projector_model}
                             </SelectItem>
                           ))}
@@ -1264,82 +923,56 @@ export default function FormBuilderPage() {
                       </Select>
                     </div>
 
-                    {/* Selected Projector's Lamp Models */}
                     {selectedProjectorIndex !== null && lampModelsData[selectedProjectorIndex] && (
-                      <div className="border border-gray-300 rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b">
-                          <div className="flex items-center gap-2 flex-1">
-                            <Label className="text-sm font-semibold text-black">Projector: {lampModelsData[selectedProjectorIndex].projector_model}</Label>
-                            <Input
-                              value={lampModelsData[selectedProjectorIndex].projector_model}
-                              onChange={(e) => updateProjectorModelName(selectedProjectorIndex, e.target.value)}
-                              onBlur={() => saveLampModelOnBlur()}
-                              className="border-2 border-black text-sm flex-1 max-w-xs"
-                              placeholder="Projector Model"
-                            />
-                          </div>
+                      <div className="border border-border/50 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <Input
+                            value={lampModelsData[selectedProjectorIndex].projector_model}
+                            onChange={(e) => updateProjectorModelName(selectedProjectorIndex, e.target.value)}
+                            onBlur={() => saveLampModelOnBlur()}
+                            className={`text-xs border-border/60 flex-1 max-w-[180px] rounded-md ${inputCompact}`}
+                            placeholder="Projector"
+                          />
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              removeProjectorModel(selectedProjectorIndex)
-                              setSelectedProjectorIndex(null)
-                            }}
-                            className="border-red-600 text-red-600 hover:bg-red-50"
+                            onClick={() => { removeProjectorModel(selectedProjectorIndex); setSelectedProjectorIndex(null) }}
+                            className="h-7 text-xs text-muted-foreground hover:text-destructive"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                        <div className="space-y-2">
-                          <Label className="text-xs font-semibold text-gray-700">Lamp Models</Label>
-                          {lampModelsData[selectedProjectorIndex].Models && lampModelsData[selectedProjectorIndex].Models.length > 0 ? (
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                        <div className="space-y-1.5">
+                          {lampModelsData[selectedProjectorIndex].Models?.length ? (
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
                               {lampModelsData[selectedProjectorIndex].Models.map((model, modelIdx) => (
-                                <div key={modelIdx} className="flex items-center gap-2">
+                                <div key={modelIdx} className="flex items-center gap-1.5">
                                   <Input
                                     value={model}
                                     onChange={(e) => updateLampModel(selectedProjectorIndex, modelIdx, e.target.value)}
                                     onBlur={() => saveLampModelOnBlur()}
-                                    className="border-2 border-black text-sm flex-1"
-                                    placeholder="Lamp Model"
+                                    className={`text-xs border-border/60 flex-1 rounded ${inputCompact}`}
                                   />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removeLampModel(selectedProjectorIndex, modelIdx)}
-                                    className="border-red-600 text-red-600 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
+                                  <Button type="button" variant="ghost" size="sm" onClick={() => removeLampModel(selectedProjectorIndex, modelIdx)} className="h-6 w-6 p-0 rounded text-muted-foreground hover:text-destructive">
+                                    <Trash2 className="h-2.5 w-2.5" />
                                   </Button>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-xs text-gray-400 italic">No lamp models for this projector</p>
+                            <p className="text-[10px] text-muted-foreground italic">No lamps</p>
                           )}
-                          <div className="flex items-center gap-2 pt-2 border-t">
+                          <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/40">
                             <Input
                               value={newLampModelValue[selectedProjectorIndex] || ""}
                               onChange={(e) => setNewLampModelValue((prev) => ({ ...prev, [selectedProjectorIndex]: e.target.value }))}
-                              placeholder="Add lamp model"
-                              className="border-2 border-black text-sm flex-1"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.preventDefault()
-                                  addLampModel(selectedProjectorIndex)
-                                }
-                              }}
+                              placeholder="Add lamp"
+                              className={`text-xs border-border/60 flex-1 rounded ${inputCompact}`}
+                              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLampModel(selectedProjectorIndex) } }}
                             />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => addLampModel(selectedProjectorIndex)}
-                              className="border-black"
-                            >
-                              <Plus className="h-4 w-4" />
+                            <Button type="button" variant="ghost" size="sm" onClick={() => addLampModel(selectedProjectorIndex)} className="h-6 w-6 p-0 rounded">
+                              <Plus className="h-2.5 w-2.5" />
                             </Button>
                           </div>
                         </div>
@@ -1347,232 +980,128 @@ export default function FormBuilderPage() {
                     )}
                   </>
                 )}
-                <div className="flex items-center gap-2 pt-2 border-t">
+                <div className="flex items-center gap-1.5 pt-2 border-t border-border/40">
                   <Input
                     value={newProjectorModel}
                     onChange={(e) => setNewProjectorModel(e.target.value)}
-                    placeholder="Add new projector model (e.g., CP2220)"
-                    className="border-2 border-black text-sm flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        addProjectorModel()
-                      }
-                    }}
+                    placeholder="New projector (e.g. CP2220)"
+                    className={`text-xs border-border/60 flex-1 rounded-md ${inputCompact}`}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addProjectorModel() } }}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addProjectorModel}
-                    className="border-black"
-                  >
-                    <Plus className="h-4 w-4" />
+                  <Button type="button" variant="ghost" size="sm" onClick={addProjectorModel} className="h-7 w-7 p-0 rounded-md">
+                    <Plus className="h-3 w-3" />
                   </Button>
                 </div>
               </CardContent>
-            </Card>
+            </div>
 
-            {/* Software Versions */}
-            <Card className="border-2 border-black">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-black">Software Versions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
+            <div className="border py-2 border-border/60 bg-card rounded-lg overflow-hidden">
+              <div className="py-2 px-3 border-b border-border/50 bg-muted/20">
+                <div className="text-xs font-semibold">Software Versions</div>
+              </div>
+              <CardContent className="p-3 space-y-2">
                 {loadingDataFiles ? (
-                  <p className="text-sm text-gray-500">Loading software versions...</p>
+                  <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : softwareVersions.length === 0 ? (
-                  <p className="text-sm text-gray-500 italic">No software versions found. Add one below.</p>
+                  <p className="text-xs text-muted-foreground italic">None. Add below.</p>
                 ) : (
-                  <p className="text-xs text-gray-500 mb-2">{softwareVersions.length} items</p>
+                  <p className="text-[10px] text-muted-foreground">{softwareVersions.length} items</p>
                 )}
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {softwareVersions.map((value, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex items-center gap-1.5">
                       <Input
                         value={value}
                         onChange={(e) => updateDataValue("software", idx, e.target.value)}
                         onBlur={() => saveDataValueOnBlur("software")}
-                        className="border-2 border-black text-sm flex-1"
+                        className={`text-xs border-border/60 flex-1 rounded ${inputCompact}`}
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeDataValue("software", idx)}
-                        className="border-red-600 text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeDataValue("software", idx)} className="h-6 w-6 p-0 rounded text-muted-foreground hover:text-destructive">
+                        <Trash2 className="h-2.5 w-2.5" />
                       </Button>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-2 pt-2 border-t">
+                <div className="flex items-center gap-1.5 pt-1.5 border-t border-border/40">
                   <Input
                     value={newDataValue["software"] || ""}
                     onChange={(e) => setNewDataValue((prev) => ({ ...prev, "software": e.target.value }))}
-                    placeholder="Add new software version"
-                    className="border-2 border-black text-sm flex-1"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        addDataValue("software")
-                      }
-                    }}
+                    placeholder="Add version"
+                    className={`text-xs border-border/60 flex-1 rounded ${inputCompact}`}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addDataValue("software") } }}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addDataValue("software")}
-                    className="border-black"
-                  >
-                    <Plus className="h-4 w-4" />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => addDataValue("software")} className="h-6 w-6 p-0 rounded">
+                    <Plus className="h-2.5 w-2.5" />
                   </Button>
                 </div>
               </CardContent>
-            </Card>
+            </div>
 
-            {/* Projector Parts */}
-            <Card className="border-2 border-black col-span-2">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold text-black">Recommended Parts (by Projector Model)</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            <div className="border py-2 border-border/60 bg-card rounded-lg overflow-hidden col-span-2">
+              <div className="py-2 px-3 border-b border-border/50 bg-muted/20">
+                <div className="text-xs font-semibold">Recommended Parts</div>
+              </div>
+              <CardContent className="p-3 space-y-3">
                 {loadingDataFiles ? (
-                  <p className="text-sm text-gray-500">Loading projector parts...</p>
+                  <p className="text-xs text-muted-foreground">Loading...</p>
                 ) : (
                   <>
-                    {/* Projector Selection Dropdown */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-black">Select Projector Model</Label>
-                      <Select
-                        value={selectedPartsProjector || ""}
-                        onValueChange={(value) => setSelectedPartsProjector(value)}
-                      >
-                        <SelectTrigger className="border-2 border-black">
-                          <SelectValue placeholder="Choose a projector model..." />
+                    <div className="flex items-center gap-2">
+                      <Select value={selectedPartsProjector || ""} onValueChange={(value) => setSelectedPartsProjector(value)}>
+                        <SelectTrigger className={selectTriggerClass}>
+                          <SelectValue placeholder="Projector..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className={selectContentClass}>
                           {uniquePartsModels.map((model, idx) => (
-                            <SelectItem key={idx} value={model}>
-                              {model}
-                            </SelectItem>
+                            <SelectItem key={idx} value={model} className="text-xs py-1.5">{model}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeProjectorModelFromParts(selectedPartsProjector!)} className="h-7 text-xs text-muted-foreground hover:text-destructive" disabled={!selectedPartsProjector}>
+                        <Trash2 className="h-3 w-3 mr-1" /> Remove model
+                      </Button>
                     </div>
 
-                    {/* Selected Projector's Parts */}
                     {selectedPartsProjector && (
-                      <div className="border border-gray-300 rounded-lg p-4 space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b">
-                          <Label className="text-sm font-semibold text-black">Model: {selectedPartsProjector}</Label>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => removeProjectorModelFromParts(selectedPartsProjector)}
-                            className="border-red-600 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" /> Remove All Parts for Model
-                          </Button>
+                      <div className="border border-border/50 rounded-lg p-3 space-y-2">
+                        <div className="grid grid-cols-5 gap-1.5 text-[10px] text-muted-foreground font-medium">
+                          <div className="col-span-2">Description</div>
+                          <div className="col-span-2">Part #</div>
+                          <div className="col-span-1" />
                         </div>
-                        <div className="space-y-2">
-                          <div className="grid grid-cols-5 gap-2 font-semibold text-xs text-gray-600 mb-1">
-                             <div className="col-span-2">Part Description</div>
-                             <div className="col-span-2">Part Number</div>
-                             <div className="col-span-1">Action</div>
-                          </div>
-                          <div className="space-y-2 max-h-80 overflow-y-auto">
-                            {projectorPartsData
-                              .filter(p => p.projector_model === selectedPartsProjector)
-                              .map((part, pIdx) => (
-                                <div key={pIdx} className="grid grid-cols-5 gap-2 items-center">
-                                  <Input
-                                    value={part.description}
-                                    onChange={(e) => updateProjectorPart(part, "description", e.target.value)}
-                                    onBlur={saveProjectorPartsOnBlur}
-                                    className="col-span-2 border-2 border-black text-sm"
-                                    placeholder="Description"
-                                  />
-                                  <Input
-                                    value={part.part_number}
-                                    onChange={(e) => updateProjectorPart(part, "part_number", e.target.value)}
-                                    onBlur={saveProjectorPartsOnBlur}
-                                    className="col-span-2 border-2 border-black text-sm"
-                                    placeholder="Part Number"
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => removeProjectorPart(part)}
-                                    className="col-span-1 border-red-600 text-red-600 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))}
-                          </div>
-                          
-                          {/* Add New Part Row */}
-                          <div className="grid grid-cols-5 gap-2 pt-3 border-t mt-2">
-                             <Input
-                               value={newPartValue.description}
-                               onChange={(e) => setNewPartValue(prev => ({ ...prev, description: e.target.value }))}
-                               className="col-span-2 border-2 border-black text-sm"
-                               placeholder="New Part Description"
-                             />
-                             <Input
-                               value={newPartValue.part_number}
-                               onChange={(e) => setNewPartValue(prev => ({ ...prev, part_number: e.target.value }))}
-                               className="col-span-2 border-2 border-black text-sm"
-                               placeholder="New Part Number"
-                               onKeyDown={(e) => {
-                                 if (e.key === "Enter") addProjectorPart()
-                               }}
-                             />
-                             <Button
-                               type="button"
-                               variant="outline"
-                               size="sm"
-                               onClick={addProjectorPart}
-                               className="col-span-1 border-black"
-                               disabled={!newPartValue.description || !newPartValue.part_number}
-                             >
-                               <Plus className="h-4 w-4" />
-                             </Button>
-                          </div>
+                        <div className="space-y-1.5 max-h-56 overflow-y-auto">
+                          {projectorPartsData
+                            .filter(p => p.projector_model === selectedPartsProjector)
+                            .map((part, pIdx) => (
+                              <div key={pIdx} className="grid grid-cols-5 gap-1.5 items-center">
+                                <Input value={part.description} onChange={(e) => updateProjectorPart(part, "description", e.target.value)} onBlur={saveProjectorPartsOnBlur} className={`col-span-2 text-xs border-border/60 rounded ${inputCompact}`} placeholder="Description" />
+                                <Input value={part.part_number} onChange={(e) => updateProjectorPart(part, "part_number", e.target.value)} onBlur={saveProjectorPartsOnBlur} className={`col-span-2 text-xs border-border/60 rounded ${inputCompact}`} placeholder="Part #" />
+                                <Button type="button" variant="ghost" size="sm" onClick={() => removeProjectorPart(part)} className="col-span-1 h-6 w-6 p-0 rounded text-muted-foreground hover:text-destructive">
+                                  <Trash2 className="h-2.5 w-2.5" />
+                                </Button>
+                              </div>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-5 gap-1.5 pt-2 border-t border-border/40">
+                          <Input value={newPartValue.description} onChange={(e) => setNewPartValue(prev => ({ ...prev, description: e.target.value }))} className={`col-span-2 text-xs border-border/60 rounded ${inputCompact}`} placeholder="Description" />
+                          <Input value={newPartValue.part_number} onChange={(e) => setNewPartValue(prev => ({ ...prev, part_number: e.target.value }))} className={`col-span-2 text-xs border-border/60 rounded ${inputCompact}`} placeholder="Part #" onKeyDown={(e) => { if (e.key === "Enter") addProjectorPart() }} />
+                          <Button type="button" variant="ghost" size="sm" onClick={addProjectorPart} className="col-span-1 h-6 w-6 p-0 rounded" disabled={!newPartValue.description || !newPartValue.part_number}>
+                            <Plus className="h-2.5 w-2.5" />
+                          </Button>
                         </div>
                       </div>
                     )}
 
-                    {/* Add New Model Section */}
-                    <div className="flex items-center gap-2 pt-2 border-t">
-                      <Input
-                        value={newPartsProjectorModel}
-                        onChange={(e) => setNewPartsProjectorModel(e.target.value)}
-                        placeholder="Add new projector model for parts (e.g. CP4230)"
-                        className="border-2 border-black text-sm flex-1"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") addNewPartsProjectorModel()
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addNewPartsProjectorModel}
-                        className="border-black"
-                      >
-                        <Plus className="h-4 w-4" />
+                    <div className="flex items-center gap-1.5 pt-2 border-t border-border/40">
+                      <Input value={newPartsProjectorModel} onChange={(e) => setNewPartsProjectorModel(e.target.value)} placeholder="New projector model" className={`text-xs border-border/60 flex-1 rounded-md ${inputCompact}`} onKeyDown={(e) => { if (e.key === "Enter") addNewPartsProjectorModel() }} />
+                      <Button type="button" variant="ghost" size="sm" onClick={addNewPartsProjectorModel} className="h-7 w-7 p-0 rounded-md">
+                        <Plus className="h-3 w-3" />
                       </Button>
                     </div>
                   </>
                 )}
               </CardContent>
-            </Card>
+            </div>
           </div>
         </div>
       </div>

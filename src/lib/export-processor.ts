@@ -9,9 +9,18 @@ import { uploadPdfsToDrive } from "./google-drive";
 const CHUNK_SIZE = 50;
 
 function mapStatus(value?: string | null, note?: string | null) {
+  const valStr = value ? String(value) : "";
+  const separatorIdx = valStr.indexOf(" - ");
+  // If value contains " - " (sub-option format) and no separate note, parse from value
+  if (separatorIdx !== -1 && !note) {
+    return {
+      yesNo: valStr.substring(0, separatorIdx).trim(),
+      status: valStr.substring(separatorIdx + 3).trim(),
+    };
+  }
   return {
     status: note ? String(note) : "",
-    yesNo: value ? (String(value).split("(")[0] || "").trim() : "",
+    yesNo: (valStr.split("(")[0] || "").trim(),
   };
 }
 

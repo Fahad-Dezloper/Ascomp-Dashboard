@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save, ChevronDown, ChevronRight } from "lucide-react";
 
 type FieldType =
   | "text"
@@ -29,6 +29,8 @@ type FieldConfig = {
   required?: boolean;
   placeholder?: string;
   options?: string[];
+  subOptions?: Record<string, string[]>;
+  subOptionsInput?: Record<string, boolean>;
   section?: string;
   defaultValue?: string;
   min?: number;
@@ -538,6 +540,10 @@ export default function FormBuilderPage() {
     getInitialFieldConfigs(),
   );
   const [newOption, setNewOption] = useState<Record<string, string>>({});
+  const [newSubOption, setNewSubOption] = useState<Record<string, string>>({});
+  const [expandedSubOptions, setExpandedSubOptions] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -637,8 +643,83 @@ export default function FormBuilderPage() {
     const field = fieldConfigs.find((f) => f.key === fieldKey);
     if (!field?.options) return;
 
+    const removedOption = field.options[optionIndex];
+    const newOptions = field.options.filter((_, i) => i !== optionIndex);
+    const currentSubOptions = { ...(field.subOptions || {}) };
+    const currentSubOptionsInput = { ...(field.subOptionsInput || {}) };
+    if (removedOption) {
+      delete currentSubOptions[removedOption];
+      delete currentSubOptionsInput[removedOption];
+    }
+
     updateField(fieldKey, {
-      options: field.options.filter((_, i) => i !== optionIndex),
+      options: newOptions,
+      subOptions:
+        Object.keys(currentSubOptions).length > 0
+          ? currentSubOptions
+          : undefined,
+      subOptionsInput:
+        Object.keys(currentSubOptionsInput).length > 0
+          ? currentSubOptionsInput
+          : undefined,
+    });
+  };
+
+  const toggleSubOptionExpand = (fieldKey: string, option: string) => {
+    const key = `${fieldKey}:${option}`;
+    setExpandedSubOptions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
+
+  const addSubOption = (fieldKey: string, parentOption: string) => {
+    const compositeKey = `${fieldKey}:${parentOption}`;
+    const subOption = newSubOption[compositeKey]?.trim();
+    if (!subOption) return;
+
+    const field = fieldConfigs.find((f) => f.key === fieldKey);
+    const currentSubOptions = field?.subOptions || {};
+    const parentSubOptions = currentSubOptions[parentOption] || [];
+
+    updateField(fieldKey, {
+      subOptions: {
+        ...currentSubOptions,
+        [parentOption]: [...parentSubOptions, subOption],
+      },
+    });
+
+    setNewSubOption((prev) => ({ ...prev, [compositeKey]: "" }));
+  };
+
+  const removeSubOption = (
+    fieldKey: string,
+    parentOption: string,
+    subIdx: number,
+  ) => {
+    const field = fieldConfigs.find((f) => f.key === fieldKey);
+    const currentSubOptions = { ...(field?.subOptions || {}) };
+    const parentSubOptions = currentSubOptions[parentOption] || [];
+
+    const newParentSubOptions = parentSubOptions.filter(
+      (_, i) => i !== subIdx,
+    );
+    if (newParentSubOptions.length === 0) {
+      delete currentSubOptions[parentOption];
+    } else {
+      currentSubOptions[parentOption] = newParentSubOptions;
+    }
+
+    updateField(fieldKey, {
+      subOptions:
+        Object.keys(currentSubOptions).length > 0
+          ? currentSubOptions
+          : undefined,
     });
   };
 
@@ -772,35 +853,228 @@ export default function FormBuilderPage() {
                             Dropdown Options
                           </Label>
                           <div className="space-y-2">
-                            {field.options?.map((option, idx) => (
-                              <div
-                                key={idx}
-                                className="flex items-center gap-2"
-                              >
-                                <Input
-                                  value={option}
-                                  onChange={(e) => {
-                                    const newOptions = [
-                                      ...(field.options || []),
-                                    ];
-                                    newOptions[idx] = e.target.value;
-                                    updateField(field.key, {
-                                      options: newOptions,
-                                    });
-                                  }}
-                                  className="border-2 border-black text-sm flex-1"
-                                />
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => removeOption(field.key, idx)}
-                                  className="border-red-600 text-red-600 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ))}
+                            {field.options?.map((option, idx) => {
+                              const compositeKey = `${field.key}:${option}`;
+                              const isExpanded =
+                                expandedSubOptions.has(compositeKey);
+                              const subOpts =
+                                field.subOptions?.[option] || [];
+                              const hasSubOpts = subOpts.length > 0;
+
+                              return (
+                                <div key={idx} className="space-y-1">
+                                  <div className="flex items-center gap-2">
+                                    <Input
+                                      value={option}
+                                      onChange={(e) => {
+                                        const newOptions = [
+                                          ...(field.options || []),
+                                        ];
+                                        const oldOption = newOptions[idx];
+                                        const newOptionValue =
+                                          e.target.value;
+                                        newOptions[idx] = newOptionValue;
+
+                                        const currentSubOptions = {
+                                          ...(field.subOptions || {}),
+                                        };
+                                        const currentSubOptionsInput = {
+                                          ...(field.subOptionsInput || {}),
+                                        };
+                                        if (
+                                          oldOption &&
+                                          oldOption !== newOptionValue
+                                        ) {
+                                          if (currentSubOptions[oldOption]) {
+                                            currentSubOptions[newOptionValue] =
+                                              currentSubOptions[oldOption];
+                                            delete currentSubOptions[oldOption];
+                                          }
+                                          if (currentSubOptionsInput[oldOption] !== undefined) {
+                                            currentSubOptionsInput[newOptionValue] =
+                                              currentSubOptionsInput[oldOption];
+                                            delete currentSubOptionsInput[oldOption];
+                                          }
+                                          const oldKey = `${field.key}:${oldOption}`;
+                                          const newKey = `${field.key}:${newOptionValue}`;
+                                          if (
+                                            expandedSubOptions.has(oldKey)
+                                          ) {
+                                            setExpandedSubOptions(
+                                              (prev) => {
+                                                const newSet = new Set(
+                                                  prev,
+                                                );
+                                                newSet.delete(oldKey);
+                                                newSet.add(newKey);
+                                                return newSet;
+                                              },
+                                            );
+                                          }
+                                        }
+
+                                        updateField(field.key, {
+                                          options: newOptions,
+                                          subOptions:
+                                            Object.keys(currentSubOptions)
+                                              .length > 0
+                                              ? currentSubOptions
+                                              : undefined,
+                                          subOptionsInput:
+                                            Object.keys(currentSubOptionsInput)
+                                              .length > 0
+                                              ? currentSubOptionsInput
+                                              : undefined,
+                                        });
+                                      }}
+                                      className="border-2 border-black text-sm flex-1"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        toggleSubOptionExpand(
+                                          field.key,
+                                          option,
+                                        )
+                                      }
+                                      className={`text-xs px-2 ${hasSubOpts ? "border-blue-500 text-blue-600 hover:bg-blue-50" : "border-gray-400 text-gray-500 hover:bg-gray-50"}`}
+                                    >
+                                      {isExpanded ? (
+                                        <ChevronDown className="h-3 w-3 mr-1" />
+                                      ) : (
+                                        <ChevronRight className="h-3 w-3 mr-1" />
+                                      )}
+                                      Sub
+                                      {hasSubOpts
+                                        ? ` (${subOpts.length})`
+                                        : ""}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        removeOption(field.key, idx)
+                                      }
+                                      className="border-red-600 text-red-600 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                  {isExpanded && (
+                                    <div className="ml-6 pl-3 border-l-2 border-gray-300 space-y-2 py-2">
+                                      <p className="text-xs text-gray-500">
+                                        Sub-options for &ldquo;
+                                        {option}&rdquo;
+                                      </p>
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={field.subOptionsInput?.[option] || false}
+                                          onChange={(e) => {
+                                            const currentInput = { ...(field.subOptionsInput || {}) };
+                                            if (e.target.checked) {
+                                              currentInput[option] = true;
+                                            } else {
+                                              delete currentInput[option];
+                                            }
+                                            updateField(field.key, {
+                                              subOptionsInput: Object.keys(currentInput).length > 0 ? currentInput : undefined,
+                                            });
+                                          }}
+                                          className="w-3.5 h-3.5 rounded"
+                                        />
+                                        <span className="text-xs text-gray-500">Allow custom text input</span>
+                                      </label>
+                                      {subOpts.map(
+                                        (subOpt, subIdx) => (
+                                          <div
+                                            key={subIdx}
+                                            className="flex items-center gap-2"
+                                          >
+                                            <Input
+                                              value={subOpt}
+                                              onChange={(e) => {
+                                                const newSubOpts = [
+                                                  ...subOpts,
+                                                ];
+                                                newSubOpts[subIdx] =
+                                                  e.target.value;
+                                                updateField(field.key, {
+                                                  subOptions: {
+                                                    ...(field.subOptions ||
+                                                      {}),
+                                                    [option]: newSubOpts,
+                                                  },
+                                                });
+                                              }}
+                                              className="border-2 border-gray-300 text-sm flex-1"
+                                            />
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() =>
+                                                removeSubOption(
+                                                  field.key,
+                                                  option,
+                                                  subIdx,
+                                                )
+                                              }
+                                              className="border-red-600 text-red-600 hover:bg-red-50"
+                                            >
+                                              <Trash2 className="h-3 w-3" />
+                                            </Button>
+                                          </div>
+                                        ),
+                                      )}
+                                      <div className="flex items-center gap-2">
+                                        <Input
+                                          value={
+                                            newSubOption[compositeKey] ||
+                                            ""
+                                          }
+                                          onChange={(e) =>
+                                            setNewSubOption((prev) => ({
+                                              ...prev,
+                                              [compositeKey]:
+                                                e.target.value,
+                                            }))
+                                          }
+                                          placeholder="Add sub-option"
+                                          className="border-2 border-gray-300 text-sm flex-1"
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              addSubOption(
+                                                field.key,
+                                                option,
+                                              );
+                                            }
+                                          }}
+                                        />
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() =>
+                                            addSubOption(
+                                              field.key,
+                                              option,
+                                            )
+                                          }
+                                          className="border-gray-400"
+                                        >
+                                          <Plus className="h-3 w-3" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                             <div className="flex items-center gap-2">
                               <Input
                                 value={newOption[field.key] || ""}
@@ -910,21 +1184,24 @@ export default function FormBuilderPage() {
                         </div>
                       )}
 
-                      {field.type === "select" && field.defaultValue && (
+                      {field.type === "select" && (
                         <div>
                           <Label className="text-xs text-gray-600">
                             Default Value
                           </Label>
                           <Select
-                            value={field.defaultValue}
+                            value={field.defaultValue || "__none__"}
                             onValueChange={(value) =>
-                              updateField(field.key, { defaultValue: value })
+                              updateField(field.key, { defaultValue: value === "__none__" ? undefined : value })
                             }
                           >
                             <SelectTrigger className="border-2 border-black text-sm">
-                              <SelectValue />
+                              <SelectValue placeholder="None" />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="__none__" className="text-muted-foreground">
+                                None
+                              </SelectItem>
                               {field.options?.map((opt) => (
                                 <SelectItem key={opt} value={opt}>
                                   {opt}

@@ -10,11 +10,21 @@ export async function constructAndGeneratePDF(serviceId: string) {
     const json = await res.json()
     const fullService = json.service || json
 
-    const mapStatus = (value?: string | null, note?: string | null) => ({
-        status: note ? String(note) : "",
-        // @ts-ignore
-        yesNo: value ? String(value).split('(')[0].trim() : "",
-    })
+    const mapStatus = (value?: string | null, note?: string | null) => {
+        const valStr = value ? String(value) : ""
+        const separatorIdx = valStr.indexOf(" - ")
+        // If value contains " - " (sub-option format) and no separate note, parse from value
+        if (separatorIdx !== -1 && !note) {
+            return {
+                yesNo: valStr.substring(0, separatorIdx).trim(),
+                status: valStr.substring(separatorIdx + 3).trim(),
+            }
+        }
+        return {
+            status: note ? String(note) : "",
+            yesNo: (valStr.split('(')[0] || "").trim(),
+        }
+    }
 
     const safe = (val: any) => val ? String(val) : ''
 

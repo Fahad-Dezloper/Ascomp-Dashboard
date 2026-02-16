@@ -262,219 +262,6 @@ const FormField = ({
   </div>
 );
 
-const cleanRepeatedNote = (noteValue: string): string => {
-  if (!noteValue || typeof noteValue !== "string") return noteValue;
-
-  const parts = noteValue.split(" - ");
-  if (parts.length <= 2) return noteValue;
-
-  const firstPart = parts[0]?.trim() || "";
-  const secondPart = parts[1]?.trim() || "";
-
-  let isRepeating = true;
-  for (let i = 2; i < parts.length; i += 2) {
-    if ((parts[i]?.trim() || "") !== firstPart) {
-      isRepeating = false;
-      break;
-    }
-    if (i + 1 < parts.length && (parts[i + 1]?.trim() || "") !== secondPart) {
-      isRepeating = false;
-      break;
-    }
-  }
-
-  if (isRepeating && firstPart) {
-    if (secondPart) {
-      return `${firstPart} - ${secondPart}`;
-    }
-    return firstPart;
-  }
-
-  return noteValue;
-};
-
-const StatusSelectWithNote = ({
-  field,
-  label,
-  options,
-  noteOptions,
-  noteDefault,
-  issueValues,
-  form,
-  required,
-}: {
-  field: keyof RecordWorkForm & string;
-  label: string;
-  options?: Array<{ value: string; label: string; description?: string }>;
-  noteOptions?: string[];
-  noteDefault?: string;
-  issueValues?: string[];
-  form: any;
-  required?: boolean;
-}) => {
-  const { watch, register, setValue, getValues } = form;
-  const statusVal = watch(field as keyof RecordWorkForm) as string;
-
-  const status = statusVal || (options ? "" : "OK");
-  const noteField = `${field}Note` as keyof RecordWorkForm;
-  const initialChoice = noteDefault || noteOptions?.[0] || "";
-  const [noteChoice, setNoteChoice] = useState<string>(initialChoice);
-  const [noteText, setNoteText] = useState<string>("");
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const statusRegister = register(field as keyof RecordWorkForm);
-
-  const selectOptions =
-    options && options.length
-      ? options
-      : [
-          { value: "OK", label: "OK", description: "Part is OK" },
-          { value: "YES", label: "YES", description: "Needs replacement" },
-        ];
-
-  const isIssue =
-    issueValues && issueValues.length > 0
-      ? issueValues.includes(status)
-      : status === "YES" ||
-        status === "Concern" ||
-        status.startsWith("YES") ||
-        status.includes("Concern");
-
-  const formatNote = (choice: string, text: string) => {
-    const c = choice?.trim();
-    const t = text?.trim();
-    if (c && t) return `${c} - ${t}`;
-    if (c) return c;
-    if (t) return t;
-    return "";
-  };
-
-  const parseExistingNote = (
-    noteValue: string,
-  ): { choice: string; text: string } => {
-    if (!noteValue || typeof noteValue !== "string") {
-      return { choice: initialChoice, text: "" };
-    }
-
-    const cleanedValue = cleanRepeatedNote(noteValue);
-
-    if (noteOptions && noteOptions.length > 0) {
-      for (const opt of noteOptions) {
-        if (cleanedValue.startsWith(`${opt} - `)) {
-          return { choice: opt, text: cleanedValue.slice(opt.length + 3) };
-        }
-
-        if (cleanedValue === opt) {
-          return { choice: opt, text: "" };
-        }
-      }
-    }
-
-    return { choice: initialChoice, text: cleanedValue };
-  };
-
-  const handleReasonChange = (val: string) => {
-    setNoteChoice(val);
-    if (isIssue) {
-      setValue(noteField, formatNote(val, noteText), { shouldDirty: true });
-    }
-  };
-
-  const handleNoteTextChange = (text: string) => {
-    setNoteText(text);
-    if (isIssue) {
-      setValue(noteField, formatNote(noteChoice, text), { shouldDirty: true });
-    }
-  };
-
-  useEffect(() => {
-    if (hasInitialized) return;
-
-    const existingNote = getValues(noteField);
-    if (
-      existingNote &&
-      typeof existingNote === "string" &&
-      existingNote.trim()
-    ) {
-      const parsed = parseExistingNote(existingNote);
-      setNoteChoice(parsed.choice);
-      setNoteText(parsed.text);
-    }
-    setHasInitialized(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isIssue && hasInitialized) {
-      const currentNote = getValues(noteField);
-      if (noteChoice !== initialChoice) setNoteChoice(initialChoice);
-      if (noteText) setNoteText("");
-      if (currentNote) setValue(noteField, "", { shouldDirty: true });
-    }
-  }, [isIssue]);
-
-  return (
-    <FormField label={label} required={required}>
-      <select
-        name={statusRegister.name}
-        ref={statusRegister.ref}
-        onBlur={statusRegister.onBlur}
-        required={required}
-        value={status}
-        onChange={(event) => {
-          const value = event.target.value;
-          setValue(field, value, { shouldDirty: true });
-          statusRegister.onChange(event);
-        }}
-        className="w-full border-2 border-black p-2 text-black text-sm"
-      >
-        {options && (
-          <option value="" disabled>
-            Select Status
-          </option>
-        )}
-        {selectOptions.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label} {option.description && `(${option.description})`}
-          </option>
-        ))}
-      </select>
-
-      {isIssue && noteOptions?.length ? (
-        <>
-          <select
-            className="w-full border-2 border-black p-2 text-black text-sm mt-2"
-            value={noteChoice}
-            onChange={(e) => handleReasonChange(e.target.value)}
-          >
-            <option value="" disabled>
-              Select reason
-            </option>
-            {noteOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          <Input
-            type="text"
-            value={noteText}
-            onChange={(e) => handleNoteTextChange(e.target.value)}
-            placeholder="Add details"
-            className="border-2 border-black text-sm mt-2"
-          />
-        </>
-      ) : null}
-
-      {isIssue && !noteOptions?.length && (
-        <Input
-          {...register(noteField)}
-          defaultValue={noteDefault}
-          placeholder="Enter details..."
-          className="border-2 border-black text-sm mt-2"
-        />
-      )}
-    </FormField>
-  );
-};
 
 export default function RecordWorkStep({ data, onNext, onBack }: any) {
   const [beforeImages, setBeforeImages] = useState<UploadedImage[]>([]);
@@ -1035,7 +822,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     field: any,
     value: any,
     allValues: RecordWorkForm,
-  ) => {
+  ): { status: "normal" | "error" | "warning"; message: string | null } => {
     if (value === undefined || value === null || value === "")
       return { status: "normal", message: null };
 
@@ -1097,6 +884,28 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       const numValue = Number(value);
       if (!isNaN(numValue) && numValue < 10) {
         return { status: "warning", message: "Low fL value (Standard: >= 10)" };
+      }
+    }
+
+    // 4. Cross-field validation: White and Black must both be filled if either is filled
+    if (field.key === "lightEngineWhite" || field.key === "lightEngineBlack") {
+      const whiteValue = allValues.lightEngineWhite;
+      const blackValue = allValues.lightEngineBlack;
+      const whiteFilled = whiteValue && whiteValue.trim() !== "";
+      const blackFilled = blackValue && blackValue.trim() !== "";
+
+      if (field.key === "lightEngineWhite" && whiteFilled && !blackFilled) {
+        return {
+          status: "error",
+          message: "Black must also be selected when White is selected.",
+        };
+      }
+
+      if (field.key === "lightEngineBlack" && blackFilled && !whiteFilled) {
+        return {
+          status: "error",
+          message: "White must also be selected when Black is selected.",
+        };
       }
     }
 
@@ -1229,35 +1038,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 );
               }
 
-              if (field.componentType === "statusSelectWithNote") {
-                const selectOptions = field.options?.map((opt) => ({
-                  value: opt,
-                  label: opt,
-                  description: field.optionDescriptions?.[opt] || "",
-                })) || [
-                  { value: "OK", label: "OK", description: "Part is OK" },
-                  {
-                    value: "YES",
-                    label: "YES",
-                    description: "Needs replacement",
-                  },
-                ];
-
-                return (
-                  <StatusSelectWithNote
-                    key={field.key}
-                    field={field.key as keyof RecordWorkForm & string}
-                    label={field.label}
-                    options={selectOptions}
-                    noteOptions={field.noteOptions}
-                    noteDefault={field.noteDefault}
-                    issueValues={field.issueValues}
-                    form={{ watch, register, setValue, getValues }}
-                    required={field.required}
-                  />
-                );
-              }
-
               if (
                 field.key === "softwareVersion" &&
                 softwareVersions.length > 0
@@ -1370,6 +1150,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                     <DynamicFormField
                       field={field}
                       register={register}
+                      watch={watch}
+                      setValue={setValue}
                       className={`border-2 ${borderColor} text-sm`}
                     />
                     {validation.message && (
@@ -1392,6 +1174,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                   <DynamicFormField
                     field={field}
                     register={register}
+                    watch={watch}
+                    setValue={setValue}
                     className="border-2 border-black text-sm"
                   />
                 </FormField>
@@ -1416,6 +1200,27 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           validationErrors.push(`${field.label}: ${validation.message}`);
         }
       });
+    }
+
+    // Cross-field validation: White and Black must both be filled if either is filled
+    const whiteValue = values.lightEngineWhite;
+    const blackValue = values.lightEngineBlack;
+
+    // Check if White is filled (has value)
+    const whiteFilled = whiteValue && whiteValue.trim() !== "";
+    // Check if Black is filled (has value)
+    const blackFilled = blackValue && blackValue.trim() !== "";
+
+    if (whiteFilled && !blackFilled) {
+      validationErrors.push(
+        "Light Engine Test Pattern: If White is selected, Black must also be selected."
+      );
+    }
+
+    if (blackFilled && !whiteFilled) {
+      validationErrors.push(
+        "Light Engine Test Pattern: If Black is selected, White must also be selected."
+      );
     }
 
     // Original range check logic is now subsumed by getValidationStatus, but we keep the error collector structure
