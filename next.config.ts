@@ -3,6 +3,19 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
 	typedRoutes: true,
 	reactCompiler: false,
+	async headers() {
+		return [
+			{
+				source: "/((?!_next/static|_next/image|favicon|.*\\.(?:ico|png|jpg|jpeg|gif|webp|svg)$).*)",
+				headers: [
+					{
+						key: "Cache-Control",
+						value: "no-cache, no-store, must-revalidate",
+					},
+				],
+			},
+		];
+	},
 	images: {
 		remotePatterns: [
 			{

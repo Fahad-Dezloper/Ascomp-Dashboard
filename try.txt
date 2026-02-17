@@ -25,9 +25,9 @@ In form contact details coloum should visible like name.(Mr._________ - ________
 
 // pending
 4) if fse write in white coloum it should also write in black and vise versa -- done
-Need to Yes Types option for better form handling (Status select with notes with more option)
+Need to Yes Types option for better form handling (Status select with notes with more option) -- done
 drive bulk pdf of filters -- done
-authentication issue
+authentication issue -- done
 email bug update -- done
 
 
