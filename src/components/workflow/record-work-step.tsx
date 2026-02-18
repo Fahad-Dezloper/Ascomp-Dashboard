@@ -264,121 +264,6 @@ const FormField = ({
 
 
 export default function RecordWorkStep({ data, onNext, onBack }: any) {
-  const [beforeImages, setBeforeImages] = useState<UploadedImage[]>([]);
-  const [afterImages, setAfterImages] = useState<UploadedImage[]>([]);
-  const [brokenImages, setBrokenImages] = useState<UploadedImage[]>([]);
-  const [imageError, setImageError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [partsData, setPartsData] = useState<ProjectorPart[]>([]);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [partSearchQuery, setPartSearchQuery] = useState("");
-  const [lampModelsData, setLampModelsData] = useState<
-    Array<{ projector_model: string; Models: string[] }>
-  >([]);
-  const [lampModels, setLampModels] = useState<string[]>([]);
-  const [softwareVersions, setSoftwareVersions] = useState<string[]>([]);
-  const [contentPlayers, setContentPlayers] = useState<string[]>([]);
-  const [contactName, setContactName] = useState<string>("");
-  const [contactPhone, setContactPhone] = useState<string>("");
-  const beforeImagesRef = useRef<UploadedImage[]>([]);
-  const afterImagesRef = useRef<UploadedImage[]>([]);
-  const brokenImagesRef = useRef<UploadedImage[]>([]);
-  const { config: formConfig, loading: configLoading } = useFormConfig();
-
-  const { register, handleSubmit, reset, watch, setValue, getValues } =
-    useForm<RecordWorkForm>({
-      defaultValues: createInitialFormData(),
-    });
-
-  // Helper function to parse contactDetails into name and phone
-  const parseContactDetails = (
-    contactDetails: string | undefined | null,
-  ): { name: string; phone: string } => {
-    if (!contactDetails) return { name: "", phone: "" };
-    const parts = contactDetails.split(" - ");
-    if (parts.length >= 2 && parts[0] !== undefined) {
-      return {
-        name: parts[0].trim(),
-        phone: parts.slice(1).join(" - ").trim(),
-      };
-    }
-    return { name: contactDetails.trim(), phone: "" };
-  };
-
-  // Helper function to combine name and phone into contactDetails format
-  const combineContactDetails = (name: string, phone: string): string => {
-    const nameTrimmed = name.trim();
-    const phoneTrimmed = phone.trim();
-    if (nameTrimmed && phoneTrimmed) {
-      return `${nameTrimmed} - ${phoneTrimmed}`;
-    }
-  }, [isIssue]) // Only depend on isIssue changing
-
-  return (
-    <FormField label={label} required={required}>
-      <select
-        name={statusRegister.name}
-        ref={statusRegister.ref}
-        onBlur={statusRegister.onBlur}
-        required={required}
-        value={status}
-        onChange={(event) => {
-          const value = event.target.value
-          setValue(field, value, { shouldDirty: true })
-          statusRegister.onChange(event)
-        }}
-        className="w-full border-2 border-black p-2 text-black text-sm"
-      >
-        {options && <option value="" disabled>Select Status</option>}
-        {selectOptions.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label} {option.description && `(${option.description})`}
-          </option>
-        ))}
-      </select>
-
-      {isIssue && noteOptions?.length ? (
-        <>
-          <select
-            className="w-full border-2 border-black p-2 text-black text-sm mt-2"
-            value={noteChoice}
-            onChange={(e) => handleReasonChange(e.target.value)}
-          >
-            <option value="" disabled>
-              Select reason
-            </option>
-            {noteOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          <Input
-            type="text"
-            value={noteText}
-            onChange={(e) => handleNoteTextChange(e.target.value)}
-            placeholder="Add details"
-            className="border-2 border-black text-sm mt-2"
-          />
-        </>
-      ) : null}
-
-      {isIssue && !noteOptions?.length && (
-        <Input
-          {...register(noteField)}
-          defaultValue={noteDefault}
-          placeholder="Enter details..."
-          className="border-2 border-black text-sm mt-2"
-        />
-      )}
-    </FormField>
-  )
-}
-
-export default function RecordWorkStep({ data, onNext, onBack }: any) {
   const [beforeImages, setBeforeImages] = useState<UploadedImage[]>([])
   const [afterImages, setAfterImages] = useState<UploadedImage[]>([])
   const [brokenImages, setBrokenImages] = useState<UploadedImage[]>([])
@@ -521,12 +406,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     const combined = combineContactDetails(contactName, contactPhone);
     setValue("contactDetails", combined, { shouldDirty: true });
   }, [contactName, contactPhone, setValue]);
-
-  // Update contactDetails when contactName or contactPhone changes
-  useEffect(() => {
-    const combined = combineContactDetails(contactName, contactPhone)
-    setValue('contactDetails', combined, { shouldDirty: true })
-  }, [contactName, contactPhone, setValue])
 
   useEffect(() => {
     if (typeof window === "undefined" || !data?.selectedService?.id) return;
@@ -1142,17 +1021,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                   </FormField>
                 )
               }
-
-              // Handle StatusSelectWithNote component type
-              if (field.componentType === "statusSelectWithNote") {
-                const selectOptions = field.options?.map(opt => ({
-                  value: opt,
-                  label: opt,
-                  description: field.optionDescriptions?.[opt] || ""
-                })) || [
-                    { value: 'OK', label: 'OK', description: 'Part is OK' },
-                    { value: 'YES', label: 'YES', description: 'Needs replacement' },
-                  ]
 
               // Explicit handling for contactDetails - split into name and phone inputs
               if (field.key === "contactDetails") {
