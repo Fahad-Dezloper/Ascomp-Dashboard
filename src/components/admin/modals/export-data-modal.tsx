@@ -103,6 +103,7 @@ const FILTER_FIELDS: {
     { key: "cinemaName", label: "Cinema Name", type: "string" },
     { key: "screenNumber", label: "Screen Number", type: "string" },
     { key: "reportGenerated", label: "Report Generated", type: "boolean" },
+    { key: "logs", label: "Projector Logs", type: "string" },
   ],
 };
 
@@ -503,7 +504,7 @@ export default function ExportDataModal({
                   >
                     All
                   </Label>
-          </div>
+                </div>
 
                 {/* Select Column Checkbox */}
                 <div className="flex items-center gap-3">
@@ -519,7 +520,7 @@ export default function ExportDataModal({
                   >
                     Select Column
                   </Label>
-        </div>
+                </div>
               </div>
             </div>
 
@@ -602,7 +603,7 @@ export default function ExportDataModal({
                           {filteredColumns.map((columnKey) => {
                             const isSelected = selectedColumns.has(columnKey);
                             return (
-                <label
+                              <label
                                 key={columnKey}
                                 className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${isSelected
                                   ? "bg-black/5 border-2 border-black"
@@ -619,7 +620,7 @@ export default function ExportDataModal({
                                 <span className="text-sm text-gray-900 flex-1">
                                   {getLabel(columnKey)}
                                 </span>
-                </label>
+                              </label>
                             );
                           })}
                         </div>

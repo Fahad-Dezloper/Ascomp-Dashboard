@@ -57,15 +57,11 @@ worker.on("error", (err) => {
 
 console.log("🚀 Export worker started and listening for jobs...");
 
-// Graceful shutdown for Render/production environments
-process.on("SIGTERM", async () => {
-  console.log("🛑 SIGTERM received, closing worker gracefully...");
-  await worker.close();
-  process.exit(0);
-});
+function shutdown(signal: string) {
+  console.log(`\n🛑 ${signal} received, stopping immediately...`);
+  worker.close().catch(() => {});
+  setTimeout(() => process.exit(0), 1000);
+}
 
-process.on("SIGINT", async () => {
-  console.log("🛑 SIGINT received, closing worker gracefully...");
-  await worker.close();
-  process.exit(0);
-});
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

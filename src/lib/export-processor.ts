@@ -4,13 +4,23 @@ import { put } from "@vercel/blob";
 import ExcelJS from "exceljs";
 import { generateMaintenanceReport, type MaintenanceReportData, convertServiceVisitToText } from "@/components/PDFGenerator";
 import { sendEmail } from "./email";
+import { uploadPdfsToDrive } from "./google-drive";
 
 const CHUNK_SIZE = 50;
 
 function mapStatus(value?: string | null, note?: string | null) {
+  const valStr = value ? String(value) : "";
+  const separatorIdx = valStr.indexOf(" - ");
+  // If value contains " - " (sub-option format) and no separate note, parse from value
+  if (separatorIdx !== -1 && !note) {
+    return {
+      yesNo: valStr.substring(0, separatorIdx).trim(),
+      status: valStr.substring(separatorIdx + 3).trim(),
+    };
+  }
   return {
     status: note ? String(note) : "",
-    yesNo: value ? (String(value).split("(")[0] || "").trim() : "",
+    yesNo: (valStr.split("(")[0] || "").trim(),
   };
 }
 
@@ -20,7 +30,7 @@ function safe(val: any) {
 
 function buildPdfDataFromService(fullService: any): MaintenanceReportData {
   const workDetails = fullService.workDetails || {};
-  
+
   return {
     cinemaName: fullService.cinemaName || fullService.site?.siteName || "",
     date: fullService.date ? new Date(fullService.date).toLocaleDateString() : "",
@@ -184,9 +194,9 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
     },
     recommendedParts: Array.isArray(workDetails.recommendedParts || fullService.recommendedParts)
       ? (workDetails.recommendedParts || fullService.recommendedParts).map((part: any) => ({
-          name: String(part.name ?? part.description ?? ""),
-          partNumber: String(part.partNumber ?? part.part_number ?? ""),
-        }))
+        name: String(part.name ?? part.description ?? ""),
+        partNumber: String(part.partNumber ?? part.part_number ?? ""),
+      }))
       : [],
     issueNotes: [],
     detectedIssues: [],
@@ -212,7 +222,7 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
   };
 }
 
-async function generateAndUploadPdf(service: any): Promise<string> {
+async function generateAndUploadPdf(service: any): Promise<{ url: string; buffer: Buffer }> {
   const pdfData = buildPdfDataFromService(service);
   const pdfBytes = await generateMaintenanceReport(pdfData);
   const pdfBuffer = Buffer.from(pdfBytes);
@@ -223,7 +233,7 @@ async function generateAndUploadPdf(service: any): Promise<string> {
     contentType: "application/pdf",
   });
 
-  return blob.url;
+  return { url: blob.url, buffer: pdfBuffer };
 }
 
 async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
@@ -425,7 +435,7 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
     // Also apply basic filters from currentFilters if they exist (for useCurrentFilter with advanced filters)
     // These should be combined with AND logic (both advanced filters AND basic filters must match)
     const basicFilterConditions: any[] = [];
-    
+
     if (jobData.filters.currentFilters) {
       const { workerFilter, startDate } = jobData.filters.currentFilters;
 
@@ -520,21 +530,24 @@ function flattenRecord(record: any): Record<string, any> {
   const flattened: Record<string, any> = {
     id: record.id,
     serviceNumber: record.serviceNumber,
-    date: record.date ? new Date(record.date).toLocaleDateString() : "",
-    createdAt: record.createdAt ? new Date(record.createdAt).toLocaleDateString() : "",
+    date: record.date ? new Date(record.date) : null,
+    createdAt: record.createdAt ? new Date(record.createdAt) : null,
     cinemaName: record.cinemaName || record.site?.siteName || "",
     screenNumber: record.screenNumber || "",
     location: record.location || "",
     projectorSerial: record.projector?.serialNo || "",
     projectorModel: record.projector?.modelNo || "",
+    projectorState: record.projector?.state || "",
+    projectorRegion: record.projector?.region || "",
+    projectorPvr: record.projector?.pvr || "",
     engineerName: record.assignedTo?.name || "",
     engineerEmail: record.assignedTo?.email || "",
     address: record.address || record.site?.address || "",
     contactDetails: record.contactDetails || record.site?.contactDetails || "",
     projectorRunningHours: record.projectorRunningHours?.toString() || "",
     remarks: record.remarks || "",
-    startTime: record.startTime ? new Date(record.startTime).toISOString() : "",
-    endTime: record.endTime ? new Date(record.endTime).toISOString() : "",
+    startTime: record.startTime ? new Date(record.startTime) : null,
+    endTime: record.endTime ? new Date(record.endTime) : null,
     reportGenerated: record.reportGenerated?.toString() || "",
     reportUrl: record.reportUrl || "",
   };
@@ -567,7 +580,7 @@ function flattenRecord(record: any): Record<string, any> {
     "imageVibration", "imageVibrationNote", "liteloc", "litelocNote",
     "hcho", "tvoc", "pm1", "pm2_5", "pm10", "temperature", "humidity",
     "airPollutionLevel", "lightEngineSerialNumber", "BW_Step_10_2Kx", "BW_Step_10_2Ky",
-    "BW_Step_10_2Kfl", "BW_Step_10_4Kx", "BW_Step_10_4Ky", "BW_Step_10_4Kfl",
+    "BW_Step_10_2Kfl", "BW_Step_10_4Kx", "BW_Step_10_4Ky", "BW_Step_10_4Kfl", "logs",
   ];
 
   workDetailFields.forEach((field) => {
@@ -576,7 +589,7 @@ function flattenRecord(record: any): Record<string, any> {
       if (typeof value === "number" || typeof value === "boolean") {
         flattened[field] = String(value);
       } else if (value instanceof Date) {
-        flattened[field] = value.toISOString();
+        flattened[field] = value;
       } else {
         flattened[field] = String(value);
       }
@@ -604,6 +617,9 @@ function flattenRecord(record: any): Record<string, any> {
 
 // Column priority order matching overview-view.tsx table order
 const COLUMN_PRIORITY = [
+  "projectorState",
+  "projectorRegion",
+  "projectorPvr",
   "date",
   "serviceNumber",
   "siteName",
@@ -733,6 +749,7 @@ const COLUMN_PRIORITY = [
   "white4Kfl",
   "white4Kx",
   "white4Ky",
+  "logs",
 ];
 
 function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
@@ -747,7 +764,7 @@ function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
         }
       });
     });
-    
+
     // Sort by priority: priority fields first in order, then alphabetically for others
     const sortedKeys = Array.from(allKeys).sort((a, b) => {
       const aPriority = COLUMN_PRIORITY.indexOf(a);
@@ -757,10 +774,10 @@ function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
       if (bPriority !== -1) return 1;
       return a.localeCompare(b);
     });
-    
+
     return sortedKeys;
   }
-  
+
   // For specific columns, also sort by priority and exclude action
   return columns
     .filter(key => key !== "action")
@@ -801,6 +818,7 @@ export async function processExportJob(
   console.log(`📋 Exporting ${columnHeaders.length} columns`);
 
   const pdfUrls: Map<string, string> = new Map();
+  const pdfArtifacts: Array<{ id: string; url: string; buffer: Buffer }> = [];
   const totalChunks = Math.ceil(records.length / CHUNK_SIZE);
   const pdfProgressStart = 10;
   const pdfProgressEnd = 70;
@@ -816,17 +834,20 @@ export async function processExportJob(
 
     const pdfPromises = chunk.map(async (record) => {
       try {
-        const pdfUrl = await generateAndUploadPdf(record);
-        return { id: record.id, url: pdfUrl };
+        const { url, buffer } = await generateAndUploadPdf(record);
+        return { id: record.id, url, buffer };
       } catch (error) {
         console.error(`Failed to generate PDF for record ${record.id}:`, error);
-        return { id: record.id, url: "" };
+        return null;
       }
     });
 
     const results = await Promise.all(pdfPromises);
-    results.forEach(({ id, url }) => {
-      if (url) pdfUrls.set(id, url);
+    results.forEach((result) => {
+      if (result) {
+        pdfUrls.set(result.id, result.url);
+        pdfArtifacts.push(result);
+      }
     });
   }
 
@@ -834,12 +855,42 @@ export async function processExportJob(
 
   await updateProgress(75, "Creating Excel file...");
   console.log(`📝 Creating Excel file...`);
+  console.log(`📝 Creating Excel file...`);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Service Records");
 
-  const headers = ["PDF", ...columnHeaders];
-  worksheet.addRow(headers);
+  // Define columns with proper formatting
+  const columns: Partial<ExcelJS.Column>[] = [
+    { header: "PDF Report", key: "pdf", width: 15 },
+    ...columnHeaders.map(colKey => {
+      // Determine if this is a date or time column
+      let numFmt: string | undefined;
+      const keyLower = colKey.toLowerCase();
+      
+      if (colKey === 'date' || colKey === 'createdAt' || keyLower.includes('date')) {
+        numFmt = 'd mmmm yyyy';
+      } else if (colKey === 'startTime' || colKey === 'endTime' || keyLower.includes('time')) {
+        numFmt = 'mm/dd/yyyy hh:mm AM/PM';
+      }
 
+      // Convert camelCase to Title Case for better header readability
+      const label = colKey
+        .replace(/_/g, " ")
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/\b\w/g, c => c.toUpperCase());
+
+      return {
+        header: label,
+        key: colKey,
+        width: 20,
+        style: numFmt ? { numFmt } : undefined
+      };
+    })
+  ];
+
+  worksheet.columns = columns;
+
+  // Style the header row
   const headerRow = worksheet.getRow(1);
   headerRow.font = { bold: true };
   headerRow.fill = {
@@ -851,22 +902,23 @@ export async function processExportJob(
   records.forEach((record) => {
     const flattened = flattenRecord(record);
     const pdfUrl = pdfUrls.get(record.id) || "";
-    const row: any[] = [pdfUrl, ...columnHeaders.map((col) => flattened[col] || "")];
-    worksheet.addRow(row);
+    
+    // Create row object mapping keys to values
+    const rowData: Record<string, any> = { pdf: pdfUrl };
+    columnHeaders.forEach(key => {
+      rowData[key] = flattened[key];
+    });
 
+    const row = worksheet.addRow(rowData);
+
+    // Add hyperlink to PDF column
     if (pdfUrl) {
-      const pdfCell = worksheet.getCell(worksheet.rowCount, 1);
+      const pdfCell = row.getCell("pdf");
       pdfCell.value = {
-        text: pdfUrl,
+        text: "Download PDF",
         hyperlink: pdfUrl,
       };
       pdfCell.font = { color: { argb: "FF0000FF" }, underline: true };
-    }
-  });
-
-  worksheet.columns.forEach((column) => {
-    if (column.header) {
-      column.width = 15;
     }
   });
 
@@ -879,9 +931,51 @@ export async function processExportJob(
 
   console.log(`✅ Excel file uploaded: ${excelBlob.url}`);
 
+  // Upload PDFs to Google Drive
+  await updateProgress(80, "Uploading PDFs to Google Drive...");
+  console.log(`📤 Uploading ${pdfUrls.size} PDFs to Google Drive...`);
+  
+  let driveFolderLink: string | null = null;
+  
+  try {
+    const folderName = `Service Records Export - ${new Date().toLocaleString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric', 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })}`;
+    
+    const pdfsToUpload = pdfArtifacts.map(({ id, url, buffer }) => {
+      const record = records.find(r => r.id === id);
+      const serviceNumber = record?.serviceNumber || id;
+      const serialNo = record?.projector?.serialNo || 'unknown';
+      return {
+        url,
+        buffer,
+        fileName: `${serialNo}_Service_${serviceNumber}.pdf`
+      };
+    });
+
+    driveFolderLink = await uploadPdfsToDrive(
+      pdfsToUpload,
+      folderName,
+      (current, total) => {
+        const progress = 80 + Math.floor((current / total) * 10);
+        updateProgress(progress, `Uploading PDFs to Drive (${current}/${total})...`);
+      }
+    );
+
+    console.log(`✅ PDFs uploaded to Google Drive: ${driveFolderLink}`);
+  } catch (driveError) {
+    console.error(`❌ Failed to upload PDFs to Google Drive:`, driveError);
+    console.error("Drive error details:", driveError instanceof Error ? driveError.message : String(driveError));
+    // Continue with email even if Drive upload fails
+  }
+
   await updateProgress(90, "Sending email notification...");
   console.log(`📧 Sending email notification to ${jobData.email}...`);
-  
+
   try {
     await sendEmail({
       to: jobData.email,
@@ -892,15 +986,37 @@ export async function processExportJob(
           <p>Your export is ready!</p>
           <p><strong>Total Records:</strong> ${records.length}</p>
           <p><strong>PDFs Generated:</strong> ${pdfUrls.size}</p>
-          <p style="margin-top: 30px;">
-            <a href="${excelBlob.url}" 
-               style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Download Excel File
-            </a>
-          </p>
-          <p style="color: #666; font-size: 12px; margin-top: 30px;">
-            The Excel file contains all the data plus links to individual PDF reports for each service record.
-          </p>
+          
+          <div style="margin-top: 30px;">
+            <p style="margin-bottom: 15px;"><strong>Download Options:</strong></p>
+            
+            <!-- Excel Download Button -->
+            <p style="margin-bottom: 15px;">
+              <a href="${excelBlob.url}" 
+                 style="background-color: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                📊 Download Excel File
+              </a>
+            </p>
+            
+            ${driveFolderLink ? `
+            <!-- Google Drive Link -->
+            <p style="margin-bottom: 15px;">
+              <a href="${driveFolderLink}" 
+                 style="background-color: #4285f4; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                📁 View All PDFs in Google Drive
+              </a>
+            </p>
+            ` : ''}
+          </div>
+          
+          <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 30px;">
+            <p style="color: #666; font-size: 12px; margin: 0;">
+              <strong>What's included:</strong><br>
+              • Excel file contains all service record data with PDF links<br>
+              ${driveFolderLink ? '• Google Drive folder contains all PDF reports for easy access and sharing<br>' : ''}
+              • Individual PDFs are also linked in the Excel file
+            </p>
+          </div>
         </div>
       `,
     });
@@ -916,5 +1032,6 @@ export async function processExportJob(
     fileUrl: excelBlob.url,
     fileName: excelFileName,
     totalRecords: records.length,
+    driveFolderLink: driveFolderLink || undefined,
   };
 }
