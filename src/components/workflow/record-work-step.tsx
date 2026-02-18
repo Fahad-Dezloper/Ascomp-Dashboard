@@ -920,6 +920,24 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       }
     }
 
+    // 1b. Lamp Total Running Hours cannot exceed Projector Running Hours
+    if (field.key === "lampTotalRunningHours") {
+      const projectorHours = Number(allValues.projectorRunningHours);
+      const lampTotal = Number(value);
+      if (
+        !isNaN(projectorHours) &&
+        !isNaN(lampTotal) &&
+        projectorHours > 0 &&
+        lampTotal > projectorHours
+      ) {
+        return {
+          status: "error",
+          message:
+            "Lamp Total hours cannot be more than Projector running hours.",
+        };
+      }
+    }
+
     // 2. Specific Rule: CFM Value for Projector Models
     if (field.key === "exhaustCfm") {
       const model = allValues.projectorModel?.toUpperCase() || "";
