@@ -1,10 +1,16 @@
 import prisma from "./db";
-import { type ExportJobData, type ExportJobResult } from "./queues/export-queue";
+import {
+  type ExportJobData,
+  type ExportJobResult,
+} from "./queues/export-queue";
 import { put } from "@vercel/blob";
 import ExcelJS from "exceljs";
-import { generateMaintenanceReport, type MaintenanceReportData, convertServiceVisitToText } from "@/components/PDFGenerator";
+import {
+  generateMaintenanceReport,
+  type MaintenanceReportData,
+  convertServiceVisitToText,
+} from "@/components/PDFGenerator";
 import { sendEmail } from "./email";
-import { uploadPdfsToDrive } from "./google-drive";
 
 const CHUNK_SIZE = 50;
 
@@ -33,9 +39,12 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
 
   return {
     cinemaName: fullService.cinemaName || fullService.site?.siteName || "",
-    date: fullService.date ? new Date(fullService.date).toLocaleDateString() : "",
+    date: fullService.date
+      ? new Date(fullService.date).toLocaleDateString()
+      : "",
     address: fullService.address || fullService.site?.address || "",
-    contactDetails: fullService.contactDetails || fullService.site?.contactDetails || "",
+    contactDetails:
+      fullService.contactDetails || fullService.site?.contactDetails || "",
     location: fullService.location || "",
     screenNo: fullService.screenNumber || fullService.site?.screenNo || "",
     serviceVisit: fullService.assignedTo?.name
@@ -44,51 +53,144 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
     projectorModel: fullService.projector?.modelNo || "",
     serialNo: fullService.projector?.serialNo || "",
     runningHours: fullService.projectorRunningHours?.toString() || "",
-    projectorEnvironment: workDetails.projectorPlacementEnvironment || fullService.projectorPlacementEnvironment || "",
+    projectorEnvironment:
+      workDetails.projectorPlacementEnvironment ||
+      fullService.projectorPlacementEnvironment ||
+      "",
     startTime: workDetails.startTime || fullService.startTime,
     endTime: workDetails.endTime || fullService.endTime,
     opticals: {
-      reflector: mapStatus(workDetails.reflector || fullService.reflector, workDetails.reflectorNote || fullService.reflectorNote),
-      uvFilter: mapStatus(workDetails.uvFilter || fullService.uvFilter, workDetails.uvFilterNote || fullService.uvFilterNote),
-      integratorRod: mapStatus(workDetails.integratorRod || fullService.integratorRod, workDetails.integratorRodNote || fullService.integratorRodNote),
-      coldMirror: mapStatus(workDetails.coldMirror || fullService.coldMirror, workDetails.coldMirrorNote || fullService.coldMirrorNote),
-      foldMirror: mapStatus(workDetails.foldMirror || fullService.foldMirror, workDetails.foldMirrorNote || fullService.foldMirrorNote),
+      reflector: mapStatus(
+        workDetails.reflector || fullService.reflector,
+        workDetails.reflectorNote || fullService.reflectorNote,
+      ),
+      uvFilter: mapStatus(
+        workDetails.uvFilter || fullService.uvFilter,
+        workDetails.uvFilterNote || fullService.uvFilterNote,
+      ),
+      integratorRod: mapStatus(
+        workDetails.integratorRod || fullService.integratorRod,
+        workDetails.integratorRodNote || fullService.integratorRodNote,
+      ),
+      coldMirror: mapStatus(
+        workDetails.coldMirror || fullService.coldMirror,
+        workDetails.coldMirrorNote || fullService.coldMirrorNote,
+      ),
+      foldMirror: mapStatus(
+        workDetails.foldMirror || fullService.foldMirror,
+        workDetails.foldMirrorNote || fullService.foldMirrorNote,
+      ),
     },
     electronics: {
-      touchPanel: mapStatus(workDetails.touchPanel || fullService.touchPanel, workDetails.touchPanelNote || fullService.touchPanelNote),
-      evbBoard: mapStatus(workDetails.evbBoard || fullService.evbBoard, workDetails.evbBoardNote || fullService.evbBoardNote),
-      ImcbBoard: mapStatus(workDetails.ImcbBoard || fullService.ImcbBoard, workDetails.ImcbBoardNote || fullService.ImcbBoardNote),
-      pibBoard: mapStatus(workDetails.pibBoard || fullService.pibBoard, workDetails.pibBoardNote || fullService.pibBoardNote),
-      IcpBoard: mapStatus(workDetails.IcpBoard || fullService.IcpBoard, workDetails.IcpBoardNote || fullService.IcpBoardNote),
-      imbSBoard: mapStatus(workDetails.imbSBoard || fullService.imbSBoard, workDetails.imbSBoardNote || fullService.imbSBoardNote),
+      touchPanel: mapStatus(
+        workDetails.touchPanel || fullService.touchPanel,
+        workDetails.touchPanelNote || fullService.touchPanelNote,
+      ),
+      evbBoard: mapStatus(
+        workDetails.evbBoard || fullService.evbBoard,
+        workDetails.evbBoardNote || fullService.evbBoardNote,
+      ),
+      ImcbBoard: mapStatus(
+        workDetails.ImcbBoard || fullService.ImcbBoard,
+        workDetails.ImcbBoardNote || fullService.ImcbBoardNote,
+      ),
+      pibBoard: mapStatus(
+        workDetails.pibBoard || fullService.pibBoard,
+        workDetails.pibBoardNote || fullService.pibBoardNote,
+      ),
+      IcpBoard: mapStatus(
+        workDetails.IcpBoard || fullService.IcpBoard,
+        workDetails.IcpBoardNote || fullService.IcpBoardNote,
+      ),
+      imbSBoard: mapStatus(
+        workDetails.imbSBoard || fullService.imbSBoard,
+        workDetails.imbSBoardNote || fullService.imbSBoardNote,
+      ),
     },
-    serialVerified: mapStatus(workDetails.serialNumberVerified || fullService.serialNumberVerified, workDetails.serialNumberVerifiedNote || fullService.serialNumberVerifiedNote),
-    AirIntakeLadRad: mapStatus(workDetails.AirIntakeLadRad || fullService.AirIntakeLadRad, workDetails.AirIntakeLadRadNote || fullService.AirIntakeLadRadNote),
-    coolant: mapStatus(workDetails.coolantLevelColor || fullService.coolantLevelColor, workDetails.coolantLevelColorNote || fullService.coolantLevelColorNote),
+    serialVerified: mapStatus(
+      workDetails.serialNumberVerified || fullService.serialNumberVerified,
+      workDetails.serialNumberVerifiedNote ||
+        fullService.serialNumberVerifiedNote,
+    ),
+    AirIntakeLadRad: mapStatus(
+      workDetails.AirIntakeLadRad || fullService.AirIntakeLadRad,
+      workDetails.AirIntakeLadRadNote || fullService.AirIntakeLadRadNote,
+    ),
+    coolant: mapStatus(
+      workDetails.coolantLevelColor || fullService.coolantLevelColor,
+      workDetails.coolantLevelColorNote || fullService.coolantLevelColorNote,
+    ),
     lightEngineTest: {
-      white: mapStatus(workDetails.lightEngineWhite || fullService.lightEngineWhite, workDetails.lightEngineWhiteNote || fullService.lightEngineWhiteNote),
-      red: mapStatus(workDetails.lightEngineRed || fullService.lightEngineRed, workDetails.lightEngineRedNote || fullService.lightEngineRedNote),
-      green: mapStatus(workDetails.lightEngineGreen || fullService.lightEngineGreen, workDetails.lightEngineGreenNote || fullService.lightEngineGreenNote),
-      blue: mapStatus(workDetails.lightEngineBlue || fullService.lightEngineBlue, workDetails.lightEngineBlueNote || fullService.lightEngineBlueNote),
-      black: mapStatus(workDetails.lightEngineBlack || fullService.lightEngineBlack, workDetails.lightEngineBlackNote || fullService.lightEngineBlackNote),
+      white: mapStatus(
+        workDetails.lightEngineWhite || fullService.lightEngineWhite,
+        workDetails.lightEngineWhiteNote || fullService.lightEngineWhiteNote,
+      ),
+      red: mapStatus(
+        workDetails.lightEngineRed || fullService.lightEngineRed,
+        workDetails.lightEngineRedNote || fullService.lightEngineRedNote,
+      ),
+      green: mapStatus(
+        workDetails.lightEngineGreen || fullService.lightEngineGreen,
+        workDetails.lightEngineGreenNote || fullService.lightEngineGreenNote,
+      ),
+      blue: mapStatus(
+        workDetails.lightEngineBlue || fullService.lightEngineBlue,
+        workDetails.lightEngineBlueNote || fullService.lightEngineBlueNote,
+      ),
+      black: mapStatus(
+        workDetails.lightEngineBlack || fullService.lightEngineBlack,
+        workDetails.lightEngineBlackNote || fullService.lightEngineBlackNote,
+      ),
     },
     mechanical: {
-      acBlower: mapStatus(workDetails.acBlowerVane || fullService.acBlowerVane, workDetails.acBlowerVaneNote || fullService.acBlowerVaneNote),
-      extractor: mapStatus(workDetails.extractorVane || fullService.extractorVane, workDetails.extractorVaneNote || fullService.extractorVaneNote),
+      acBlower: mapStatus(
+        workDetails.acBlowerVane || fullService.acBlowerVane,
+        workDetails.acBlowerVaneNote || fullService.acBlowerVaneNote,
+      ),
+      extractor: mapStatus(
+        workDetails.extractorVane || fullService.extractorVane,
+        workDetails.extractorVaneNote || fullService.extractorVaneNote,
+      ),
       exhaustCFM: {
         status: safe(workDetails.exhaustCfm || fullService.exhaustCfm),
-        yesNo: (workDetails.exhaustCfm || fullService.exhaustCfm) ? "OK" : "",
+        yesNo: workDetails.exhaustCfm || fullService.exhaustCfm ? "OK" : "",
       },
-      lightEngine4Fans: mapStatus(workDetails.lightEngineFans || fullService.lightEngineFans, workDetails.lightEngineFansNote || fullService.lightEngineFansNote),
-      cardCageFans: mapStatus(workDetails.cardCageFans || fullService.cardCageFans, workDetails.cardCageFansNote || fullService.cardCageFansNote),
-      radiatorFan: mapStatus(workDetails.radiatorFanPump || fullService.radiatorFanPump, workDetails.radiatorFanPumpNote || fullService.radiatorFanPumpNote),
-      connectorHose: mapStatus(workDetails.pumpConnectorHose || fullService.pumpConnectorHose, workDetails.pumpConnectorHoseNote || fullService.pumpConnectorHoseNote),
-      securityLock: mapStatus(workDetails.securityLampHouseLock || fullService.securityLampHouseLock, workDetails.securityLampHouseLockNote || fullService.securityLampHouseLockNote),
+      lightEngine4Fans: mapStatus(
+        workDetails.lightEngineFans || fullService.lightEngineFans,
+        workDetails.lightEngineFansNote || fullService.lightEngineFansNote,
+      ),
+      cardCageFans: mapStatus(
+        workDetails.cardCageFans || fullService.cardCageFans,
+        workDetails.cardCageFansNote || fullService.cardCageFansNote,
+      ),
+      radiatorFan: mapStatus(
+        workDetails.radiatorFanPump || fullService.radiatorFanPump,
+        workDetails.radiatorFanPumpNote || fullService.radiatorFanPumpNote,
+      ),
+      connectorHose: mapStatus(
+        workDetails.pumpConnectorHose || fullService.pumpConnectorHose,
+        workDetails.pumpConnectorHoseNote || fullService.pumpConnectorHoseNote,
+      ),
+      securityLock: mapStatus(
+        workDetails.securityLampHouseLock || fullService.securityLampHouseLock,
+        workDetails.securityLampHouseLockNote ||
+          fullService.securityLampHouseLockNote,
+      ),
     },
-    lampLOC: mapStatus(workDetails.lampLocMechanism || fullService.lampLocMechanism, workDetails.lampLocMechanismNote || fullService.lampLocMechanismNote),
+    lampLOC: mapStatus(
+      workDetails.lampLocMechanism || fullService.lampLocMechanism,
+      workDetails.lampLocMechanismNote || fullService.lampLocMechanismNote,
+    ),
     lampMake: workDetails.lampMakeModel || fullService.lampMakeModel || "",
-    lampHours: (workDetails.lampTotalRunningHours || fullService.lampTotalRunningHours)?.toString() || "",
-    currentLampHours: (workDetails.lampCurrentRunningHours || fullService.lampCurrentRunningHours)?.toString() || "",
+    lampHours:
+      (
+        workDetails.lampTotalRunningHours || fullService.lampTotalRunningHours
+      )?.toString() || "",
+    currentLampHours:
+      (
+        workDetails.lampCurrentRunningHours ||
+        fullService.lampCurrentRunningHours
+      )?.toString() || "",
     voltageParams: {
       pvn: workDetails.pvVsN || fullService.pvVsN || "",
       pve: workDetails.pvVsE || fullService.pvVsE || "",
@@ -96,14 +198,18 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
     },
     flBefore: (workDetails.flLeft || fullService.flLeft)?.toString() || "",
     flAfter: (workDetails.flRight || fullService.flRight)?.toString() || "",
-    contentPlayer: workDetails.contentPlayerModel || fullService.contentPlayerModel || "",
+    contentPlayer:
+      workDetails.contentPlayerModel || fullService.contentPlayerModel || "",
     acStatus: workDetails.acStatus || fullService.acStatus || "",
     leStatus: {
       status: safe(workDetails.leStatus || fullService.leStatus),
       remarks: safe(workDetails.leStatusNote || fullService.leStatusNote),
     },
     remarks: fullService.remarks || "",
-    leSerialNo: workDetails.lightEngineSerialNumber || fullService.lightEngineSerialNumber || "",
+    leSerialNo:
+      workDetails.lightEngineSerialNumber ||
+      fullService.lightEngineSerialNumber ||
+      "",
     mcgdData: {
       white2K: {
         fl: (workDetails.white2Kfl || fullService.white2Kfl)?.toString() || "",
@@ -147,71 +253,143 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
       },
     },
     cieXyz2K: {
-      x: (workDetails.BW_Step_10_2Kx || fullService.BW_Step_10_2Kx)?.toString() || "",
-      y: (workDetails.BW_Step_10_2Ky || fullService.BW_Step_10_2Ky)?.toString() || "",
-      fl: (workDetails.BW_Step_10_2Kfl || fullService.BW_Step_10_2Kfl)?.toString() || "",
+      x:
+        (
+          workDetails.BW_Step_10_2Kx || fullService.BW_Step_10_2Kx
+        )?.toString() || "",
+      y:
+        (
+          workDetails.BW_Step_10_2Ky || fullService.BW_Step_10_2Ky
+        )?.toString() || "",
+      fl:
+        (
+          workDetails.BW_Step_10_2Kfl || fullService.BW_Step_10_2Kfl
+        )?.toString() || "",
     },
     cieXyz4K: {
-      x: (workDetails.BW_Step_10_4Kx || fullService.BW_Step_10_4Kx)?.toString() || "",
-      y: (workDetails.BW_Step_10_4Ky || fullService.BW_Step_10_4Ky)?.toString() || "",
-      fl: (workDetails.BW_Step_10_4Kfl || fullService.BW_Step_10_4Kfl)?.toString() || "",
+      x:
+        (
+          workDetails.BW_Step_10_4Kx || fullService.BW_Step_10_4Kx
+        )?.toString() || "",
+      y:
+        (
+          workDetails.BW_Step_10_4Ky || fullService.BW_Step_10_4Ky
+        )?.toString() || "",
+      fl:
+        (
+          workDetails.BW_Step_10_4Kfl || fullService.BW_Step_10_4Kfl
+        )?.toString() || "",
     },
-    softwareVersion: workDetails.softwareVersion || fullService.softwareVersion || "",
+    softwareVersion:
+      workDetails.softwareVersion || fullService.softwareVersion || "",
     screenInfo: {
       scope: {
-        height: (workDetails.screenHeight || fullService.screenHeight)?.toString() || "",
-        width: (workDetails.screenWidth || fullService.screenWidth)?.toString() || "",
-        gain: (workDetails.screenGain || fullService.screenGain)?.toString() || "",
+        height:
+          (workDetails.screenHeight || fullService.screenHeight)?.toString() ||
+          "",
+        width:
+          (workDetails.screenWidth || fullService.screenWidth)?.toString() ||
+          "",
+        gain:
+          (workDetails.screenGain || fullService.screenGain)?.toString() || "",
       },
       flat: {
-        height: (workDetails.flatHeight || fullService.flatHeight)?.toString() || "",
-        width: (workDetails.flatWidth || fullService.flatWidth)?.toString() || "",
-        gain: (workDetails.screenGain || fullService.screenGain)?.toString() || "",
+        height:
+          (workDetails.flatHeight || fullService.flatHeight)?.toString() || "",
+        width:
+          (workDetails.flatWidth || fullService.flatWidth)?.toString() || "",
+        gain:
+          (workDetails.screenGain || fullService.screenGain)?.toString() || "",
       },
       make: workDetails.screenMake || fullService.screenMake || "",
     },
-    throwDistance: (workDetails.throwDistance || fullService.throwDistance)?.toString() || "",
+    throwDistance:
+      (workDetails.throwDistance || fullService.throwDistance)?.toString() ||
+      "",
     imageEvaluation: {
-      focusBoresite: mapStatus(workDetails.focusBoresight || fullService.focusBoresight, workDetails.focusBoresightNote || fullService.focusBoresightNote),
-      integratorPosition: mapStatus(workDetails.integratorPosition || fullService.integratorPosition, workDetails.integratorPositionNote || fullService.integratorPositionNote),
-      spotOnScreen: mapStatus(workDetails.spotsOnScreen || fullService.spotsOnScreen, workDetails.spotsOnScreenNote || fullService.spotsOnScreenNote),
-      screenCropping: mapStatus(workDetails.screenCroppingOk || fullService.screenCropping, workDetails.screenCroppingNote || fullService.screenCroppingNote),
-      convergence: mapStatus(workDetails.convergenceOk || fullService.convergence, workDetails.convergenceNote || fullService.convergenceNote),
-      channelsChecked: mapStatus(workDetails.channelsCheckedOk || fullService.channelsChecked, workDetails.channelsCheckedNote || fullService.channelsCheckedNote),
-      pixelDefects: mapStatus(workDetails.pixelDefects || fullService.pixelDefects, workDetails.pixelDefectsNote || fullService.pixelDefectsNote),
-      imageVibration: mapStatus(workDetails.imageVibration || fullService.imageVibration, workDetails.imageVibrationNote || fullService.imageVibrationNote),
-      liteLOC: mapStatus(workDetails.liteloc || fullService.liteloc, workDetails.litelocNote || fullService.litelocNote),
+      focusBoresite: mapStatus(
+        workDetails.focusBoresight || fullService.focusBoresight,
+        workDetails.focusBoresightNote || fullService.focusBoresightNote,
+      ),
+      integratorPosition: mapStatus(
+        workDetails.integratorPosition || fullService.integratorPosition,
+        workDetails.integratorPositionNote ||
+          fullService.integratorPositionNote,
+      ),
+      spotOnScreen: mapStatus(
+        workDetails.spotsOnScreen || fullService.spotsOnScreen,
+        workDetails.spotsOnScreenNote || fullService.spotsOnScreenNote,
+      ),
+      screenCropping: mapStatus(
+        workDetails.screenCroppingOk || fullService.screenCropping,
+        workDetails.screenCroppingNote || fullService.screenCroppingNote,
+      ),
+      convergence: mapStatus(
+        workDetails.convergenceOk || fullService.convergence,
+        workDetails.convergenceNote || fullService.convergenceNote,
+      ),
+      channelsChecked: mapStatus(
+        workDetails.channelsCheckedOk || fullService.channelsChecked,
+        workDetails.channelsCheckedNote || fullService.channelsCheckedNote,
+      ),
+      pixelDefects: mapStatus(
+        workDetails.pixelDefects || fullService.pixelDefects,
+        workDetails.pixelDefectsNote || fullService.pixelDefectsNote,
+      ),
+      imageVibration: mapStatus(
+        workDetails.imageVibration || fullService.imageVibration,
+        workDetails.imageVibrationNote || fullService.imageVibrationNote,
+      ),
+      liteLOC: mapStatus(
+        workDetails.liteloc || fullService.liteloc,
+        workDetails.litelocNote || fullService.litelocNote,
+      ),
     },
     airPollution: {
-      airPollutionLevel: workDetails.airPollutionLevel || fullService.airPollutionLevel || "",
+      airPollutionLevel:
+        workDetails.airPollutionLevel || fullService.airPollutionLevel || "",
       hcho: (workDetails.hcho || fullService.hcho)?.toString() || "",
       tvoc: (workDetails.tvoc || fullService.tvoc)?.toString() || "",
       pm10: (workDetails.pm10 || fullService.pm10)?.toString() || "",
       pm25: (workDetails.pm2_5 || fullService.pm2_5)?.toString() || "",
       pm100: (workDetails.pm1 || fullService.pm1)?.toString() || "",
-      temperature: (workDetails.temperature || fullService.temperature)?.toString() || "",
-      humidity: (workDetails.humidity || fullService.humidity)?.toString() || "",
+      temperature:
+        (workDetails.temperature || fullService.temperature)?.toString() || "",
+      humidity:
+        (workDetails.humidity || fullService.humidity)?.toString() || "",
     },
-    recommendedParts: Array.isArray(workDetails.recommendedParts || fullService.recommendedParts)
-      ? (workDetails.recommendedParts || fullService.recommendedParts).map((part: any) => ({
-        name: String(part.name ?? part.description ?? ""),
-        partNumber: String(part.partNumber ?? part.part_number ?? ""),
-      }))
+    recommendedParts: Array.isArray(
+      workDetails.recommendedParts || fullService.recommendedParts,
+    )
+      ? (workDetails.recommendedParts || fullService.recommendedParts).map(
+          (part: any) => ({
+            name: String(part.name ?? part.description ?? ""),
+            partNumber: String(part.partNumber ?? part.part_number ?? ""),
+          }),
+        )
       : [],
     issueNotes: [],
     detectedIssues: [],
     reportGenerated: true,
     reportUrl: "",
-    engineerSignatureUrl: fullService.signatures?.engineer || (fullService.signatures as any)?.engineerSignatureUrl || "",
-    siteSignatureUrl: fullService.signatures?.site || (fullService.signatures as any)?.siteSignatureUrl || "",
+    engineerSignatureUrl:
+      fullService.signatures?.engineer ||
+      (fullService.signatures as any)?.engineerSignatureUrl ||
+      "",
+    siteSignatureUrl:
+      fullService.signatures?.site ||
+      (fullService.signatures as any)?.siteSignatureUrl ||
+      "",
     imagesLink: (() => {
       if (workDetails.photosDriveLink || fullService.photosDriveLink) {
         return workDetails.photosDriveLink || fullService.photosDriveLink;
       }
       const hasImages =
         (Array.isArray(fullService.images) && fullService.images.length > 0) ||
-        (Array.isArray(fullService.afterImages) && fullService.afterImages.length > 0) ||
-        (Array.isArray(fullService.brokenImages) && fullService.brokenImages.length > 0);
+        (Array.isArray(fullService.afterImages) &&
+          fullService.afterImages.length > 0) ||
+        (Array.isArray(fullService.brokenImages) &&
+          fullService.brokenImages.length > 0);
       if (hasImages) {
         const baseUrl = process.env.CORS_ORIGIN || "";
         const imagesPath = `/share/service-images/${fullService.id}`;
@@ -222,7 +400,9 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
   };
 }
 
-async function generateAndUploadPdf(service: any): Promise<{ url: string; buffer: Buffer }> {
+async function generateAndUploadPdf(
+  service: any,
+): Promise<{ url: string; buffer: Buffer }> {
   const pdfData = buildPdfDataFromService(service);
   const pdfBytes = await generateMaintenanceReport(pdfData);
   const pdfBuffer = Buffer.from(pdfBytes);
@@ -279,7 +459,10 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
     // Note: search filter is handled client-side in overview view, so we don't apply it here
   }
 
-  if (jobData.filters.type === "custom" && jobData.filters.conditions.length > 0) {
+  if (
+    jobData.filters.type === "custom" &&
+    jobData.filters.conditions.length > 0
+  ) {
     const conditions = jobData.filters.conditions.map((condition) => {
       let fieldWhere: any = {};
 
@@ -467,10 +650,7 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
         where.AND = [...conditions, ...basicFilterConditions];
       } else {
         // For OR logic: (advanced1 OR advanced2) AND (basic1 AND basic2)
-        where.AND = [
-          { OR: conditions },
-          ...basicFilterConditions,
-        ];
+        where.AND = [{ OR: conditions }, ...basicFilterConditions];
       }
     } else {
       // No basic filters, just use advanced filter logic
@@ -553,34 +733,141 @@ function flattenRecord(record: any): Record<string, any> {
   };
 
   const workDetailFields = [
-    "reflector", "reflectorNote", "uvFilter", "uvFilterNote", "integratorRod", "integratorRodNote",
-    "coldMirror", "coldMirrorNote", "foldMirror", "foldMirrorNote", "touchPanel", "touchPanelNote",
-    "evbBoard", "evbBoardNote", "ImcbBoard", "ImcbBoardNote", "pibBoard", "pibBoardNote",
-    "IcpBoard", "IcpBoardNote", "imbSBoard", "imbSBoardNote", "serialNumberVerified", "serialNumberVerifiedNote",
-    "AirIntakeLadRad", "AirIntakeLadRadNote", "coolantLevelColor", "coolantLevelColorNote",
-    "lightEngineWhite", "lightEngineWhiteNote", "lightEngineRed", "lightEngineRedNote",
-    "lightEngineGreen", "lightEngineGreenNote", "lightEngineBlue", "lightEngineBlueNote",
-    "lightEngineBlack", "lightEngineBlackNote", "acBlowerVane", "acBlowerVaneNote",
-    "extractorVane", "extractorVaneNote", "exhaustCfm", "exhaustCfmNote",
-    "lightEngineFans", "lightEngineFansNote", "cardCageFans", "cardCageFansNote",
-    "radiatorFanPump", "radiatorFanPumpNote", "pumpConnectorHose", "pumpConnectorHoseNote",
-    "securityLampHouseLock", "securityLampHouseLockNote", "lampLocMechanism", "lampLocMechanismNote",
-    "projectorPlacementEnvironment", "softwareVersion", "screenHeight", "screenWidth",
-    "flatHeight", "flatWidth", "screenGain", "screenMake", "throwDistance",
-    "lampMakeModel", "lampTotalRunningHours", "lampCurrentRunningHours",
-    "pvVsN", "pvVsE", "nvVsE", "flLeft", "flRight", "contentPlayerModel",
-    "acStatus", "leStatus", "leStatusNote", "white2Kx", "white2Ky", "white2Kfl",
-    "white4Kx", "white4Ky", "white4Kfl", "red2Kx", "red2Ky", "red2Kfl",
-    "red4Kx", "red4Ky", "red4Kfl", "green2Kx", "green2Ky", "green2Kfl",
-    "green4Kx", "green4Ky", "green4Kfl", "blue2Kx", "blue2Ky", "blue2Kfl",
-    "blue4Kx", "blue4Ky", "blue4Kfl", "focusBoresight", "focusBoresightNote",
-    "integratorPosition", "integratorPositionNote", "spotsOnScreen", "spotsOnScreenNote",
-    "screenCropping", "screenCroppingNote", "convergence", "convergenceNote",
-    "channelsChecked", "channelsCheckedNote", "pixelDefects", "pixelDefectsNote",
-    "imageVibration", "imageVibrationNote", "liteloc", "litelocNote",
-    "hcho", "tvoc", "pm1", "pm2_5", "pm10", "temperature", "humidity",
-    "airPollutionLevel", "lightEngineSerialNumber", "BW_Step_10_2Kx", "BW_Step_10_2Ky",
-    "BW_Step_10_2Kfl", "BW_Step_10_4Kx", "BW_Step_10_4Ky", "BW_Step_10_4Kfl", "logs",
+    "reflector",
+    "reflectorNote",
+    "uvFilter",
+    "uvFilterNote",
+    "integratorRod",
+    "integratorRodNote",
+    "coldMirror",
+    "coldMirrorNote",
+    "foldMirror",
+    "foldMirrorNote",
+    "touchPanel",
+    "touchPanelNote",
+    "evbBoard",
+    "evbBoardNote",
+    "ImcbBoard",
+    "ImcbBoardNote",
+    "pibBoard",
+    "pibBoardNote",
+    "IcpBoard",
+    "IcpBoardNote",
+    "imbSBoard",
+    "imbSBoardNote",
+    "serialNumberVerified",
+    "serialNumberVerifiedNote",
+    "AirIntakeLadRad",
+    "AirIntakeLadRadNote",
+    "coolantLevelColor",
+    "coolantLevelColorNote",
+    "lightEngineWhite",
+    "lightEngineWhiteNote",
+    "lightEngineRed",
+    "lightEngineRedNote",
+    "lightEngineGreen",
+    "lightEngineGreenNote",
+    "lightEngineBlue",
+    "lightEngineBlueNote",
+    "lightEngineBlack",
+    "lightEngineBlackNote",
+    "acBlowerVane",
+    "acBlowerVaneNote",
+    "extractorVane",
+    "extractorVaneNote",
+    "exhaustCfm",
+    "exhaustCfmNote",
+    "lightEngineFans",
+    "lightEngineFansNote",
+    "cardCageFans",
+    "cardCageFansNote",
+    "radiatorFanPump",
+    "radiatorFanPumpNote",
+    "pumpConnectorHose",
+    "pumpConnectorHoseNote",
+    "securityLampHouseLock",
+    "securityLampHouseLockNote",
+    "lampLocMechanism",
+    "lampLocMechanismNote",
+    "projectorPlacementEnvironment",
+    "softwareVersion",
+    "screenHeight",
+    "screenWidth",
+    "flatHeight",
+    "flatWidth",
+    "screenGain",
+    "screenMake",
+    "throwDistance",
+    "lampMakeModel",
+    "lampTotalRunningHours",
+    "lampCurrentRunningHours",
+    "pvVsN",
+    "pvVsE",
+    "nvVsE",
+    "flLeft",
+    "flRight",
+    "contentPlayerModel",
+    "acStatus",
+    "leStatus",
+    "leStatusNote",
+    "white2Kx",
+    "white2Ky",
+    "white2Kfl",
+    "white4Kx",
+    "white4Ky",
+    "white4Kfl",
+    "red2Kx",
+    "red2Ky",
+    "red2Kfl",
+    "red4Kx",
+    "red4Ky",
+    "red4Kfl",
+    "green2Kx",
+    "green2Ky",
+    "green2Kfl",
+    "green4Kx",
+    "green4Ky",
+    "green4Kfl",
+    "blue2Kx",
+    "blue2Ky",
+    "blue2Kfl",
+    "blue4Kx",
+    "blue4Ky",
+    "blue4Kfl",
+    "focusBoresight",
+    "focusBoresightNote",
+    "integratorPosition",
+    "integratorPositionNote",
+    "spotsOnScreen",
+    "spotsOnScreenNote",
+    "screenCropping",
+    "screenCroppingNote",
+    "convergence",
+    "convergenceNote",
+    "channelsChecked",
+    "channelsCheckedNote",
+    "pixelDefects",
+    "pixelDefectsNote",
+    "imageVibration",
+    "imageVibrationNote",
+    "liteloc",
+    "litelocNote",
+    "hcho",
+    "tvoc",
+    "pm1",
+    "pm2_5",
+    "pm10",
+    "temperature",
+    "humidity",
+    "airPollutionLevel",
+    "lightEngineSerialNumber",
+    "BW_Step_10_2Kx",
+    "BW_Step_10_2Ky",
+    "BW_Step_10_2Kfl",
+    "BW_Step_10_4Kx",
+    "BW_Step_10_4Ky",
+    "BW_Step_10_4Kfl",
+    "logs",
   ];
 
   workDetailFields.forEach((field) => {
@@ -780,7 +1067,7 @@ function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
 
   // For specific columns, also sort by priority and exclude action
   return columns
-    .filter(key => key !== "action")
+    .filter((key) => key !== "action")
     .sort((a, b) => {
       const aPriority = COLUMN_PRIORITY.indexOf(a);
       const bPriority = COLUMN_PRIORITY.indexOf(b);
@@ -793,7 +1080,7 @@ function getColumnHeaders(columns: string[] | "all", records: any[]): string[] {
 
 export async function processExportJob(
   jobData: ExportJobData,
-  job?: { updateProgress: (progress: number) => Promise<void> }
+  job?: { updateProgress: (progress: number) => Promise<void> },
 ): Promise<ExportJobResult> {
   console.log(`📦 Starting export job for user ${jobData.userId}...`);
 
@@ -818,43 +1105,83 @@ export async function processExportJob(
   console.log(`📋 Exporting ${columnHeaders.length} columns`);
 
   const pdfUrls: Map<string, string> = new Map();
-  const pdfArtifacts: Array<{ id: string; url: string; buffer: Buffer }> = [];
   const totalChunks = Math.ceil(records.length / CHUNK_SIZE);
   const pdfProgressStart = 10;
   const pdfProgressEnd = 70;
 
+  // Create Google Drive folder upfront so we can upload PDFs immediately
+  const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9-_#]/g, "_");
+  let driveFolderId: string | null = null;
+  let driveFolderLink: string | null = null;
+
+  try {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const folderName = `export_${dateStr}`;
+
+    const { createDriveFolder, setFolderPublicPermissions } = await import("@/lib/google-drive");
+    const { folderId, webViewLink } = await createDriveFolder(folderName);
+    await setFolderPublicPermissions(folderId);
+    driveFolderId = folderId;
+    driveFolderLink = webViewLink;
+    console.log(`📁 Created Drive folder: ${folderName}`);
+  } catch (driveError) {
+    console.error(`❌ Failed to create Drive folder:`, driveError);
+    // Continue without Drive - PDFs will still be in Vercel Blob
+  }
+
   console.log(`🔄 Generating PDFs in chunks of ${CHUNK_SIZE}...`);
+  let driveUploaded = 0;
+
   for (let i = 0; i < records.length; i += CHUNK_SIZE) {
     const chunk = records.slice(i, i + CHUNK_SIZE);
     const chunkNumber = Math.floor(i / CHUNK_SIZE) + 1;
     console.log(`  Processing chunk ${chunkNumber}/${totalChunks}`);
 
-    const progressInChunk = (chunkNumber / totalChunks) * (pdfProgressEnd - pdfProgressStart);
-    await updateProgress(pdfProgressStart + progressInChunk, `Generating PDFs (${chunkNumber}/${totalChunks})...`);
+    const progressInChunk =
+      (chunkNumber / totalChunks) * (pdfProgressEnd - pdfProgressStart);
+    await updateProgress(
+      pdfProgressStart + progressInChunk,
+      `Generating PDFs (${chunkNumber}/${totalChunks})...`,
+    );
 
-    const pdfPromises = chunk.map(async (record) => {
+    // Process each record sequentially within a chunk to limit memory
+    for (const record of chunk) {
       try {
         const { url, buffer } = await generateAndUploadPdf(record);
-        return { id: record.id, url, buffer };
+        pdfUrls.set(record.id, url);
+
+        // Upload to Google Drive immediately and discard buffer
+        if (driveFolderId) {
+          try {
+            const { uploadPdfToDrive } = await import("@/lib/google-drive");
+            const siteCode = sanitize(String(record?.site?.siteCode || record?.siteCode || "NA"));
+            const address = sanitize(String(record?.address || record?.site?.address || "NA"));
+            const screenNo = sanitize(String(record?.screenNumber || "NA"));
+            const serialNo = sanitize(String(record?.projector?.serialNo || record?.projectorSerial || "NA"));
+            const serviceVisit = sanitize(String(record?.serviceNumber || "NA"));
+            const driveFileName = `${siteCode}_${address}_SC#${screenNo}_${serialNo}_${serviceVisit}.pdf`;
+
+            await uploadPdfToDrive(buffer, driveFileName, driveFolderId);
+            driveUploaded++;
+            console.log(`  📤 Uploaded to Drive: ${driveFileName} (${driveUploaded}/${records.length})`);
+          } catch (driveErr) {
+            console.error(`  ❌ Drive upload failed for ${record.id}:`, driveErr);
+          }
+        }
+        // Buffer is now out of scope and can be garbage collected
       } catch (error) {
         console.error(`Failed to generate PDF for record ${record.id}:`, error);
-        return null;
       }
-    });
-
-    const results = await Promise.all(pdfPromises);
-    results.forEach((result) => {
-      if (result) {
-        pdfUrls.set(result.id, result.url);
-        pdfArtifacts.push(result);
-      }
-    });
+    }
   }
 
   console.log(`✅ Generated ${pdfUrls.size} PDFs`);
+  if (driveFolderId) {
+    console.log(`✅ Uploaded ${driveUploaded}/${pdfUrls.size} PDFs to Google Drive`);
+  }
 
   await updateProgress(75, "Creating Excel file...");
-  console.log(`📝 Creating Excel file...`);
   console.log(`📝 Creating Excel file...`);
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Service Records");
@@ -862,30 +1189,38 @@ export async function processExportJob(
   // Define columns with proper formatting
   const columns: Partial<ExcelJS.Column>[] = [
     { header: "PDF Report", key: "pdf", width: 15 },
-    ...columnHeaders.map(colKey => {
+    ...columnHeaders.map((colKey) => {
       // Determine if this is a date or time column
       let numFmt: string | undefined;
       const keyLower = colKey.toLowerCase();
-      
-      if (colKey === 'date' || colKey === 'createdAt' || keyLower.includes('date')) {
-        numFmt = 'd mmmm yyyy';
-      } else if (colKey === 'startTime' || colKey === 'endTime' || keyLower.includes('time')) {
-        numFmt = 'mm/dd/yyyy hh:mm AM/PM';
+
+      if (
+        colKey === "date" ||
+        colKey === "createdAt" ||
+        keyLower.includes("date")
+      ) {
+        numFmt = "d mmmm yyyy";
+      } else if (
+        colKey === "startTime" ||
+        colKey === "endTime" ||
+        keyLower.includes("time")
+      ) {
+        numFmt = "mm/dd/yyyy hh:mm AM/PM";
       }
 
       // Convert camelCase to Title Case for better header readability
       const label = colKey
         .replace(/_/g, " ")
         .replace(/([a-z])([A-Z])/g, "$1 $2")
-        .replace(/\b\w/g, c => c.toUpperCase());
+        .replace(/\b\w/g, (c) => c.toUpperCase());
 
       return {
         header: label,
         key: colKey,
         width: 20,
-        style: numFmt ? { numFmt } : undefined
+        style: numFmt ? { numFmt } : undefined,
       };
-    })
+    }),
   ];
 
   worksheet.columns = columns;
@@ -902,10 +1237,10 @@ export async function processExportJob(
   records.forEach((record) => {
     const flattened = flattenRecord(record);
     const pdfUrl = pdfUrls.get(record.id) || "";
-    
+
     // Create row object mapping keys to values
     const rowData: Record<string, any> = { pdf: pdfUrl };
-    columnHeaders.forEach(key => {
+    columnHeaders.forEach((key) => {
       rowData[key] = flattened[key];
     });
 
@@ -926,51 +1261,15 @@ export async function processExportJob(
   const excelFileName = `exports/excel/export-${Date.now()}.xlsx`;
   const excelBlob = await put(excelFileName, Buffer.from(excelBuffer), {
     access: "public",
-    contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    contentType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
 
   console.log(`✅ Excel file uploaded: ${excelBlob.url}`);
 
-  // Upload PDFs to Google Drive
-  await updateProgress(80, "Uploading PDFs to Google Drive...");
-  console.log(`📤 Uploading ${pdfUrls.size} PDFs to Google Drive...`);
-  
-  let driveFolderLink: string | null = null;
-  
-  try {
-    const folderName = `Service Records Export - ${new Date().toLocaleString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric', 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    })}`;
-    
-    const pdfsToUpload = pdfArtifacts.map(({ id, url, buffer }) => {
-      const record = records.find(r => r.id === id);
-      const serviceNumber = record?.serviceNumber || id;
-      const serialNo = record?.projector?.serialNo || 'unknown';
-      return {
-        url,
-        buffer,
-        fileName: `${serialNo}_Service_${serviceNumber}.pdf`
-      };
-    });
-
-    driveFolderLink = await uploadPdfsToDrive(
-      pdfsToUpload,
-      folderName,
-      (current, total) => {
-        const progress = 80 + Math.floor((current / total) * 10);
-        updateProgress(progress, `Uploading PDFs to Drive (${current}/${total})...`);
-      }
-    );
-
+  // Drive upload already done above — just log status
+  if (driveFolderLink) {
     console.log(`✅ PDFs uploaded to Google Drive: ${driveFolderLink}`);
-  } catch (driveError) {
-    console.error(`❌ Failed to upload PDFs to Google Drive:`, driveError);
-    console.error("Drive error details:", driveError instanceof Error ? driveError.message : String(driveError));
-    // Continue with email even if Drive upload fails
   }
 
   await updateProgress(90, "Sending email notification...");
@@ -998,7 +1297,9 @@ export async function processExportJob(
               </a>
             </p>
             
-            ${driveFolderLink ? `
+            ${
+              driveFolderLink
+                ? `
             <!-- Google Drive Link -->
             <p style="margin-bottom: 15px;">
               <a href="${driveFolderLink}" 
@@ -1006,14 +1307,16 @@ export async function processExportJob(
                 📁 View All PDFs in Google Drive
               </a>
             </p>
-            ` : ''}
+            `
+                : ""
+            }
           </div>
           
           <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-top: 30px;">
             <p style="color: #666; font-size: 12px; margin: 0;">
               <strong>What's included:</strong><br>
               • Excel file contains all service record data with PDF links<br>
-              ${driveFolderLink ? '• Google Drive folder contains all PDF reports for easy access and sharing<br>' : ''}
+              ${driveFolderLink ? "• Google Drive folder contains all PDF reports for easy access and sharing<br>" : ""}
               • Individual PDFs are also linked in the Excel file
             </p>
           </div>
@@ -1023,7 +1326,10 @@ export async function processExportJob(
     console.log(`✅ Email sent successfully to ${jobData.email}`);
   } catch (emailError) {
     console.error(`❌ Failed to send email to ${jobData.email}:`, emailError);
-    console.error("Email error details:", emailError instanceof Error ? emailError.message : String(emailError));
+    console.error(
+      "Email error details:",
+      emailError instanceof Error ? emailError.message : String(emailError),
+    );
   }
 
   await updateProgress(100, "Export complete!");
