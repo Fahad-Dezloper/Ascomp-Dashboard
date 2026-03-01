@@ -1,6 +1,6 @@
 import { generateMaintenanceReport, type MaintenanceReportData, convertServiceVisitToText } from "@/components/PDFGenerator"
 
-export async function constructAndGeneratePDF(serviceId: string) {
+export async function constructAndGeneratePDF(serviceId: string, isDraft?: boolean) {
     const res = await fetch(`/api/admin/service-records/${serviceId}`, {
         credentials: "include",
     })
@@ -220,8 +220,9 @@ export async function constructAndGeneratePDF(serviceId: string) {
                 return baseUrl ? `${baseUrl}${imagesPath}` : imagesPath;
             }
 
-            return undefined;
+        return undefined;
         })(),
+        isDraft,
     }
 
     return generateMaintenanceReport(reportData)

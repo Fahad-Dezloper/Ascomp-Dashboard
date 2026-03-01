@@ -1,10 +1,18 @@
-import * as React from "react"
-import { Command, Home, Projector, User, FileEdit, Database, CalendarClock } from "lucide-react"
-import type { Route } from "next"
+import * as React from "react";
+import {
+  Command,
+  Home,
+  Projector,
+  User,
+  FileEdit,
+  Database,
+  CalendarClock,
+} from "lucide-react";
+import type { Route } from "next";
 
-import { NavMain, type NavMainItem } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
-import { useAuth } from "@/lib/auth-context"
+import { NavMain, type NavMainItem } from "@/components/nav-main";
+import { NavUser } from "@/components/nav-user";
+import { useAuth } from "@/lib/auth-context";
 import {
   Sidebar,
   SidebarContent,
@@ -13,26 +21,26 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 const navMainData: NavMainItem[] = [
   {
     title: "Home",
     url: "/admin/dashboard" as Route,
     icon: Home,
-    for: "christie"
+    for: "christie",
   },
   {
     title: "Database",
     url: "/admin/dashboard/overview" as Route,
     icon: Database,
-    for: "christie"
+    for: "christie",
   },
   {
     title: "Sites & Projectors",
     url: "/admin/dashboard/sites" as Route,
     icon: Projector,
-    for: "christie"
+    for: "christie",
   },
   {
     title: "Scheduled Services",
@@ -49,25 +57,26 @@ const navMainData: NavMainItem[] = [
     url: "/admin/dashboard/form" as Route,
     icon: FileEdit,
   },
-]
+];
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
-  const { user, logout } = useAuth()
+  const { user, logout } = useAuth();
 
   if (!user) {
-    return null
+    return null;
   }
 
   const userData = {
     name: user.name || (user.role === "ADMIN" ? "Admin" : "Field Worker"),
     email: user.email,
     avatar: user.image || "/avatars/shadcn.jpg",
-  }
+  };
 
-  // Filter navigation items based on user email
-  const filteredNavItems = user.email === "contact@ascompinc.in"
-    ? navMainData.filter(item => item.for === "christie")
-    : navMainData
+  // Filter navigation items based on user's access level
+  const filteredNavItems =
+    user.role === "ADMIN" && user.accessLevel === "READ_ONLY"
+      ? navMainData.filter((item) => item.for === "christie")
+      : navMainData;
 
   return (
     <Sidebar className="h-[calc(100svh-var(--header-height))]!" {...props}>
@@ -95,5 +104,5 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         <NavUser user={userData} onLogout={logout} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

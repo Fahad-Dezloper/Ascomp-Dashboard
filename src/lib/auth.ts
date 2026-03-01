@@ -19,6 +19,11 @@ export const auth: any = betterAuth<BetterAuthOptions>({
 				required: false,
 				returned: true,
 			},
+			accessLevel: {
+				type: "string",
+				required: false,
+				returned: true,
+			}
 		},
 	},
 	plugins: [nextCookies(), inferAdditionalFields<typeof auth>()],

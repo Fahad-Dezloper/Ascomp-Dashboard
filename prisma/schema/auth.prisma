@@ -13,6 +13,11 @@ enum Role {
   FIELD_WORKER
 }
 
+enum AccessLevel {
+  FULL
+  READ_ONLY
+}
+
 enum ServiceStatus {
   DRAFT
   SCHEDULED
@@ -38,6 +43,7 @@ model User {
   createdServices  ServiceRecord[] @relation("CreatedServices")
   assignedServices ServiceRecord[] @relation("AssignedServices")
   role             Role            @default(FIELD_WORKER)
+  accessLevel      AccessLevel?
 
   @@unique([email])
   @@map("user")

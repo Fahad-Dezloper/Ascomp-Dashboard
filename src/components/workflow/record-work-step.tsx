@@ -262,81 +262,101 @@ const FormField = ({
   </div>
 );
 
-
 export default function RecordWorkStep({ data, onNext, onBack }: any) {
-  const [beforeImages, setBeforeImages] = useState<UploadedImage[]>([])
-  const [afterImages, setAfterImages] = useState<UploadedImage[]>([])
-  const [brokenImages, setBrokenImages] = useState<UploadedImage[]>([])
-  const [imageError, setImageError] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [partsData, setPartsData] = useState<ProjectorPart[]>([])
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(new Set())
-  const [partSearchQuery, setPartSearchQuery] = useState('')
-  const [lampModelsData, setLampModelsData] = useState<Array<{ projector_model: string; Models: string[] }>>([])
-  const [lampModels, setLampModels] = useState<string[]>([])
-  const [softwareVersions, setSoftwareVersions] = useState<string[]>([])
-  const [contentPlayers, setContentPlayers] = useState<string[]>([])
-  const [contactName, setContactName] = useState<string>('')
-  const [contactPhone, setContactPhone] = useState<string>('')
-  const beforeImagesRef = useRef<UploadedImage[]>([])
-  const afterImagesRef = useRef<UploadedImage[]>([])
-  const brokenImagesRef = useRef<UploadedImage[]>([])
-  const { config: formConfig, loading: configLoading } = useFormConfig()
+  const [beforeImages, setBeforeImages] = useState<UploadedImage[]>([]);
+  const [afterImages, setAfterImages] = useState<UploadedImage[]>([]);
+  const [brokenImages, setBrokenImages] = useState<UploadedImage[]>([]);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [partsData, setPartsData] = useState<ProjectorPart[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedPartIds, setSelectedPartIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [partSearchQuery, setPartSearchQuery] = useState("");
+  const [lampModelsData, setLampModelsData] = useState<
+    Array<{ projector_model: string; Models: string[] }>
+  >([]);
+  const [lampModels, setLampModels] = useState<string[]>([]);
+  const [softwareVersions, setSoftwareVersions] = useState<string[]>([]);
+  const [contentPlayers, setContentPlayers] = useState<string[]>([]);
+  const [contactName, setContactName] = useState<string>("");
+  const [contactPhone, setContactPhone] = useState<string>("");
+  const beforeImagesRef = useRef<UploadedImage[]>([]);
+  const afterImagesRef = useRef<UploadedImage[]>([]);
+  const brokenImagesRef = useRef<UploadedImage[]>([]);
+  const { config: formConfig, loading: configLoading } = useFormConfig();
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    getValues,
-  } = useForm<RecordWorkForm>({
-    defaultValues: createInitialFormData(),
-  })
+  const { register, handleSubmit, reset, watch, setValue, getValues } =
+    useForm<RecordWorkForm>({
+      defaultValues: createInitialFormData(),
+    });
 
   // Helper function to parse contactDetails into name and phone
-  const parseContactDetails = (contactDetails: string | undefined | null): { name: string; phone: string } => {
-    if (!contactDetails) return { name: '', phone: '' }
-    const parts = contactDetails.split(' - ')
+  const parseContactDetails = (
+    contactDetails: string | undefined | null,
+  ): { name: string; phone: string } => {
+    if (!contactDetails) return { name: "", phone: "" };
+    const parts = contactDetails.split(" - ");
     if (parts.length >= 2 && parts[0] !== undefined) {
-      return { name: parts[0].trim(), phone: parts.slice(1).join(' - ').trim() }
+      return {
+        name: parts[0].trim(),
+        phone: parts.slice(1).join(" - ").trim(),
+      };
     }
-    return { name: contactDetails.trim(), phone: '' }
-  }
+    return { name: contactDetails.trim(), phone: "" };
+  };
 
   // Helper function to combine name and phone into contactDetails format
   const combineContactDetails = (name: string, phone: string): string => {
-    const nameTrimmed = name.trim()
-    const phoneTrimmed = phone.trim()
+    const nameTrimmed = name.trim();
+    const phoneTrimmed = phone.trim();
     if (nameTrimmed && phoneTrimmed) {
-      return `${nameTrimmed} - ${phoneTrimmed}`
+      return `${nameTrimmed} - ${phoneTrimmed}`;
     }
-    if (nameTrimmed) return nameTrimmed
-    if (phoneTrimmed) return phoneTrimmed
-    return ''
-  }
+    if (nameTrimmed) return nameTrimmed;
+    if (phoneTrimmed) return phoneTrimmed;
+    return "";
+  };
 
   useEffect(() => {
     const initial = createInitialFormData();
     if (data?.workDetails) {
-      const contactDetails = data.workDetails.contactDetails || data.selectedService?.contactDetails || initial.contactDetails
-      const parsedContact = parseContactDetails(contactDetails)
-      setContactName(parsedContact.name)
-      setContactPhone(parsedContact.phone)
+      const contactDetails =
+        data.workDetails.contactDetails ||
+        data.selectedService?.contactDetails ||
+        initial.contactDetails;
+      const parsedContact = parseContactDetails(contactDetails);
+      setContactName(parsedContact.name);
+      setContactPhone(parsedContact.phone);
 
       reset({
         ...initial,
         ...data.workDetails,
         // Override with selectedService values only if workDetails doesn't have them (user's saved changes take precedence)
-        cinemaName: data.workDetails.cinemaName || data.selectedService?.site || initial.cinemaName,
+        cinemaName:
+          data.workDetails.cinemaName ||
+          data.selectedService?.site ||
+          initial.cinemaName,
         // Use saved workDetails date if exists, otherwise use today's date (initial.date)
         date: data.workDetails.date || initial.date,
-        address: data.workDetails.address || data.selectedService?.address || initial.address,
+        address:
+          data.workDetails.address ||
+          data.selectedService?.address ||
+          initial.address,
         contactDetails: contactDetails,
-        projectorModel: data.workDetails.projectorModel || data.selectedService?.projectorModel || initial.projectorModel,
-        projectorSerialNumber: data.workDetails.projectorSerialNumber || data.selectedService?.projector || initial.projectorSerialNumber,
-        screenNumber: data.workDetails.screenNumber || data.selectedService?.screenNumber || initial.screenNumber,
+        projectorModel:
+          data.workDetails.projectorModel ||
+          data.selectedService?.projectorModel ||
+          initial.projectorModel,
+        projectorSerialNumber:
+          data.workDetails.projectorSerialNumber ||
+          data.selectedService?.projector ||
+          initial.projectorSerialNumber,
+        screenNumber:
+          data.workDetails.screenNumber ||
+          data.selectedService?.screenNumber ||
+          initial.screenNumber,
         issueNotes: data.workDetails.issueNotes || {},
         recommendedParts: data.workDetails.recommendedParts || [],
       });
@@ -344,33 +364,50 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       const storageKey = `recordWorkFormData_${data.selectedService.id}`;
       const savedFormData = localStorage.getItem(storageKey);
       if (savedFormData) {
-        const parsed = JSON.parse(savedFormData)
-        const contactDetails = parsed.contactDetails || data.selectedService?.contactDetails || initial.contactDetails
-        const parsedContact = parseContactDetails(contactDetails)
-        setContactName(parsedContact.name)
-        setContactPhone(parsedContact.phone)
+        const parsed = JSON.parse(savedFormData);
+        const contactDetails =
+          parsed.contactDetails ||
+          data.selectedService?.contactDetails ||
+          initial.contactDetails;
+        const parsedContact = parseContactDetails(contactDetails);
+        setContactName(parsedContact.name);
+        setContactPhone(parsedContact.phone);
 
         reset({
           ...initial,
           ...parsed,
           // Override with selectedService values only if parsed doesn't have them (user's saved changes take precedence)
-          cinemaName: parsed.cinemaName || data.selectedService?.site || initial.cinemaName,
+          cinemaName:
+            parsed.cinemaName ||
+            data.selectedService?.site ||
+            initial.cinemaName,
           // Use saved form date if exists, otherwise use today's date (initial.date)
           date: parsed.date || initial.date,
-          address: parsed.address || data.selectedService?.address || initial.address,
+          address:
+            parsed.address || data.selectedService?.address || initial.address,
           contactDetails: contactDetails,
-          projectorModel: parsed.projectorModel || data.selectedService?.projectorModel || initial.projectorModel,
-          projectorSerialNumber: parsed.projectorSerialNumber || data.selectedService?.projector || initial.projectorSerialNumber,
-          screenNumber: parsed.screenNumber || data.selectedService?.screenNumber || initial.screenNumber,
+          projectorModel:
+            parsed.projectorModel ||
+            data.selectedService?.projectorModel ||
+            initial.projectorModel,
+          projectorSerialNumber:
+            parsed.projectorSerialNumber ||
+            data.selectedService?.projector ||
+            initial.projectorSerialNumber,
+          screenNumber:
+            parsed.screenNumber ||
+            data.selectedService?.screenNumber ||
+            initial.screenNumber,
           issueNotes: parsed.issueNotes || {},
           recommendedParts: parsed.recommendedParts || [],
         });
       } else {
         // No saved data, but we have service details - use today's date
-        const contactDetails = data.selectedService?.contactDetails || initial.contactDetails
-        const parsedContact = parseContactDetails(contactDetails)
-        setContactName(parsedContact.name)
-        setContactPhone(parsedContact.phone)
+        const contactDetails =
+          data.selectedService?.contactDetails || initial.contactDetails;
+        const parsedContact = parseContactDetails(contactDetails);
+        setContactName(parsedContact.name);
+        setContactPhone(parsedContact.phone);
 
         reset({
           ...initial,
@@ -378,10 +415,13 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           date: initial.date,
           address: data.selectedService?.address || initial.address,
           contactDetails: contactDetails,
-          projectorModel: data.selectedService?.projectorModel || initial.projectorModel,
-          projectorSerialNumber: data.selectedService?.projector || initial.projectorSerialNumber,
-          screenNumber: data.selectedService?.screenNumber || initial.screenNumber,
-        })
+          projectorModel:
+            data.selectedService?.projectorModel || initial.projectorModel,
+          projectorSerialNumber:
+            data.selectedService?.projector || initial.projectorSerialNumber,
+          screenNumber:
+            data.selectedService?.screenNumber || initial.screenNumber,
+        });
       }
     }
 
@@ -411,13 +451,13 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     if (typeof window === "undefined" || !data?.selectedService?.id) return;
     const subscription = watch((value) => {
       // Ensure contactDetails is updated with current split values before saving
-      const combined = combineContactDetails(contactName, contactPhone)
-      const updatedValue = { ...value, contactDetails: combined }
-      const storageKey = `recordWorkFormData_${data.selectedService.id}`
-      localStorage.setItem(storageKey, JSON.stringify(updatedValue))
-    })
-    return () => subscription.unsubscribe()
-  }, [watch, data?.selectedService?.id, contactName, contactPhone])
+      const combined = combineContactDetails(contactName, contactPhone);
+      const updatedValue = { ...value, contactDetails: combined };
+      const storageKey = `recordWorkFormData_${data.selectedService.id}`;
+      localStorage.setItem(storageKey, JSON.stringify(updatedValue));
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, data?.selectedService?.id, contactName, contactPhone]);
 
   useEffect(() => {
     const lastServiceData = data?.selectedService?.lastServiceData;
@@ -722,14 +762,14 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     ) {
       return;
     }
-    reset(createInitialFormData())
-    setContactName('')
-    setContactPhone('')
-    persistImages([], [], [])
-    setImageError(null)
-    if (typeof window !== 'undefined' && data?.selectedService?.id) {
-      localStorage.removeItem(`recordWorkFormData_${data.selectedService.id}`)
-      localStorage.removeItem(`recordWorkImages_${data.selectedService.id}`)
+    reset(createInitialFormData());
+    setContactName("");
+    setContactPhone("");
+    persistImages([], [], []);
+    setImageError(null);
+    if (typeof window !== "undefined" && data?.selectedService?.id) {
+      localStorage.removeItem(`recordWorkFormData_${data.selectedService.id}`);
+      localStorage.removeItem(`recordWorkImages_${data.selectedService.id}`);
     }
   };
 
@@ -973,18 +1013,22 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
             }
           >
             {row.map((field) => {
-              if (!field) return null
+              if (!field) return null;
 
               // Explicit handling for contactDetails - split into name and phone inputs
-              if (field.key === 'contactDetails') {
+              if (field.key === "contactDetails") {
                 return (
-                  <FormField key={field.key} label={field.label} required={field.required}>
+                  <FormField
+                    key={field.key}
+                    label={field.label}
+                    required={field.required}
+                  >
                     <div className="flex items-center gap-2">
                       <Input
                         type="text"
                         value={contactName}
                         onChange={(e) => {
-                          setContactName(e.target.value)
+                          setContactName(e.target.value);
                         }}
                         placeholder="Mr. Name"
                         className="border-2 border-black text-sm flex-1"
@@ -994,23 +1038,30 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                         type="text"
                         value={contactPhone}
                         onChange={(e) => {
-                          setContactPhone(e.target.value)
+                          setContactPhone(e.target.value);
                         }}
                         placeholder="Phone Number"
                         className="border-2 border-black text-sm flex-1"
                       />
                     </div>
                     {/* Hidden input to maintain form field registration */}
-                    <input type="hidden" {...register(field.key as keyof RecordWorkForm)} />
+                    <input
+                      type="hidden"
+                      {...register(field.key as keyof RecordWorkForm)}
+                    />
                   </FormField>
-                )
+                );
               }
 
               // Explicit handling for exhaustCfm to ensure it's always a number input
               // This must come before any other checks to override incorrect config
-              if (field.key === 'exhaustCfm') {
+              if (field.key === "exhaustCfm") {
                 return (
-                  <FormField key={field.key} label={field.label} required={field.required}>
+                  <FormField
+                    key={field.key}
+                    label={field.label}
+                    required={field.required}
+                  >
                     <Input
                       type="number"
                       step="any"
@@ -1019,7 +1070,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                       className="border-2 border-black text-sm"
                     />
                   </FormField>
-                )
+                );
               }
 
               // Explicit handling for contactDetails - split into name and phone inputs
@@ -1235,13 +1286,13 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
     if (whiteFilled && !blackFilled) {
       validationErrors.push(
-        "Light Engine Test Pattern: If White is selected, Black must also be selected."
+        "Light Engine Test Pattern: If White is selected, Black must also be selected.",
       );
     }
 
     if (blackFilled && !whiteFilled) {
       validationErrors.push(
-        "Light Engine Test Pattern: If Black is selected, White must also be selected."
+        "Light Engine Test Pattern: If Black is selected, White must also be selected.",
       );
     }
 
@@ -1255,13 +1306,16 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     }
 
     // Ensure contactDetails is properly formatted before submission
-    const combinedContactDetails = combineContactDetails(contactName, contactPhone)
+    const combinedContactDetails = combineContactDetails(
+      contactName,
+      contactPhone,
+    );
 
     const formattedValues = {
       ...values,
       contactDetails: combinedContactDetails,
-      exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/s` : '',
-    }
+      exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+    };
 
     onNext({
       workDetails: formattedValues,
@@ -1726,7 +1780,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 accept="image/*"
                 multiple
                 onChange={(e) => handleImageUpload("before", e.target.files)}
-                className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50"
+                className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 disabled:opacity-50"
+                disabled={uploading}
               />
               {beforeImages.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 mt-2">
@@ -1806,7 +1861,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 accept="image/*"
                 multiple
                 onChange={(e) => handleImageUpload("broken", e.target.files)}
-                className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50"
+                className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 disabled:opacity-50"
+                disabled={uploading}
               />
               {brokenImages.length > 0 && (
                 <div className="grid grid-cols-2 gap-2 mt-2">
@@ -1841,12 +1897,15 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
               <p className="font-semibold text-sm text-black mb-2">
                 Projector Logs (Zip/Folder)
               </p>
-              <input
-                type="file"
-                accept=".zip,.rar,.7z"
-                onChange={(e) => handleLogsUpload(e.target.files)}
-                className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50"
-              />
+              {!watch("logs") && (
+                <input
+                  type="file"
+                  accept=".zip,.rar,.7z"
+                  onChange={(e) => handleLogsUpload(e.target.files)}
+                  className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 disabled:opacity-50"
+                  disabled={uploading}
+                />
+              )}
               {watch("logs") && (
                 <div className="mt-2 p-2 border-2 border-black bg-gray-50 flex items-center justify-between">
                   <span className="text-xs font-medium truncate flex-1">
@@ -1855,7 +1914,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                   <button
                     type="button"
                     onClick={() => setValue("logs", "", { shouldDirty: true })}
-                    className="text-red-500 text-xs font-bold ml-2"
+                    className="text-red-500 text-xs font-bold ml-2 cursor-pointer hover:underline"
                   >
                     Remove
                   </button>
@@ -1864,10 +1923,14 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
             </div>
           </div>
           {imageError && (
-            <p className="text-sm text-red-600 mt-2">{imageError}</p>
+            <p className="text-sm text-red-600 mt-2 font-semibold">
+              {imageError}
+            </p>
           )}
           {uploading && (
-            <p className="text-xs text-gray-500 mt-2">Uploading...</p>
+            <p className="text-xs text-blue-600 mt-2 font-semibold animate-pulse">
+              Uploading file(s), please wait...
+            </p>
           )}
         </FormSection>
       </div>
@@ -1878,14 +1941,16 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           onClick={onBack}
           variant="outline"
           className="border-2 border-black text-black hover:bg-gray-100 flex-1"
+          disabled={uploading}
         >
           Back
         </Button>
         <Button
           type="submit"
-          className="bg-black text-white hover:bg-gray-800 border-2 border-black font-bold flex-1"
+          disabled={uploading}
+          className="bg-black text-white hover:bg-gray-800 border-2 border-black font-bold flex-1 disabled:opacity-50"
         >
-          Continue to Signatures
+          {uploading ? "Wait for Uploads..." : "Continue to Signatures"}
         </Button>
       </div>
     </form>

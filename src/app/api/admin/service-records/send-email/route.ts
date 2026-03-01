@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
     try {
-        const { serviceId, recipientEmail, emailContent } = await request.json()
+        const { serviceId, recipientEmail, emailContent, ccEmails } = await request.json()
 
         if (!serviceId || !recipientEmail || !emailContent) {
             return NextResponse.json(
@@ -13,8 +13,23 @@ export async function POST(request: NextRequest) {
 
         // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        if (!emailRegex.test(recipientEmail)) {
+        if (!emailRegex.test(recipientEmail.trim())) {
             return NextResponse.json({ error: "Invalid email address" }, { status: 400 })
+        }
+
+        let ccArray: string[] = [];
+        if (ccEmails) {
+            if (typeof ccEmails === 'string') {
+                ccArray = ccEmails.split(',').map(e => e.trim()).filter(e => e.length > 0);
+            } else if (Array.isArray(ccEmails)) {
+                ccArray = ccEmails.map(e => String(e).trim()).filter(e => e.length > 0);
+            }
+            
+            for (const email of ccArray) {
+                if (!emailRegex.test(email)) {
+                    return NextResponse.json({ error: `Invalid CC email address: ${email}` }, { status: 400 })
+                }
+            }
         }
 
         // Build absolute URL for API call
@@ -273,6 +288,7 @@ export async function POST(request: NextRequest) {
         await transporter.sendMail({
             from: `"Ascomp CRM" <${process.env.GMAIL_OAUTH_USER}>`,
             to: recipientEmail,
+            cc: ccArray.length > 0 ? ccArray : undefined,
             subject: emailContent.subject,
             html: emailContent.body,
             attachments: [

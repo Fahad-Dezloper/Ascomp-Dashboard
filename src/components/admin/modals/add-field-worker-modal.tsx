@@ -1,36 +1,45 @@
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, CheckCircle2 } from "lucide-react"
-import { toast } from "sonner"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Mail, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 
 interface AddFieldWorkerModalProps {
-  onClose: () => void
-  onSuccess?: () => void
+  onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function AddFieldWorkerModal({ onClose, onSuccess }: AddFieldWorkerModalProps) {
+export default function AddFieldWorkerModal({
+  onClose,
+  onSuccess,
+}: AddFieldWorkerModalProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-  })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [createdUser, setCreatedUser] = useState<{ id: string; email: string; name: string } | null>(null)
-  const [sendingCredentials, setSendingCredentials] = useState(false)
-  const [credentialsSent, setCredentialsSent] = useState(false)
+    role: "FIELD_WORKER",
+    accessLevel: "FULL",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [createdUser, setCreatedUser] = useState<{
+    id: string;
+    email: string;
+    name: string;
+  } | null>(null);
+  const [sendingCredentials, setSendingCredentials] = useState(false);
+  const [credentialsSent, setCredentialsSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!formData.name || !formData.email) {
-      setError("Name and email are required")
-      return
+      setError("Name and email are required");
+      return;
     }
 
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
 
     try {
       const response = await fetch("/api/admin/field-workers/create", {
@@ -39,112 +48,170 @@ export default function AddFieldWorkerModal({ onClose, onSuccess }: AddFieldWork
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-      })
+      });
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to create field worker")
+        throw new Error(result.error || "Failed to create field worker");
       }
 
       // Store created user info and show success state
-      setCreatedUser(result.user)
-      setCredentialsSent(true) // Email was sent during creation
-      
+      setCreatedUser(result.user);
+      setCredentialsSent(true); // Email was sent during creation
+
       // Refresh the field workers list
       if (onSuccess) {
-        onSuccess()
+        onSuccess();
       }
-      
+
       // Don't close the modal - show success state instead
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSendCredentials = async () => {
-    if (!createdUser) return
+    if (!createdUser) return;
 
-    setSendingCredentials(true)
-    setError(null)
+    setSendingCredentials(true);
+    setError(null);
 
     try {
-      const response = await fetch("/api/admin/field-workers/send-credentials", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "/api/admin/field-workers/send-credentials",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId: createdUser.id }),
         },
-        body: JSON.stringify({ userId: createdUser.id }),
-      })
+      );
 
-      const result = await response.json()
+      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to send credentials")
+        throw new Error(result.error || "Failed to send credentials");
       }
 
-      setCredentialsSent(true)
+      setCredentialsSent(true);
       toast.success("Credentials sent successfully", {
         description: `Login credentials have been sent to ${createdUser.email}`,
-      })
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send credentials")
+      setError(
+        err instanceof Error ? err.message : "Failed to send credentials",
+      );
       toast.error("Failed to send credentials", {
-        description: err instanceof Error ? err.message : "An error occurred while sending credentials",
-      })
+        description:
+          err instanceof Error
+            ? err.message
+            : "An error occurred while sending credentials",
+      });
     } finally {
-      setSendingCredentials(false)
+      setSendingCredentials(false);
     }
-  }
+  };
 
   const handleClose = () => {
-    setFormData({ name: "", email: "" })
-    setCreatedUser(null)
-    setCredentialsSent(false)
-    setError(null)
-    onClose()
-  }
+    setFormData({
+      name: "",
+      email: "",
+      role: "FIELD_WORKER",
+      accessLevel: "FULL",
+    });
+    setCreatedUser(null);
+    setCredentialsSent(false);
+    setError(null);
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md border-border">
         <CardHeader>
-          <CardTitle>{createdUser ? "Field Worker Added!" : "Invite Field Worker"}</CardTitle>
+          <CardTitle>{createdUser ? "User Added!" : "Invite User"}</CardTitle>
         </CardHeader>
         <CardContent>
           {!createdUser ? (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-foreground">Name</label>
+                <label className="text-sm font-medium text-foreground">
+                  Name
+                </label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
                   className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Full name"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium text-foreground">Email</label>
+                <label className="text-sm font-medium text-foreground">
+                  Email
+                </label>
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
                   className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="email@example.com"
                   required
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  An invitation email with login credentials will be sent to this address.
+                  An invitation email with login credentials will be sent to
+                  this address.
                 </p>
               </div>
 
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Role
+                </label>
+                <select
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                  className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="FIELD_WORKER">Field Worker</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
+
+              {formData.role === "ADMIN" && (
+                <div>
+                  <label className="text-sm font-medium text-foreground">
+                    Admin Access Level
+                  </label>
+                  <select
+                    value={formData.accessLevel}
+                    onChange={(e) =>
+                      setFormData({ ...formData, accessLevel: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="FULL">Full Access</option>
+                    <option value="READ_ONLY">Read Only Admin Access</option>
+                  </select>
+                </div>
+              )}
+
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
-                  <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    {error}
+                  </p>
                 </div>
               )}
 
@@ -193,7 +260,9 @@ export default function AddFieldWorkerModal({ onClose, onSuccess }: AddFieldWork
 
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
-                  <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
+                  <p className="text-sm text-red-700 dark:text-red-400">
+                    {error}
+                  </p>
                 </div>
               )}
 
@@ -222,5 +291,5 @@ export default function AddFieldWorkerModal({ onClose, onSuccess }: AddFieldWork
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }
