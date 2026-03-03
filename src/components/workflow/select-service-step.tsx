@@ -97,6 +97,10 @@ export default function SelectServiceStep({ onNext }: any) {
 
     return pendingServices.filter((service) => {
       if (daysLimit === null) return true
+      // For uncompleted services (no rawDate), always show - we filter by record creation
+      // but assignment can happen later; old records that were just assigned would
+      // otherwise be hidden by the date filter
+      if (!service.rawDate) return true
       const serviceDate = getServiceDate(service)
       if (!serviceDate) return true
       const diffInDays = (now - serviceDate.getTime()) / (1000 * 60 * 60 * 24)
