@@ -1365,10 +1365,18 @@ function EditServiceDialog({
       if (type === "before") setBeforeImages((prev) => [...prev, ...newImages]);
       else if (type === "after")
         setAfterImages((prev) => [...prev, ...newImages]);
-      else setBrokenImages((prev) => [...prev, ...newImages]);
+      else if (type === "broken")
+        setBrokenImages((prev) => [...prev, ...newImages]);
+      else if (type === "logs" && newImages.length > 0) {
+        const url =
+          typeof newImages[0] === "string"
+            ? newImages[0]
+            : (newImages[0] as any)?.url;
+        if (url) setValue("logs", url, { shouldDirty: true });
+      }
     } catch (err) {
       console.error("Upload error:", err);
-      setImageError("Failed to upload one or more images.");
+      setImageError("Failed to upload one or more files.");
     } finally {
       setUploading(false);
     }
@@ -2019,7 +2027,8 @@ function EditServiceDialog({
                     accept="image/*"
                     multiple
                     onChange={(e) => handleImageUpload("after", e.target.files)}
-                    className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 mb-2"
+                    className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 mb-2 disabled:opacity-50"
+                    disabled={uploading}
                   />
                   {afterImages.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
@@ -2058,7 +2067,8 @@ function EditServiceDialog({
                     onChange={(e) =>
                       handleImageUpload("broken", e.target.files)
                     }
-                    className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 mb-2"
+                    className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 mb-2 disabled:opacity-50"
+                    disabled={uploading}
                   />
                   {brokenImages.length > 0 && (
                     <div className="grid grid-cols-2 gap-2">
@@ -2091,12 +2101,17 @@ function EditServiceDialog({
                     <Folder className="h-4 w-4" />
                     Projector Logs (Zip/Folder)
                   </p>
-                  <input
-                    type="file"
-                    accept=".zip,.rar,.7z"
-                    onChange={(e) => handleImageUpload("logs", e.target.files)}
-                    className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 mb-2"
-                  />
+                  {!watch("logs") && (
+                    <input
+                      type="file"
+                      accept=".zip,.rar,.7z"
+                      onChange={(e) =>
+                        handleImageUpload("logs", e.target.files)
+                      }
+                      className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 mb-2 disabled:opacity-50"
+                      disabled={uploading}
+                    />
+                  )}
                   {watch("logs") && (
                     <div className="mt-2 p-3 border-2 border-black bg-white flex items-center justify-between shadow-sm">
                       <div className="flex items-center gap-2 overflow-hidden">
@@ -2905,6 +2920,7 @@ function PreviewDownloadDialog({
   const [loading, setLoading] = useState(false);
   const [serviceData, setServiceData] = useState<any>(null);
   const [email, setEmail] = useState("");
+  const [ccEmails, setCcEmails] = useState("");
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [emailSubject, setEmailSubject] = useState("");
   const [emailBody, setEmailBody] = useState("");
@@ -3060,6 +3076,19 @@ www.ascompinc.co.in`);
       return;
     }
 
+    if (ccEmails) {
+      const ccList = ccEmails
+        .split(",")
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0);
+      for (const cc of ccList) {
+        if (!validateEmail(cc)) {
+          setEmailError(`Invalid CC email address: ${cc}`);
+          return;
+        }
+      }
+    }
+
     setShowEmailPreview(true);
   };
 
@@ -3067,6 +3096,19 @@ www.ascompinc.co.in`);
     if (!email || !validateEmail(email)) {
       setEmailError("Please enter a valid email address");
       return;
+    }
+
+    if (ccEmails) {
+      const ccList = ccEmails
+        .split(",")
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0);
+      for (const cc of ccList) {
+        if (!validateEmail(cc)) {
+          setEmailError(`Invalid CC email address: ${cc}`);
+          return;
+        }
+      }
     }
 
     if (!emailSubject.trim() || !emailBody.trim()) {
@@ -3084,6 +3126,10 @@ www.ascompinc.co.in`);
         body: JSON.stringify({
           serviceId,
           recipientEmail: email,
+          ccEmails: ccEmails
+            .split(",")
+            .map((e) => e.trim())
+            .filter((e) => e.length > 0),
           emailContent: {
             subject: emailSubject,
             body: emailBody.replace(/\n/g, "<br>"),
@@ -3180,12 +3226,25 @@ www.ascompinc.co.in`);
                     placeholder="client@example.com"
                     className={`border-2 ${emailError ? "border-red-500" : "border-black"}`}
                   />
+                  <label className="block text-sm font-semibold mt-4">
+                    CC Email Addresses
+                  </label>
+                  <Input
+                    type="text"
+                    value={ccEmails}
+                    onChange={(e) => {
+                      setCcEmails(e.target.value);
+                      setEmailError("");
+                    }}
+                    placeholder="cc1@example.com, cc2@example.com"
+                    className={`border-2 ${emailError && ccEmails ? "border-red-500" : "border-black"}`}
+                  />
                   {emailError && (
                     <p className="text-sm text-red-600">{emailError}</p>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    Enter the email address where the service report PDF should
-                    be sent.
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enter the email addresses where the service report PDF
+                    should be sent. Separate multiple CC emails with commas.
                   </p>
                 </div>
 
@@ -3229,6 +3288,17 @@ www.ascompinc.co.in`);
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="border-2 border-black"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold">CC:</label>
+                    <Input
+                      type="text"
+                      value={ccEmails}
+                      onChange={(e) => setCcEmails(e.target.value)}
+                      className="border-2 border-black"
+                      placeholder="Comma-separated emails"
                     />
                   </div>
 

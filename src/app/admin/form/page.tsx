@@ -285,7 +285,7 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
     },
     {
       key: "exhaustCfm",
-      label: "Exhaust CFM (M/s)",
+      label: "Exhaust CFM (M/S)",
       type: "number",
       section: "Mechanical",
     },
@@ -706,9 +706,7 @@ export default function FormBuilderPage() {
     const currentSubOptions = { ...(field?.subOptions || {}) };
     const parentSubOptions = currentSubOptions[parentOption] || [];
 
-    const newParentSubOptions = parentSubOptions.filter(
-      (_, i) => i !== subIdx,
-    );
+    const newParentSubOptions = parentSubOptions.filter((_, i) => i !== subIdx);
     if (newParentSubOptions.length === 0) {
       delete currentSubOptions[parentOption];
     } else {
@@ -857,8 +855,7 @@ export default function FormBuilderPage() {
                               const compositeKey = `${field.key}:${option}`;
                               const isExpanded =
                                 expandedSubOptions.has(compositeKey);
-                              const subOpts =
-                                field.subOptions?.[option] || [];
+                              const subOpts = field.subOptions?.[option] || [];
                               const hasSubOpts = subOpts.length > 0;
 
                               return (
@@ -871,8 +868,7 @@ export default function FormBuilderPage() {
                                           ...(field.options || []),
                                         ];
                                         const oldOption = newOptions[idx];
-                                        const newOptionValue =
-                                          e.target.value;
+                                        const newOptionValue = e.target.value;
                                         newOptions[idx] = newOptionValue;
 
                                         const currentSubOptions = {
@@ -890,26 +886,28 @@ export default function FormBuilderPage() {
                                               currentSubOptions[oldOption];
                                             delete currentSubOptions[oldOption];
                                           }
-                                          if (currentSubOptionsInput[oldOption] !== undefined) {
-                                            currentSubOptionsInput[newOptionValue] =
+                                          if (
+                                            currentSubOptionsInput[
+                                              oldOption
+                                            ] !== undefined
+                                          ) {
+                                            currentSubOptionsInput[
+                                              newOptionValue
+                                            ] =
                                               currentSubOptionsInput[oldOption];
-                                            delete currentSubOptionsInput[oldOption];
+                                            delete currentSubOptionsInput[
+                                              oldOption
+                                            ];
                                           }
                                           const oldKey = `${field.key}:${oldOption}`;
                                           const newKey = `${field.key}:${newOptionValue}`;
-                                          if (
-                                            expandedSubOptions.has(oldKey)
-                                          ) {
-                                            setExpandedSubOptions(
-                                              (prev) => {
-                                                const newSet = new Set(
-                                                  prev,
-                                                );
-                                                newSet.delete(oldKey);
-                                                newSet.add(newKey);
-                                                return newSet;
-                                              },
-                                            );
+                                          if (expandedSubOptions.has(oldKey)) {
+                                            setExpandedSubOptions((prev) => {
+                                              const newSet = new Set(prev);
+                                              newSet.delete(oldKey);
+                                              newSet.add(newKey);
+                                              return newSet;
+                                            });
                                           }
                                         }
 
@@ -934,10 +932,7 @@ export default function FormBuilderPage() {
                                       variant="outline"
                                       size="sm"
                                       onClick={() =>
-                                        toggleSubOptionExpand(
-                                          field.key,
-                                          option,
-                                        )
+                                        toggleSubOptionExpand(field.key, option)
                                       }
                                       className={`text-xs px-2 ${hasSubOpts ? "border-blue-500 text-blue-600 hover:bg-blue-50" : "border-gray-400 text-gray-500 hover:bg-gray-50"}`}
                                     >
@@ -947,9 +942,7 @@ export default function FormBuilderPage() {
                                         <ChevronRight className="h-3 w-3 mr-1" />
                                       )}
                                       Sub
-                                      {hasSubOpts
-                                        ? ` (${subOpts.length})`
-                                        : ""}
+                                      {hasSubOpts ? ` (${subOpts.length})` : ""}
                                     </Button>
                                     <Button
                                       type="button"
@@ -972,75 +965,79 @@ export default function FormBuilderPage() {
                                       <label className="flex items-center gap-2 cursor-pointer">
                                         <input
                                           type="checkbox"
-                                          checked={field.subOptionsInput?.[option] || false}
+                                          checked={
+                                            field.subOptionsInput?.[option] ||
+                                            false
+                                          }
                                           onChange={(e) => {
-                                            const currentInput = { ...(field.subOptionsInput || {}) };
+                                            const currentInput = {
+                                              ...(field.subOptionsInput || {}),
+                                            };
                                             if (e.target.checked) {
                                               currentInput[option] = true;
                                             } else {
                                               delete currentInput[option];
                                             }
                                             updateField(field.key, {
-                                              subOptionsInput: Object.keys(currentInput).length > 0 ? currentInput : undefined,
+                                              subOptionsInput:
+                                                Object.keys(currentInput)
+                                                  .length > 0
+                                                  ? currentInput
+                                                  : undefined,
                                             });
                                           }}
                                           className="w-3.5 h-3.5 rounded"
                                         />
-                                        <span className="text-xs text-gray-500">Allow custom text input</span>
+                                        <span className="text-xs text-gray-500">
+                                          Allow custom text input
+                                        </span>
                                       </label>
-                                      {subOpts.map(
-                                        (subOpt, subIdx) => (
-                                          <div
-                                            key={subIdx}
-                                            className="flex items-center gap-2"
+                                      {subOpts.map((subOpt, subIdx) => (
+                                        <div
+                                          key={subIdx}
+                                          className="flex items-center gap-2"
+                                        >
+                                          <Input
+                                            value={subOpt}
+                                            onChange={(e) => {
+                                              const newSubOpts = [...subOpts];
+                                              newSubOpts[subIdx] =
+                                                e.target.value;
+                                              updateField(field.key, {
+                                                subOptions: {
+                                                  ...(field.subOptions || {}),
+                                                  [option]: newSubOpts,
+                                                },
+                                              });
+                                            }}
+                                            className="border-2 border-gray-300 text-sm flex-1"
+                                          />
+                                          <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() =>
+                                              removeSubOption(
+                                                field.key,
+                                                option,
+                                                subIdx,
+                                              )
+                                            }
+                                            className="border-red-600 text-red-600 hover:bg-red-50"
                                           >
-                                            <Input
-                                              value={subOpt}
-                                              onChange={(e) => {
-                                                const newSubOpts = [
-                                                  ...subOpts,
-                                                ];
-                                                newSubOpts[subIdx] =
-                                                  e.target.value;
-                                                updateField(field.key, {
-                                                  subOptions: {
-                                                    ...(field.subOptions ||
-                                                      {}),
-                                                    [option]: newSubOpts,
-                                                  },
-                                                });
-                                              }}
-                                              className="border-2 border-gray-300 text-sm flex-1"
-                                            />
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              size="sm"
-                                              onClick={() =>
-                                                removeSubOption(
-                                                  field.key,
-                                                  option,
-                                                  subIdx,
-                                                )
-                                              }
-                                              className="border-red-600 text-red-600 hover:bg-red-50"
-                                            >
-                                              <Trash2 className="h-3 w-3" />
-                                            </Button>
-                                          </div>
-                                        ),
-                                      )}
+                                            <Trash2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                      ))}
                                       <div className="flex items-center gap-2">
                                         <Input
                                           value={
-                                            newSubOption[compositeKey] ||
-                                            ""
+                                            newSubOption[compositeKey] || ""
                                           }
                                           onChange={(e) =>
                                             setNewSubOption((prev) => ({
                                               ...prev,
-                                              [compositeKey]:
-                                                e.target.value,
+                                              [compositeKey]: e.target.value,
                                             }))
                                           }
                                           placeholder="Add sub-option"
@@ -1048,10 +1045,7 @@ export default function FormBuilderPage() {
                                           onKeyDown={(e) => {
                                             if (e.key === "Enter") {
                                               e.preventDefault();
-                                              addSubOption(
-                                                field.key,
-                                                option,
-                                              );
+                                              addSubOption(field.key, option);
                                             }
                                           }}
                                         />
@@ -1060,10 +1054,7 @@ export default function FormBuilderPage() {
                                           variant="outline"
                                           size="sm"
                                           onClick={() =>
-                                            addSubOption(
-                                              field.key,
-                                              option,
-                                            )
+                                            addSubOption(field.key, option)
                                           }
                                           className="border-gray-400"
                                         >
@@ -1192,14 +1183,20 @@ export default function FormBuilderPage() {
                           <Select
                             value={field.defaultValue || "__none__"}
                             onValueChange={(value) =>
-                              updateField(field.key, { defaultValue: value === "__none__" ? undefined : value })
+                              updateField(field.key, {
+                                defaultValue:
+                                  value === "__none__" ? undefined : value,
+                              })
                             }
                           >
                             <SelectTrigger className="border-2 border-black text-sm">
                               <SelectValue placeholder="None" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="__none__" className="text-muted-foreground">
+                              <SelectItem
+                                value="__none__"
+                                className="text-muted-foreground"
+                              >
                                 None
                               </SelectItem>
                               {field.options?.map((opt) => (

@@ -5,7 +5,7 @@ import prisma, { Role } from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name } = await request.json()
+    const { email, name, role = "FIELD_WORKER", accessLevel } = await request.json()
 
     if (!email || !name) {
       return NextResponse.json({ error: "Email and name are required" }, { status: 400 })
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         email,
         password,
         name,
-        role: "FIELD_WORKER",
+        role: role === "ADMIN" ? Role.ADMIN : Role.FIELD_WORKER,
       }),
     })
 
@@ -56,10 +56,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Ensure role is set to FIELD_WORKER
+    // Ensure role and access level are set
     await prisma.user.update({
       where: { id: signUpData.user.id },
-      data: { role: Role.FIELD_WORKER },
+      data: {
+        role: role === "ADMIN" ? Role.ADMIN : Role.FIELD_WORKER,
+        accessLevel: role === "ADMIN" && accessLevel ? accessLevel : null
+      },
     })
 
     // Send email with login credentials using Gmail OAuth
