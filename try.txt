@@ -3,3 +3,7 @@ new user pvr non pvr filter
 cfm value and contact person 
 
 ui update from dev
+
+email
+
+admin cfm

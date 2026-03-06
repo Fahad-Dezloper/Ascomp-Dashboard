@@ -60,14 +60,27 @@ function PreviewDownloadDialog({
   const generateDefaultEmailContent = (service: any) => {
     const cinema = service.cinemaName || service.siteName || "Valued Client"
     const serviceNum = service.serviceNumber || "N/A"
-    const address = service.address || service.site?.address || "N/A"
+    const modelNo =
+      service.projector?.model ||
+      service.modelNo ||
+      service.projectorModel ||
+      "N/A"
     const serialNo = service.projector?.serialNo || service.projectorSerial || "N/A"
     const screenNo = service.screenNumber || service.site?.screenNo || "N/A"
-    const date = service.date ? new Date(service.date).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric"
-    }) : "N/A"
+    const date = service.date
+      ? (() => {
+          const d = new Date(service.date)
+          const day = d.getDate()
+          const month = d.toLocaleString("en-US", { month: "long" })
+          const year = d.getFullYear()
+          const ord = (n: number) => {
+            if (n >= 11 && n <= 13) return n + "th"
+            const s = ["th", "st", "nd", "rd"]
+            return n + (s[n % 10] || "th")
+          }
+          return `${ord(day)} ${month}, ${year}`
+        })()
+      : "N/A"
 
     // Parse recommended parts
     let recommendedPartsText = ""
@@ -82,13 +95,10 @@ function PreviewDownloadDialog({
       if (Array.isArray(partsArray) && partsArray.length > 0) {
         recommendedPartsText = `
 
-Recommended Parts:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${partsArray.map((part, idx) =>
           `${idx + 1}. Part Number: ${part.part_number || part.partNumber}
    Description: ${part.description || part.name}`
-        ).join('\n\n')}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`
+        ).join('\n\n')}`
       }
     } catch (e) {
       console.error("Failed to parse recommended parts:", e)
@@ -96,24 +106,15 @@ ${partsArray.map((part, idx) =>
 
     setEmailSubject(`Projector Service Report - ${cinema} - ${serviceNum}`)
     setEmailBody(`Dear Team,
+Good day!!!
+The service was performed on ${date} for the Christie Projector – <strong>Model Number:</strong> ${modelNo}, <strong>Serial Number:</strong> ${serialNo} installed in <strong>Auditorium</strong> ${screenNo}. During the inspection, it was observed that the below parts require replacement due to aging/physical wear.${recommendedPartsText}
 
-Please find attached the projector service report for your facility.
-
-Service Details:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cinema Name: ${cinema}
-Address: ${address}
-Screen No: ${screenNo}
-Serial Number: ${serialNo}
-Service Number: ${serviceNum}
-Service Date: ${date}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${recommendedPartsText}
-
+You are advised to provide the Purchase Order (PO) for the above-mentioned parts so that we can proceed with executing the replacement.
 Thank you for choosing Ascomp Inc.
 
 Best regards,
-Ascomp Service Team
-www.ascompinc.co.in`)
+Ascomp INC
+www.ascompinc.in`)
   }
 
   const validateEmail = (email: string) => {

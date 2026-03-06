@@ -1109,6 +1109,15 @@ function EditServiceDialog({
             // Map data to form
             const formData = createInitialFormData();
             const formAny = formData as any;
+            const normalizeNumberLike = (val: any): string => {
+              if (val === null || val === undefined) return "";
+              if (typeof val === "number") return Number.isFinite(val) ? String(val) : "";
+              const str = String(val).trim();
+              if (!str) return "";
+              // Extract the first numeric token (handles "6.6 M/S", "6.6", "6,6", etc.)
+              const match = str.replace(",", ".").match(/-?\d+(\.\d+)?/);
+              return match ? match[0] : "";
+            };
 
             Object.keys(formData).forEach((key) => {
               if (key in data) {
@@ -1117,6 +1126,8 @@ function EditServiceDialog({
                   formAny[key] = new Date(data[key])
                     .toISOString()
                     .split("T")[0];
+                } else if (key === "exhaustCfm") {
+                  formAny[key] = normalizeNumberLike(data[key]);
                 } else {
                   formAny[key] = data[key] ?? "";
                 }
@@ -1131,7 +1142,11 @@ function EditServiceDialog({
                   : data.workDetails;
               Object.keys(details).forEach((k) => {
                 if (k in formData) {
-                  formAny[k] = details[k];
+                  if (k === "exhaustCfm") {
+                    formAny[k] = normalizeNumberLike(details[k]);
+                  } else {
+                    formAny[k] = details[k];
+                  }
                 }
               });
             }
@@ -1402,6 +1417,7 @@ function EditServiceDialog({
       const payload = {
         workDetails: {
           ...values,
+          exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
           // Ensure recommendedParts is saved with the rest of the work details
           recommendedParts,
         },
@@ -2959,19 +2975,29 @@ function PreviewDownloadDialog({
   }, [open, serviceId]);
 
   const generateDefaultEmailContent = (service: any) => {
-    console.log("hi theree", service);
-    const cinema = service.site.name || service.location || "Valued Client";
+    const cinema = service.site?.name || service.location || "Valued Client";
     const serviceNum = service.serviceNumber || "N/A";
-    const address = service.address || service.site?.address || "N/A";
+    const modelNo =
+      service.projector?.model ||
+      service.modelNo ||
+      service.projectorModel ||
+      "N/A";
     const serialNo =
       service.projector?.serialNo || service.projectorSerial || "N/A";
     const screenNo = service.screenNumber || service.site?.screenNo || "N/A";
     const date = service.date
-      ? new Date(service.date).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
+      ? (() => {
+          const d = new Date(service.date);
+          const day = d.getDate();
+          const month = d.toLocaleString("en-US", { month: "long" });
+          const year = d.getFullYear();
+          const ord = (n: number) => {
+            if (n >= 11 && n <= 13) return n + "th";
+            const s = ["th", "st", "nd", "rd"];
+            return n + (s[n % 10] || "th");
+          };
+          return `${ord(day)} ${month}, ${year}`;
+        })()
       : "N/A";
 
     // Parse recommended parts
@@ -2989,16 +3015,13 @@ function PreviewDownloadDialog({
       if (Array.isArray(partsArray) && partsArray.length > 0) {
         recommendedPartsText = `
 
-Recommended Parts:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${partsArray
   .map(
     (part, idx) =>
       `${idx + 1}. Part Number: ${part.part_number || part.partNumber}
    Description: ${part.description || part.name}`,
   )
-  .join("\n\n")}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  .join("\n\n")}`;
       }
     } catch (e) {
       console.error("Failed to parse recommended parts:", e);
@@ -3006,24 +3029,15 @@ ${partsArray
 
     setEmailSubject(`Projector Service Report - ${cinema} - ${serviceNum}`);
     setEmailBody(`Dear Team,
+Good day!!!
+The service was performed on ${date} for the Christie Projector – <strong>Model Number:</strong> ${modelNo}, <strong>Serial Number:</strong> ${serialNo} installed in <strong>Auditorium</strong> ${screenNo}. During the inspection, it was observed that the below parts require replacement due to aging/physical wear.${recommendedPartsText}
 
-Please find attached the projector service report for your facility.
-
-Service Details:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Cinema Name: ${cinema}
-Address: ${address}
-Audi No: ${screenNo}
-Serial Number: ${serialNo}
-Service Number: ${serviceNum}
-Service Date: ${date}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${recommendedPartsText}
-
+You are advised to provide the Purchase Order (PO) for the above-mentioned parts so that we can proceed with executing the replacement.
 Thank you for choosing Ascomp Inc.
 
 Best regards,
-Ascomp Service Team
-www.ascompinc.co.in`);
+Ascomp INC
+www.ascompinc.in`);
   };
 
   const validateEmail = (email: string) => {
