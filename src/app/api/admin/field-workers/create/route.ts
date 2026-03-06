@@ -5,7 +5,7 @@ import prisma, { Role } from "@/lib/db"
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, name, role = "FIELD_WORKER", accessLevel } = await request.json()
+    const { email, name, role = "FIELD_WORKER", accessLevel, pvrAccess = "BOTH" } = await request.json()
 
     if (!email || !name) {
       return NextResponse.json({ error: "Email and name are required" }, { status: 400 })
@@ -56,12 +56,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Ensure role and access level are set
+    // Ensure role, access level, and pvr access are set
     await prisma.user.update({
       where: { id: signUpData.user.id },
       data: {
         role: role === "ADMIN" ? Role.ADMIN : Role.FIELD_WORKER,
-        accessLevel: role === "ADMIN" && accessLevel ? accessLevel : null
+        accessLevel: role === "ADMIN" && accessLevel ? accessLevel : null,
+        pvrAccess: (pvrAccess === "PVR" || pvrAccess === "NonPVR" || pvrAccess === "BOTH") ? pvrAccess : "BOTH",
       },
     })
 

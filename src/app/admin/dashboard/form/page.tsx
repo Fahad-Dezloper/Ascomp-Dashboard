@@ -14,6 +14,7 @@ import {
 import { Plus, Trash2, Save, RefreshCw } from "lucide-react";
 import { FormFieldConfigCard } from "@/components/admin/form-field-config-card";
 import { toast } from "sonner";
+import { useAuth } from "@/lib/auth-context";
 
 type FieldType =
   | "text"
@@ -528,6 +529,8 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
 };
 
 export default function FormBuilderPage() {
+  const { user } = useAuth();
+
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(
     getInitialFieldConfigs(),
   );
@@ -566,6 +569,22 @@ export default function FormBuilderPage() {
   const [newPartsProjectorModel, setNewPartsProjectorModel] = useState("");
 
   const [loadingDataFiles, setLoadingDataFiles] = useState(true);
+
+  if (user?.accessLevel === "READ_ONLY") {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground min-h-[50vh] animate-in fade-in zoom-in-95 duration-200">
+        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+          <Trash2 className="h-8 w-8 text-red-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-foreground mb-2 tracking-tight">
+          Access Denied
+        </h2>
+        <p className="max-w-md">
+          You do not have permission to view or edit system configurations.
+        </p>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const loadConfig = async () => {

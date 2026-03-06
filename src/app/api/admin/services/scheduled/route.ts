@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma, { ServiceStatus } from "@/lib/db"
+import { auth } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth.api.getSession({ headers: request.headers })
+    const pvrAccess = session?.user?.pvrAccess || "BOTH"
+
     const { searchParams } = new URL(request.url)
     const q = (searchParams.get("q") || "").toLowerCase().trim()
 
+    // Build PVR where clauses
+    const whereClause: any = {
+      status: ServiceStatus.SCHEDULED,
+    }
+    if (pvrAccess === "PVR") whereClause.pvr = "PVR"
+    else if (pvrAccess === "NonPVR") whereClause.pvr = "NonPVR"
+
     const projectors = await prisma.projector.findMany({
-      where: {
-        status: ServiceStatus.SCHEDULED,
-      },
+      where: whereClause,
       include: {
         site: {
           select: {

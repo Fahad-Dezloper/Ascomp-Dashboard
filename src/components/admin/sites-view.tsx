@@ -1,105 +1,111 @@
-"use client"
+"use client";
 
-import { useState, useMemo, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import SearchBar from "../search-bar"
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import SearchBar from "../search-bar";
+import { useAuth } from "@/lib/auth-context";
 
-import AddSiteModal from "./modals/add-site-modal"
-import EditSiteModal from "./modals/edit-site-modal"
-import AddProjectorModal from "./modals/add-projector-modal"
-import EditProjectorModal from "./modals/edit-projector-modal"
-import ScheduleServiceModal from "./modals/schedule-service-modal"
-import ProjectorDetails from "./projector-details"
-import { ChevronDown, ChevronUp, Edit } from "lucide-react"
-import type { Site, Projector } from "@/lib/types"
+import AddSiteModal from "./modals/add-site-modal";
+import EditSiteModal from "./modals/edit-site-modal";
+import AddProjectorModal from "./modals/add-projector-modal";
+import EditProjectorModal from "./modals/edit-projector-modal";
+import ScheduleServiceModal from "./modals/schedule-service-modal";
+import ProjectorDetails from "./projector-details";
+import { ChevronDown, ChevronUp, Edit } from "lucide-react";
+import type { Site, Projector } from "@/lib/types";
 
 interface ProjectorData {
-  id: string
-  name: string
-  model: string
-  serialNumber: string
-  installDate: string
-  lastServiceDate: string
-  status: "completed" | "pending" | "scheduled" | "packed"
-  nextServiceDue: string
-  serviceHistory: any[]
+  id: string;
+  name: string;
+  model: string;
+  serialNumber: string;
+  installDate: string;
+  lastServiceDate: string;
+  status: "completed" | "pending" | "scheduled" | "packed";
+  nextServiceDue: string;
+  serviceHistory: any[];
 }
 
 interface SiteData {
-  id: string
-  name: string
-  location: string
-  address: string
-  contactDetails: string
-  screenNo: string
-  createdDate: string
-  totalCompletedServices?: number
-  projectors: ProjectorData[]
+  id: string;
+  name: string;
+  location: string;
+  address: string;
+  contactDetails: string;
+  screenNo: string;
+  createdDate: string;
+  totalCompletedServices?: number;
+  projectors: ProjectorData[];
 }
 
 export default function SitesView() {
-  const router = useRouter()
-  const [sites, setSites] = useState<SiteData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set())
-  const [showAddSite, setShowAddSite] = useState(false)
-  const [showEditSite, setShowEditSite] = useState(false)
-  const [siteToEdit, setSiteToEdit] = useState<SiteData | null>(null)
-  const [showEditProjector, setShowEditProjector] = useState(false)
-  const [projectorToEdit, setProjectorToEdit] = useState<any>(null)
-  const [selectedSite, setSelectedSite] = useState<string | null>(null)
-  const [selectedProjector, setSelectedProjector] = useState<{ siteId: string; projectorId: string } | null>(null)
-  const [_showSchedule, setShowSchedule] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [projectorFilter] = useState<string>("ALL")
+  const router = useRouter();
+  const { user } = useAuth();
+  const canEdit = user?.accessLevel !== "READ_ONLY";
+  const [sites, setSites] = useState<SiteData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedSites, setExpandedSites] = useState<Set<string>>(new Set());
+  const [showAddSite, setShowAddSite] = useState(false);
+  const [showEditSite, setShowEditSite] = useState(false);
+  const [siteToEdit, setSiteToEdit] = useState<SiteData | null>(null);
+  const [showEditProjector, setShowEditProjector] = useState(false);
+  const [projectorToEdit, setProjectorToEdit] = useState<any>(null);
+  const [selectedSite, setSelectedSite] = useState<string | null>(null);
+  const [selectedProjector, setSelectedProjector] = useState<{
+    siteId: string;
+    projectorId: string;
+  } | null>(null);
+  const [_showSchedule, setShowSchedule] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [projectorFilter] = useState<string>("ALL");
 
   const fetchSites = async () => {
     try {
-      setLoading(true)
-      const response = await fetch("/api/admin/sites")
+      setLoading(true);
+      const response = await fetch("/api/admin/sites");
 
       if (!response.ok) {
-        let errorMessage = "Failed to fetch sites"
+        let errorMessage = "Failed to fetch sites";
         try {
-          const errorResult = await response.json()
-          errorMessage = errorResult.error || errorMessage
+          const errorResult = await response.json();
+          errorMessage = errorResult.error || errorMessage;
         } catch {
           // If response is not JSON, use status text
-          errorMessage = response.statusText || errorMessage
+          errorMessage = response.statusText || errorMessage;
         }
-        console.error("Error fetching sites:", errorMessage, response.status)
-        throw new Error(errorMessage)
+        console.error("Error fetching sites:", errorMessage, response.status);
+        throw new Error(errorMessage);
       }
 
-      const result = await response.json()
-      setSites(result.sites || [])
+      const result = await response.json();
+      setSites(result.sites || []);
       // Don't expand sites by default - keep them closed
     } catch (error) {
-      console.error("Error fetching sites:", error)
-      setSites([])
+      console.error("Error fetching sites:", error);
+      setSites([]);
       // Error is logged but we don't show it to user to avoid breaking the UI
       // The empty sites array will show "No sites found" message
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchSites()
-  }, [])
+    fetchSites();
+  }, []);
 
   const toggleSite = (siteId: string) => {
-    const newExpanded = new Set(expandedSites)
+    const newExpanded = new Set(expandedSites);
     if (newExpanded.has(siteId)) {
-      newExpanded.delete(siteId)
+      newExpanded.delete(siteId);
     } else {
-      newExpanded.add(siteId)
+      newExpanded.add(siteId);
     }
-    setExpandedSites(newExpanded)
-  }
+    setExpandedSites(newExpanded);
+  };
 
   const filteredSites = useMemo(() => {
     return sites
@@ -110,29 +116,38 @@ export default function SitesView() {
           site.projectors.some(
             (p) =>
               p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              p.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              p.serialNumber
+                .toLowerCase()
+                .includes(searchQuery.toLowerCase()) ||
               p.model.toLowerCase().includes(searchQuery.toLowerCase()),
           ),
       )
       .map((site) => ({
         ...site,
         projectors: site.projectors.filter((p) => {
-          if (projectorFilter === "all") return true
-          if (projectorFilter === "completed") return p.status === "completed"
-          if (projectorFilter === "pending") return p.status === "pending"
-          if (projectorFilter === "scheduled") return p.status === "scheduled"
-          return true
+          if (projectorFilter === "all") return true;
+          if (projectorFilter === "completed") return p.status === "completed";
+          if (projectorFilter === "pending") return p.status === "pending";
+          if (projectorFilter === "scheduled") return p.status === "scheduled";
+          return true;
         }),
-      }))
-  }, [sites, searchQuery, projectorFilter])
+      }));
+  }, [sites, searchQuery, projectorFilter]);
 
   return (
     <div className="space-y-6 p-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold text-foreground">Sites & Projectors</h2>
-        <Button onClick={() => setShowAddSite(true)} className="bg-primary text-primary-foreground hover:bg-primary/90">
-          Add Site
-        </Button>
+        <h2 className="text-xl font-semibold text-foreground">
+          Sites &amp; Projectors
+        </h2>
+        {canEdit && (
+          <Button
+            onClick={() => setShowAddSite(true)}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            Add Site
+          </Button>
+        )}
       </div>
 
       <SearchBar
@@ -165,50 +180,67 @@ export default function SitesView() {
         <div className="space-y-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-1 items-start">
           {filteredSites.length === 0 ? (
             <div className="border border-border p-6 text-center bg-background">
-              <p className="text-muted-foreground">No sites found matching your search.</p>
+              <p className="text-muted-foreground">
+                No sites found matching your search.
+              </p>
             </div>
           ) : (
             filteredSites.map((site) => {
-              const completedCount = site.projectors.filter((p) => p.status === "completed").length
-              const pendingCount = site.projectors.filter((p) => p.status === "pending").length
-              const scheduledCount = site.projectors.filter((p) => p.status === "scheduled").length
+              const completedCount = site.projectors.filter(
+                (p) => p.status === "completed",
+              ).length;
+              const pendingCount = site.projectors.filter(
+                (p) => p.status === "pending",
+              ).length;
+              const scheduledCount = site.projectors.filter(
+                (p) => p.status === "scheduled",
+              ).length;
 
-              const siteInfo = site as any // Type assertion to access additional fields
+              const siteInfo = site as any; // Type assertion to access additional fields
 
               return (
-                <div key={site.id} className="border border-border bg-background rounded-lg shadow-sm">
+                <div
+                  key={site.id}
+                  className="border border-border bg-background rounded-lg shadow-sm"
+                >
                   <div className="p-5">
                     {/* Site Header */}
                     <div className="mb-3">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <h3 className="text-base font-bold text-foreground mb-0.5">{site.name}</h3>
+                          <h3 className="text-base font-bold text-foreground mb-0.5">
+                            {site.name}
+                          </h3>
                           {siteInfo?.siteCode && (
-                            <p className="text-xs text-muted-foreground">Site Code: {siteInfo.siteCode}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Site Code: {siteInfo.siteCode}
+                            </p>
                           )}
                         </div>
                         <div className="flex gap-1.5 shrink-0">
+                          {canEdit && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSiteToEdit(site);
+                                setShowEditSite(true);
+                              }}
+                              className="border-border h-8 text-xs px-2"
+                              title="Edit Site"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              setSiteToEdit(site)
-                              setShowEditSite(true)
-                            }}
-                            className="border-border h-8 text-xs px-2"
-                            title="Edit Site"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              e.stopPropagation()
-                              router.push(`/admin/dashboard/sites/${site.id}`)
+                              e.preventDefault();
+                              e.stopPropagation();
+                              router.push(`/admin/dashboard/sites/${site.id}`);
                             }}
                             className="border-border h-8 text-xs px-3"
                           >
@@ -221,13 +253,21 @@ export default function SitesView() {
                     {/* Site Information */}
                     <div className="space-y-2 mb-4">
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Address</p>
-                        <p className="text-sm text-foreground">{site.address}</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">
+                          Address
+                        </p>
+                        <p className="text-sm text-foreground">
+                          {site.address}
+                        </p>
                       </div>
                       {site.contactDetails && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Contact Details</p>
-                          <p className="text-sm text-foreground">{site.contactDetails}</p>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">
+                            Contact Details
+                          </p>
+                          <p className="text-sm text-foreground">
+                            {site.contactDetails}
+                          </p>
                         </div>
                       )}
                       {/* <div>
@@ -246,20 +286,36 @@ export default function SitesView() {
                     {/* Statistics - Simplified */}
                     <div className="flex items-center gap-3 pt-3 border-t border-border mt-3">
                       <div className="flex-1 text-center border-r border-border last:border-0 px-1">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Projectors</p>
-                        <p className="text-sm font-bold text-foreground">{site.projectors.length}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Projectors
+                        </p>
+                        <p className="text-sm font-bold text-foreground">
+                          {site.projectors.length}
+                        </p>
                       </div>
                       <div className="flex-1 text-center border-r border-border last:border-0 px-1">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Pending</p>
-                        <p className="text-sm font-bold text-red-600">{pendingCount}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Pending
+                        </p>
+                        <p className="text-sm font-bold text-red-600">
+                          {pendingCount}
+                        </p>
                       </div>
                       <div className="flex-1 text-center border-r border-border last:border-0 px-1">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Scheduled</p>
-                        <p className="text-sm font-bold text-blue-600">{scheduledCount}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Scheduled
+                        </p>
+                        <p className="text-sm font-bold text-blue-600">
+                          {scheduledCount}
+                        </p>
                       </div>
                       <div className="flex-1 text-center border-r border-border last:border-0 px-1">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Completed</p>
-                        <p className="text-sm font-bold text-green-600">{completedCount}</p>
+                        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Completed
+                        </p>
+                        <p className="text-sm font-bold text-green-600">
+                          {completedCount}
+                        </p>
                       </div>
                     </div>
 
@@ -269,9 +325,9 @@ export default function SitesView() {
                         variant="ghost"
                         size="sm"
                         onClick={(e) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          toggleSite(site.id)
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleSite(site.id);
                         }}
                         className="w-full flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground h-8"
                       >
@@ -288,36 +344,47 @@ export default function SitesView() {
                     <div className="border-t border-border bg-muted/20 p-5">
                       <div className="flex justify-between items-center mb-4">
                         <div>
-                          <h4 className="text-sm font-semibold text-foreground mb-0.5">Projectors</h4>
-                          <p className="text-xs text-muted-foreground">{site.projectors.length} projector{site.projectors.length !== 1 ? 's' : ''}</p>
+                          <h4 className="text-sm font-semibold text-foreground mb-0.5">
+                            Projectors
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            {site.projectors.length} projector
+                            {site.projectors.length !== 1 ? "s" : ""}
+                          </p>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setSelectedSite(site.id)
-                          }}
-                          className="border-border"
-                        >
-                          Add Projector
-                        </Button>
-                      </div>
-
-                      {site.projectors.length === 0 ? (
-                        <div className="py-6 text-center border border-dashed border-border">
-                          <p className="text-sm text-muted-foreground mb-3">No projectors match the selected filter.</p>
+                        {canEdit && (
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              setSelectedSite(site.id)
+                              e.stopPropagation();
+                              setSelectedSite(site.id);
                             }}
                             className="border-border"
                           >
-                            Add First Projector
+                            Add Projector
                           </Button>
+                        )}
+                      </div>
+
+                      {site.projectors.length === 0 ? (
+                        <div className="py-6 text-center border border-dashed border-border">
+                          <p className="text-sm text-muted-foreground mb-3">
+                            No projectors match the selected filter.
+                          </p>
+                          {canEdit && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedSite(site.id);
+                              }}
+                              className="border-border"
+                            >
+                              Add First Projector
+                            </Button>
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -332,7 +399,7 @@ export default function SitesView() {
                               status: projector.status,
                               nextServiceDue: projector.nextServiceDue,
                               serviceHistory: projector.serviceHistory,
-                            }
+                            };
                             const siteForDetails: Site = {
                               id: site.id,
                               name: site.name,
@@ -343,35 +410,48 @@ export default function SitesView() {
                               contactDetails: site.contactDetails,
                               siteCode: (site as any).siteCode,
                               email: (site as any).email,
-                            }
+                            };
                             return (
                               <ProjectorDetails
                                 key={projector.id}
                                 site={siteForDetails}
                                 projector={projectorForDetails}
-                                onSchedule={() => {
-                                  setSelectedProjector({ siteId: site.id, projectorId: projector.id })
-                                  setShowSchedule(true)
-                                }}
-                                onEdit={() => {
-                                  setProjectorToEdit({
-                                    ...projector,
-                                    siteId: site.id
-                                  })
-                                  setShowEditProjector(true)
-                                }}
+                                onSchedule={
+                                  canEdit
+                                    ? () => {
+                                        setSelectedProjector({
+                                          siteId: site.id,
+                                          projectorId: projector.id,
+                                        });
+                                        setShowSchedule(true);
+                                      }
+                                    : undefined
+                                }
+                                onEdit={
+                                  canEdit
+                                    ? () => {
+                                        setProjectorToEdit({
+                                          ...projector,
+                                          siteId: site.id,
+                                        });
+                                        setShowEditProjector(true);
+                                      }
+                                    : undefined
+                                }
                                 onViewDetails={() =>
-                                  router.push(`/admin/dashboard/sites/${site.id}/projectors/${projector.id}`)
+                                  router.push(
+                                    `/admin/dashboard/sites/${site.id}/projectors/${projector.id}`,
+                                  )
                                 }
                               />
-                            )
+                            );
                           })}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              )
+              );
             })
           )}
         </div>
@@ -381,7 +461,7 @@ export default function SitesView() {
         <AddSiteModal
           onClose={() => setShowAddSite(false)}
           onSuccess={() => {
-            fetchSites()
+            fetchSites();
           }}
         />
       )}
@@ -389,11 +469,11 @@ export default function SitesView() {
         <EditSiteModal
           site={siteToEdit}
           onClose={() => {
-            setShowEditSite(false)
-            setSiteToEdit(null)
+            setShowEditSite(false);
+            setSiteToEdit(null);
           }}
           onSuccess={() => {
-            fetchSites()
+            fetchSites();
           }}
         />
       )}
@@ -402,8 +482,8 @@ export default function SitesView() {
           siteId={selectedSite}
           onClose={() => setSelectedSite(null)}
           onSuccess={() => {
-            fetchSites()
-            setSelectedSite(null)
+            fetchSites();
+            setSelectedSite(null);
           }}
         />
       )}
@@ -421,11 +501,11 @@ export default function SitesView() {
             siteId: projectorToEdit.siteId,
           }}
           onClose={() => {
-            setShowEditProjector(false)
-            setProjectorToEdit(null)
+            setShowEditProjector(false);
+            setProjectorToEdit(null);
           }}
           onSuccess={() => {
-            fetchSites()
+            fetchSites();
           }}
         />
       )}
@@ -434,36 +514,36 @@ export default function SitesView() {
           siteId={selectedProjector.siteId}
           projectorId={selectedProjector.projectorId}
           onClose={() => {
-            setSelectedProjector(null)
-            setShowSchedule(false)
+            setSelectedProjector(null);
+            setShowSchedule(false);
           }}
           onSuccess={() => {
             // Optimistic update: immediately update the local state
-            setSites(prevSites =>
-              prevSites.map(site => {
+            setSites((prevSites) =>
+              prevSites.map((site) => {
                 if (site.id === selectedProjector.siteId) {
                   return {
                     ...site,
-                    projectors: site.projectors.map(proj => {
+                    projectors: site.projectors.map((proj) => {
                       if (proj.id === selectedProjector.projectorId) {
-                        return { ...proj, status: "scheduled" as const }
+                        return { ...proj, status: "scheduled" as const };
                       }
-                      return proj
-                    })
-                  }
+                      return proj;
+                    }),
+                  };
                 }
-                return site
-              })
-            )
+                return site;
+              }),
+            );
 
             // Also fetch fresh data from server to ensure consistency
-            fetchSites()
+            fetchSites();
 
-            setSelectedProjector(null)
-            setShowSchedule(false)
+            setSelectedProjector(null);
+            setShowSchedule(false);
           }}
         />
       )}
     </div>
-  )
+  );
 }

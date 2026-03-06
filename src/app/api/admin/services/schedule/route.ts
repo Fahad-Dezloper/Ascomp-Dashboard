@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
         siteId: true,
         serialNo: true,
         modelNo: true,
+        pvr: true,
       },
     })
     if (!projector || projector.siteId !== siteId) {
@@ -68,10 +69,24 @@ export async function POST(request: NextRequest) {
 
     const fieldWorker = await prisma.user.findFirst({
       where: { id: fieldWorkerId, role: "FIELD_WORKER" },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, pvrAccess: true },
     })
     if (!fieldWorker || !fieldWorker.email) {
       return NextResponse.json({ error: "Field worker not found." }, { status: 404 })
+    }
+
+    // PVR restriction: check that the field worker is allowed to service this projector type
+    if (projector.pvr && fieldWorker.pvrAccess !== "BOTH") {
+      if (fieldWorker.pvrAccess !== projector.pvr) {
+        const workerLabel = fieldWorker.pvrAccess === "PVR" ? "PVR" : "Non-PVR"
+        const projectorLabel = projector.pvr === "PVR" ? "PVR" : "Non-PVR"
+        return NextResponse.json(
+          {
+            error: `This field worker is restricted to ${workerLabel} projectors only, but the selected projector is ${projectorLabel}.`,
+          },
+          { status: 403 },
+        )
+      }
     }
 
     const admin = await prisma.user.findFirst({
