@@ -5,6 +5,10 @@ import prisma from "@/lib/db"
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), "data", "form-config.json")
 
+// Fields that must always match form-config.json (file is source of truth)
+// Use when DB has stale/incorrect type (e.g. exhaustCfm should be number, not select)
+const FILE_OVERRIDE_KEYS = new Set(["exhaustCfm"])
+
 async function readConfigFromFile(): Promise<any[] | null> {
   try {
     const dir = path.dirname(CONFIG_FILE_PATH)
@@ -31,7 +35,19 @@ async function readConfig(): Promise<any[] | null> {
     })
 
     if (dbConfig?.config) {
-      return dbConfig.config as any[]
+      const dbConfigArray = dbConfig.config as any[]
+      const fileConfig = await readConfigFromFile()
+      if (fileConfig && fileConfig.length > 0) {
+        const fileByKey = new Map(fileConfig.map((f: any) => [f.key, f]))
+        return dbConfigArray.map((f: any) => {
+          if (FILE_OVERRIDE_KEYS.has(f.key)) {
+            const fileField = fileByKey.get(f.key)
+            if (fileField) return fileField
+          }
+          return f
+        })
+      }
+      return dbConfigArray
     }
 
     // If no DB config, fallback to file and seed DB
