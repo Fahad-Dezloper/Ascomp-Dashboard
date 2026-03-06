@@ -1,11 +1,20 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/db"
+import { auth } from "@/lib/auth"
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const session = await auth.api.getSession({ headers: request.headers })
+    const pvrAccess = session?.user?.pvrAccess || "BOTH"
+
     const now = new Date()
     const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+    // Build PVR where clauses
+    const projectorPvrWhere: any = {}
+    if (pvrAccess === "PVR") projectorPvrWhere.pvr = "PVR"
+    else if (pvrAccess === "NonPVR") projectorPvrWhere.pvr = "NonPVR"
 
     // Fetch data in parallel with optimized queries
     const [
@@ -18,15 +27,22 @@ export async function GET() {
       fieldWorkers,
       recentTasks,
     ] = await Promise.all([
-      // Count total sites
-      prisma.site.count(),
+      // Count total sites, only counting those that have matching projectors if restricted 
+      prisma.site.count({
+        where: Object.keys(projectorPvrWhere).length > 0 ? {
+          projector: { some: projectorPvrWhere }
+        } : undefined
+      }),
 
       // Count total projectors
-      prisma.projector.count(),
+      prisma.projector.count({
+        where: projectorPvrWhere
+      }),
 
       // Count pending projectors (no service or service > 6 months ago)
       prisma.projector.count({
         where: {
+          ...projectorPvrWhere,
           status: { notIn: ["PACKED", "SCHEDULED", "IN_PROGRESS"] },
           OR: [
             { lastServiceAt: null },
@@ -38,6 +54,7 @@ export async function GET() {
       // Count completed services from Projector model (projectors serviced within last 6 months)
       prisma.projector.count({
         where: {
+          ...projectorPvrWhere,
           AND: [
             { lastServiceAt: { not: null } },
             { lastServiceAt: { gte: sixMonthsAgo } },
@@ -48,6 +65,7 @@ export async function GET() {
       // Count scheduled services as projectors whose status is SCHEDULED
       prisma.projector.count({
         where: {
+          ...projectorPvrWhere,
           status: "SCHEDULED",
         },
       }),
@@ -55,6 +73,7 @@ export async function GET() {
       // Get top 5 pending projectors with site info
       prisma.projector.findMany({
         where: {
+          ...projectorPvrWhere,
           status: { notIn: ["PACKED", "SCHEDULED", "IN_PROGRESS"] },
           OR: [
             { lastServiceAt: null },
@@ -98,6 +117,7 @@ export async function GET() {
       // Get recent scheduled tasks (service records that exist but aren't fully completed)
       prisma.serviceRecord.findMany({
         where: {
+          ...(Object.keys(projectorPvrWhere).length > 0 ? { projector: projectorPvrWhere } : {}),
           AND: [
             { endTime: null },
             { reportGenerated: false },

@@ -1,86 +1,95 @@
-"use client"
+"use client";
 
-import { useRouter, useParams } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import ProjectorDetails from "./projector-details"
-import AddProjectorModal from "./modals/add-projector-modal"
-import ScheduleServiceModal from "./modals/schedule-service-modal"
-import EditSiteModal from "./modals/edit-site-modal"
-import { useState, useEffect } from "react"
-import type { Site, Projector } from "@/lib/types"
+import { useRouter, useParams } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import ProjectorDetails from "./projector-details";
+import AddProjectorModal from "./modals/add-projector-modal";
+import ScheduleServiceModal from "./modals/schedule-service-modal";
+import EditSiteModal from "./modals/edit-site-modal";
+import { useState, useEffect } from "react";
+import type { Site, Projector } from "@/lib/types";
+import { useAuth } from "@/lib/auth-context";
 
 interface SiteDetailPageProps {
-  siteId?: string
+  siteId?: string;
 }
 
-export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPageProps) {
-  const router = useRouter()
-  const params = useParams<{ siteId?: string }>()
-  const siteId = siteIdProp ?? params?.siteId ?? ""
-  const [site, setSite] = useState<Site | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [showAddProjector, setShowAddProjector] = useState(false)
-  const [showEditSite, setShowEditSite] = useState(false)
-  const [selectedProjector, setSelectedProjector] = useState<{ siteId: string; projectorId: string } | null>(null)
-  const [_showSchedule, setShowSchedule] = useState(false)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [deletingSite, setDeletingSite] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
+export default function SiteDetailPage({
+  siteId: siteIdProp,
+}: SiteDetailPageProps) {
+  const router = useRouter();
+  const params = useParams<{ siteId?: string }>();
+  const siteId = siteIdProp ?? params?.siteId ?? "";
+  const { user } = useAuth();
+  const canEdit = user?.accessLevel !== "READ_ONLY";
+  const [site, setSite] = useState<Site | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showAddProjector, setShowAddProjector] = useState(false);
+  const [showEditSite, setShowEditSite] = useState(false);
+  const [selectedProjector, setSelectedProjector] = useState<{
+    siteId: string;
+    projectorId: string;
+  } | null>(null);
+  const [_showSchedule, setShowSchedule] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingSite, setDeletingSite] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSite = async () => {
       if (!siteId) {
-        setLoading(false)
-        setSite(null)
-        return
+        setLoading(false);
+        setSite(null);
+        return;
       }
 
       try {
-        setLoading(true)
-        const response = await fetch(`/api/admin/sites/${siteId}`)
+        setLoading(true);
+        const response = await fetch(`/api/admin/sites/${siteId}`);
         if (!response.ok) {
-          throw new Error("Failed to fetch site")
+          throw new Error("Failed to fetch site");
         }
-        const result = await response.json()
-        setSite(result.site)
+        const result = await response.json();
+        setSite(result.site);
       } catch (error) {
-        console.error("Error fetching site:", error)
-        setSite(null)
+        console.error("Error fetching site:", error);
+        setSite(null);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchSite()
-  }, [siteId])
+    fetchSite();
+  }, [siteId]);
 
   const handleDeleteSite = async () => {
-    if (!siteId) return
+    if (!siteId) return;
 
     try {
-      setDeletingSite(true)
-      setDeleteError(null)
+      setDeletingSite(true);
+      setDeleteError(null);
       const response = await fetch(`/api/admin/sites/${siteId}`, {
         method: "DELETE",
-      })
+      });
 
-      const result = await response.json().catch(() => null)
+      const result = await response.json().catch(() => null);
 
       if (!response.ok) {
-        throw new Error(result?.error || "Failed to delete site")
+        throw new Error(result?.error || "Failed to delete site");
       }
 
-      router.push("/admin/dashboard/sites")
+      router.push("/admin/dashboard/sites");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to delete site"
-      console.error("Failed to delete site:", error)
-      setDeleteError(message)
+      const message =
+        error instanceof Error ? error.message : "Failed to delete site";
+      console.error("Failed to delete site:", error);
+      setDeleteError(message);
     } finally {
-      setDeletingSite(false)
+      setDeletingSite(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -93,7 +102,7 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
         </div>
         <Skeleton className="h-64 w-full" />
       </div>
-    )
+    );
   }
 
   if (!site) {
@@ -101,11 +110,16 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
       <Card className="border-border p-6 text-center">
         <p className="text-muted-foreground">Site not found</p>
       </Card>
-    )
+    );
   }
 
-  const totalServices = site.projectors.reduce((acc, proj) => acc + proj.serviceHistory.length, 0)
-  const pendingProjectors = site.projectors.filter((p) => p.status === "pending").length
+  const totalServices = site.projectors.reduce(
+    (acc, proj) => acc + proj.serviceHistory.length,
+    0,
+  );
+  const pendingProjectors = site.projectors.filter(
+    (p) => p.status === "pending",
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -115,39 +129,52 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
           <div className="flex items-center justify-between">
             <CardTitle className="text-2xl">{site.name}</CardTitle>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowEditSite(true)}
-              >
-                Edit Site
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteDialog(true)}
-                disabled={deletingSite}
-              >
-                {deletingSite ? "Deleting..." : "Delete Site"}
-              </Button>
+              {canEdit && (
+                <Button variant="outline" onClick={() => setShowEditSite(true)}>
+                  Edit Site
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={deletingSite}
+                >
+                  {deletingSite ? "Deleting..." : "Delete Site"}
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Address</p>
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                Address
+              </p>
               <p className="text-foreground">{site.address}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Location</p>
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                Location
+              </p>
               <p className="text-foreground">{site.location}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Created Date</p>
-              <p className="text-foreground font-medium">{new Date(site.createdDate).toLocaleDateString()}</p>
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                Created Date
+              </p>
+              <p className="text-foreground font-medium">
+                {new Date(site.createdDate).toLocaleDateString()}
+              </p>
             </div>
             <div>
-              <p className="text-sm font-medium text-muted-foreground mb-1">Total Projectors</p>
-              <p className="text-foreground font-medium">{site.projectors.length}</p>
+              <p className="text-sm font-medium text-muted-foreground mb-1">
+                Total Projectors
+              </p>
+              <p className="text-foreground font-medium">
+                {site.projectors.length}
+              </p>
             </div>
           </div>
         </CardContent>
@@ -157,32 +184,52 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-border bg-white shadow-sm">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Projectors</p>
-            <p className="text-2xl font-bold mt-1 text-foreground">{site.projectors.length}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Projectors
+            </p>
+            <p className="text-2xl font-bold mt-1 text-foreground">
+              {site.projectors.length}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-border bg-white shadow-sm">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Services</p>
-            <p className="text-2xl font-bold mt-1 text-foreground">{totalServices}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Services
+            </p>
+            <p className="text-2xl font-bold mt-1 text-foreground">
+              {totalServices}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-border bg-white shadow-sm">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pending</p>
-            <p className="text-2xl font-bold mt-1 text-red-600">{pendingProjectors}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Pending
+            </p>
+            <p className="text-2xl font-bold mt-1 text-red-600">
+              {pendingProjectors}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-border bg-white shadow-sm">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Completed</p>
-            <p className="text-2xl font-bold mt-1 text-green-600">{site.projectors.filter(p => p.status === 'completed').length}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Completed
+            </p>
+            <p className="text-2xl font-bold mt-1 text-green-600">
+              {site.projectors.filter((p) => p.status === "completed").length}
+            </p>
           </CardContent>
         </Card>
         <Card className="border-border bg-white shadow-sm">
           <CardContent className="p-4 flex flex-col items-center justify-center text-center">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Packed</p>
-            <p className="text-2xl font-bold mt-1 text-amber-600">{site.projectors.filter(p => p.status === 'packed').length}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Packed
+            </p>
+            <p className="text-2xl font-bold mt-1 text-amber-600">
+              {site.projectors.filter((p) => p.status === "packed").length}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -192,20 +239,26 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
         <CardHeader className="pb-4 border-b border-border flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-lg">Projectors</CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">Manage projectors and their service schedules</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Manage projectors and their service schedules
+            </p>
           </div>
-          <Button
-            size="sm"
-            onClick={() => setShowAddProjector(true)}
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            Add Projector
-          </Button>
+          {canEdit && (
+            <Button
+              size="sm"
+              onClick={() => setShowAddProjector(true)}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Add Projector
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-3 gap-4">
             {site.projectors.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No projectors added to this site yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No projectors added to this site yet.
+              </p>
             ) : (
               site.projectors.map((projector) => {
                 // Convert to Projector type for ProjectorDetails component
@@ -219,19 +272,30 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
                   status: projector.status,
                   nextServiceDue: projector.nextServiceDue,
                   serviceHistory: projector.serviceHistory || [],
-                }
+                };
                 return (
                   <ProjectorDetails
                     key={projector.id}
                     site={site}
                     projector={projectorForDetails}
-                    onSchedule={() => {
-                      setSelectedProjector({ siteId: site.id, projectorId: projector.id })
-                      setShowSchedule(true)
-                    }}
-                    onViewDetails={() => router.push(`/admin/dashboard/sites/${site.id}/projectors/${projector.id}`)}
+                    onSchedule={
+                      canEdit
+                        ? () => {
+                            setSelectedProjector({
+                              siteId: site.id,
+                              projectorId: projector.id,
+                            });
+                            setShowSchedule(true);
+                          }
+                        : undefined
+                    }
+                    onViewDetails={() =>
+                      router.push(
+                        `/admin/dashboard/sites/${site.id}/projectors/${projector.id}`,
+                      )
+                    }
                   />
-                )
+                );
               })
             )}
           </div>
@@ -243,20 +307,20 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
           site={site}
           onClose={() => setShowEditSite(false)}
           onSuccess={() => {
-            router.refresh()
+            router.refresh();
             // Re-fetch site data locally to update the UI
             const fetchSite = async () => {
               try {
-                const response = await fetch(`/api/admin/sites/${siteId}`)
+                const response = await fetch(`/api/admin/sites/${siteId}`);
                 if (response.ok) {
-                  const data = await response.json()
-                  setSite(data.site)
+                  const data = await response.json();
+                  setSite(data.site);
                 }
               } catch (err) {
-                console.error("Error refreshing site:", err)
+                console.error("Error refreshing site:", err);
               }
-            }
-            fetchSite()
+            };
+            fetchSite();
           }}
         />
       )}
@@ -270,8 +334,8 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
             fetch(`/api/admin/sites/${siteId}`)
               .then((res) => res.json())
               .then((data) => setSite(data.site))
-              .catch((err) => console.error("Error refreshing site:", err))
-            setShowAddProjector(false)
+              .catch((err) => console.error("Error refreshing site:", err));
+            setShowAddProjector(false);
           }}
         />
       )}
@@ -280,35 +344,41 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
           siteId={selectedProjector.siteId}
           projectorId={selectedProjector.projectorId}
           onClose={() => {
-            setSelectedProjector(null)
-            setShowSchedule(false)
+            setSelectedProjector(null);
+            setShowSchedule(false);
           }}
           onSuccess={() => {
             // Refresh site data
             fetch(`/api/admin/sites/${siteId}`)
               .then((res) => res.json())
               .then((data) => setSite(data.site))
-              .catch((err) => console.error("Error refreshing site:", err))
-            setSelectedProjector(null)
-            setShowSchedule(false)
+              .catch((err) => console.error("Error refreshing site:", err));
+            setSelectedProjector(null);
+            setShowSchedule(false);
           }}
         />
       )}
       {showDeleteDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-foreground mb-2">Delete Site</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-2">
+              Delete Site
+            </h2>
             <p className="text-sm text-muted-foreground mb-4">
               Are you sure you want to delete the site{" "}
-              <span className="font-semibold text-foreground">{site.name}</span>?
+              <span className="font-semibold text-foreground">{site.name}</span>
+              ?
               <br />
               <span className="font-semibold text-destructive">
-                All projectors from this site and all their service records will be permanently deleted.
+                All projectors from this site and all their service records will
+                be permanently deleted.
               </span>
             </p>
             {deleteError && (
               <div className="mb-4 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
-                <p className="text-sm text-red-700 dark:text-red-400">{deleteError}</p>
+                <p className="text-sm text-red-700 dark:text-red-400">
+                  {deleteError}
+                </p>
               </div>
             )}
             <div className="flex justify-end gap-2">
@@ -317,8 +387,8 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
                 className="border-border"
                 onClick={() => {
                   if (!deletingSite) {
-                    setShowDeleteDialog(false)
-                    setDeleteError(null)
+                    setShowDeleteDialog(false);
+                    setDeleteError(null);
                   }
                 }}
                 disabled={deletingSite}
@@ -347,5 +417,5 @@ export default function SiteDetailPage({ siteId: siteIdProp }: SiteDetailPagePro
         </div>
       )}
     </div>
-  )
+  );
 }

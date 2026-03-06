@@ -23,6 +23,11 @@ export const auth: any = betterAuth<BetterAuthOptions>({
 				type: "string",
 				required: false,
 				returned: true,
+			},
+			pvrAccess: {
+				type: "string",
+				required: false,
+				returned: true,
 			}
 		},
 	},

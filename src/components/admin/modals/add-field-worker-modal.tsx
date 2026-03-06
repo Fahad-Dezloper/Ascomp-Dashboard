@@ -20,6 +20,7 @@ export default function AddFieldWorkerModal({
     email: "",
     role: "FIELD_WORKER",
     accessLevel: "FULL",
+    pvrAccess: "BOTH",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,16 +57,12 @@ export default function AddFieldWorkerModal({
         throw new Error(result.error || "Failed to create field worker");
       }
 
-      // Store created user info and show success state
       setCreatedUser(result.user);
-      setCredentialsSent(true); // Email was sent during creation
+      setCredentialsSent(true);
 
-      // Refresh the field workers list
       if (onSuccess) {
         onSuccess();
       }
-
-      // Don't close the modal - show success state instead
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -122,12 +119,19 @@ export default function AddFieldWorkerModal({
       email: "",
       role: "FIELD_WORKER",
       accessLevel: "FULL",
+      pvrAccess: "BOTH",
     });
     setCreatedUser(null);
     setCredentialsSent(false);
     setError(null);
     onClose();
   };
+
+  const pvrOptions = [
+    { value: "PVR", label: "PVR Only" },
+    { value: "NonPVR", label: "Non-PVR Only" },
+    { value: "BOTH", label: "Both" },
+  ] as const;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
@@ -138,6 +142,7 @@ export default function AddFieldWorkerModal({
         <CardContent>
           {!createdUser ? (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Name */}
               <div>
                 <label className="text-sm font-medium text-foreground">
                   Name
@@ -153,6 +158,7 @@ export default function AddFieldWorkerModal({
                 />
               </div>
 
+              {/* Email */}
               <div>
                 <label className="text-sm font-medium text-foreground">
                   Email
@@ -173,6 +179,7 @@ export default function AddFieldWorkerModal({
                 </p>
               </div>
 
+              {/* Role */}
               <div>
                 <label className="text-sm font-medium text-foreground">
                   Role
@@ -189,6 +196,7 @@ export default function AddFieldWorkerModal({
                 </select>
               </div>
 
+              {/* Admin access level — only when role is ADMIN */}
               {formData.role === "ADMIN" && (
                 <div>
                   <label className="text-sm font-medium text-foreground">
@@ -206,6 +214,34 @@ export default function AddFieldWorkerModal({
                   </select>
                 </div>
               )}
+
+              {/* Projector Type (PVR) Access */}
+              <div>
+                <label className="text-sm font-medium text-foreground">
+                  Projector Type Access
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5 mb-2">
+                  Restrict which projector types this user can be assigned to.
+                </p>
+                <div className="flex gap-2">
+                  {pvrOptions.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() =>
+                        setFormData({ ...formData, pvrAccess: value })
+                      }
+                      className={`flex-1 py-2 px-3 rounded-md border text-sm font-medium transition-colors ${
+                        formData.pvrAccess === value
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               {error && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-md">
@@ -241,7 +277,7 @@ export default function AddFieldWorkerModal({
                 <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-green-900 dark:text-green-100">
-                    Field worker created successfully!
+                    User created successfully!
                   </p>
                   <p className="text-sm text-green-700 dark:text-green-300 mt-1">
                     {createdUser.name} ({createdUser.email})

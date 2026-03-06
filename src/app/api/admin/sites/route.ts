@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma, { ServiceStatus } from "@/lib/db"
+import { auth } from "@/lib/auth"
 
 // Helper function to generate MongoDB-style ObjectId
 function generateObjectId(): string {
   return [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // const now = new Date()
-    // const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+    const session = await auth.api.getSession({ headers: request.headers })
+    const pvrAccess = session?.user?.pvrAccess || "BOTH"
+
+    const projectorWhere: any = {}
+    if (pvrAccess === "PVR") projectorWhere.pvr = "PVR"
+    else if (pvrAccess === "NonPVR") projectorWhere.pvr = "NonPVR"
 
     const sites = await prisma.site.findMany({
+      where: Object.keys(projectorWhere).length > 0 ? {
+        projector: { some: projectorWhere },
+      } : undefined,
       include: {
         projector: {
+          where: projectorWhere,
           include: {
             serviceRecords: {
               // Fetch all service records to count completed ones

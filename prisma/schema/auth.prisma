@@ -44,6 +44,7 @@ model User {
   assignedServices ServiceRecord[] @relation("AssignedServices")
   role             Role            @default(FIELD_WORKER)
   accessLevel      AccessLevel?
+  pvrAccess        PVR             @default(BOTH)
 
   @@unique([email])
   @@map("user")
@@ -101,6 +102,7 @@ model ProjectorMoveHistory {
 enum PVR {
   PVR
   NonPVR
+  BOTH
 }
 
 model Session {

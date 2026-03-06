@@ -1,17 +1,25 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma, { ServiceStatus } from "@/lib/db"
+import { auth } from "@/lib/auth"
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ siteId: string }> }
 ) {
   try {
     const { siteId } = await context.params
+    const session = await auth.api.getSession({ headers: request.headers })
+    const pvrAccess = session?.user?.pvrAccess || "BOTH"
+
+    const projectorWhere: any = {}
+    if (pvrAccess === "PVR") projectorWhere.pvr = "PVR"
+    else if (pvrAccess === "NonPVR") projectorWhere.pvr = "NonPVR"
 
     const site = await prisma.site.findUnique({
       where: { id: siteId },
       include: {
         projector: {
+          where: projectorWhere,
           include: {
             moveHistory: {
               orderBy: {
