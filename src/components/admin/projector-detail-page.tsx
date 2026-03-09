@@ -344,7 +344,7 @@ export default function ProjectorDetailPage({
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div>
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                 Serial Number
@@ -454,7 +454,7 @@ export default function ProjectorDetailPage({
               </p>
             </div>
           ) : (
-            <div className="space-y-4 w-full grid grid-cols-4 gap-4 ">
+            <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
               {projector.serviceHistory.map((service, index) => {
                 const statusLabel = service.status
                   ? service.status
@@ -470,22 +470,22 @@ export default function ProjectorDetailPage({
                       : "bg-green-100 text-green-700";
 
                 return (
-                  <Card
+                  <div
                     key={service.id}
-                    className="border h-[25vh] border-border shadow-sm"
+                    className="w-full rounded-lg border border-border bg-white shadow-sm"
                   >
-                    <CardContent className="">
+                    <div className="p-4 flex flex-col w-full min-h-[180px] sm:min-h-[220px]">
                       {/* Header */}
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm">
+                      <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-10 w-10 shrink-0 rounded-full bg-secondary flex items-center justify-center text-secondary-foreground font-bold text-sm">
                             #{projector.serviceHistory.length - index}
                           </div>
-                          <div>
-                            <h4 className="text-sm font-semibold text-foreground">
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-semibold text-foreground truncate">
                               Service Record
                             </h4>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground truncate">
                               {service.date
                                 ? new Date(service.date).toLocaleDateString(
                                     "en-US",
@@ -500,13 +500,13 @@ export default function ProjectorDetailPage({
                           </div>
                         </div>
                         <Badge
-                          className={`${statusStyles} text-xs px-2.5 py-0.5`}
+                          className={`${statusStyles} text-xs px-2.5 py-0.5 shrink-0 w-fit`}
                         >
                           {statusLabel}
                         </Badge>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4 pt-4 border-t border-border">
+                      <div className="grid grid-cols-1 gap-4 mb-4 pt-4 border-t border-border sm:grid-cols-2">
                         <div>
                           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                             Technician
@@ -526,12 +526,12 @@ export default function ProjectorDetailPage({
                           </p>
                         </div>
                         {service.notes && (
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                               Notes
                             </p>
                             <p
-                              className="text-sm text-foreground line-clamp-1"
+                              className="text-sm text-foreground line-clamp-2"
                               title={service.notes}
                             >
                               {service.notes}
@@ -541,19 +541,19 @@ export default function ProjectorDetailPage({
                       </div>
 
                       {/* Preview & Download Button */}
-                      <div className="flex justify-end pt-3 border-t border-border">
+                      <div className="mt-auto flex justify-end pt-3 border-t border-border">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setPreviewServiceId(service.id)}
-                          className="gap-2 h-8 text-xs"
+                          className="gap-2 h-8 text-xs w-full sm:w-auto justify-center"
                         >
                           <FileText className="h-3 w-3" />
                           View Report
                         </Button>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
