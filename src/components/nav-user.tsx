@@ -44,7 +44,12 @@ export function NavUser({
         </Avatar>
         <div className="flex flex-col text-left text-sm leading-tight">
           <span className="truncate font-medium">{user.name}</span>
-          <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+          <span
+            title={user.email}
+            className="text-xs text-muted-foreground break-all"
+          >
+            {user.email}
+          </span>
         </div>
       </div>
       <Button
