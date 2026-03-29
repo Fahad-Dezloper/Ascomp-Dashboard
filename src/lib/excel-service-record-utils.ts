@@ -71,8 +71,214 @@ export const sanitizeStatusValue = (value: string | null): string | null => {
   return value
 }
 
+const isExhaustReading = (value: string | null): boolean => {
+  if (!value) return false
+  const normalized = value.trim()
+  // Accept formats like "11.1 M/S", "11.1", "11 m/s", "11M/S"
+  return /^-?\d+(\.\d+)?\s*(m\/s)?$/i.test(normalized)
+}
+
+const normalizeStatusToken = (value: string | null): string | null => {
+  if (!value) return null
+  const v = value.trim()
+  const upper = v.toUpperCase()
+  if (upper === "OK") return "OK"
+  if (upper === "YES") return "YES"
+  if (upper === "NO") return "NO"
+  return v
+}
+
+const resolveExhaustFields = (
+  exhaustCfmRaw: string | null,
+  exhaustCfmYesNoRaw: string | null,
+): { status: string | null; note: string | null } => {
+  const left = toStringOrNull(exhaustCfmRaw)
+  const right = toStringOrNull(exhaustCfmYesNoRaw)
+
+  const leftAsStatus = normalizeStatusToken(sanitizeStatusValue(left))
+  const rightAsStatus = normalizeStatusToken(sanitizeStatusValue(right))
+
+  const leftLooksReading = isExhaustReading(left)
+  const rightLooksReading = isExhaustReading(right)
+  const leftLooksStatus = !!leftAsStatus && !leftLooksReading
+  const rightLooksStatus = !!rightAsStatus && !rightLooksReading
+
+  // Preferred mapping:
+  // - status token ("OK"/"YES"/etc.) -> exhaustCfm
+  // - numeric airflow reading ("11.1 M/S") -> exhaustCfmNote
+  let status: string | null = null
+  let note: string | null = null
+
+  if (rightLooksStatus) status = rightAsStatus
+  else if (leftLooksStatus) status = leftAsStatus
+
+  if (leftLooksReading) note = left
+  else if (rightLooksReading) note = right
+
+  // Fallbacks if data is incomplete but present
+  if (!status && right && !rightLooksReading) status = rightAsStatus
+  if (!status && left && !leftLooksReading) status = leftAsStatus
+  if (!note && left && left !== status && !leftLooksStatus) note = left
+  if (!note && right && right !== status && !rightLooksStatus) note = right
+
+  return { status, note }
+}
+
 // Robust Excel date → JS Date (handles serials, JS Dates, common string formats)
 import { isValid as isValidDate } from "date-fns"
+
+const RECOMMENDED_PART_HEADERS = Array.from({ length: 6 }, (_, i) => i + 1).flatMap(
+  (index) => [`Recommeded Part ${index}`, `Recommeded Part Number ${index}`]
+)
+
+export const EXCEL_SERVICE_RECORD_TEMPLATE_HEADERS: string[] = [
+  "Date",
+  "Serial No.",
+  "Engineer Visited",
+  "Service Visit",
+  "Cinema Name",
+  "Address",
+  "Contact Details",
+  "Screen No:",
+  "Projector Number of hours running:",
+  "Lamp Model & Make",
+  "Lamp Number of hours running:",
+  "Current Lamp Hours",
+
+  "Reflector",
+  "Reflector Yes/No/Ok",
+  "UV filter",
+  "UV filter Yes/No/Ok",
+  "Integrator Rod",
+  "Integrator Rod Yes/No/Ok",
+  "Cold Mirror",
+  "Cold Mirror Yes/No/Ok",
+  "Fold Mirror",
+  "Fold Mirror Yes/No/Ok",
+  "Touch Panel",
+  "Touch Panel Yes/No/Ok",
+  "EVB Board",
+  "EVB Board Yes/No/Ok",
+  "IMCB Board/s",
+  "IMCB Board/s Yes/No/Ok",
+  "PIB Board",
+  "PIB Board Yes/No/Ok",
+  "ICP Board",
+  "ICP Board Yes/No/Ok",
+  "IMB/S Board",
+  "IMB/S Board Yes/No/Ok",
+  "Chassis label vs Touch Panel",
+  "Chassis label vs Touch Yes/No/Ok",
+  "LE, LAD and RAD",
+  "LE, LAD and RAD Yes/No/Ok",
+  "Level and Color",
+  "Level and Color Yes/No/Ok",
+
+  "White",
+  "White Yes/No/Ok",
+  "Red",
+  "Red Yes/No/Ok",
+  "Green",
+  "Green Yes/No/Ok",
+  "Blue",
+  "Blue Yes/No/Ok",
+  "Black",
+  "Black Yes/No/Ok",
+
+  "AC blower and Vane Switch",
+  "AC blower and Vane Switch Yes/No/Ok",
+  "Extractor Vane Switch",
+  "Extractor Vane Switch Yes/No/Ok",
+  "Exhaust CFM",
+  "Exhaust CFM Yes/No/Ok",
+  "Light Engine 4 fans with LAD fan",
+  "Light Engine 4 fans with LAD fan Yes/No/Ok",
+  "Card Cage Top and Bottom fans",
+  "Card Cage Top and Bottom fans Yes/No/Ok",
+  "Radiator fan and Pump",
+  "Radiator fan and Pump Yes/No/Ok",
+  "Connector and hose for the Pump",
+  "Connector and hose for the Pump Yes/No/Ok",
+  "Security and lamp house lock switch",
+  "Security and lamp house lock switch Yes/No/Ok",
+  "Lamp LOC Mechanism X,Y and Z movement",
+  "Lamp LOC Mechanism X,Y and Z movement Yes/No/Ok",
+
+  "Room",
+  "Software Version",
+  "Scope_H",
+  "Scope_W",
+  "Flat_H",
+  "Flat_W",
+  "Gain",
+  "Screen Make",
+  "Throw Distance",
+
+  " P V N",
+  "P V E",
+  "N VS E",
+  "  fL_B",
+  "  fL_A",
+  "Content player model",
+  "AC Status",
+  "LE Status",
+  "LE S No",
+
+  "W2Kx",
+  "W2Ky",
+  "W2Kfl",
+  "W4Kx",
+  "W4Ky",
+  "W4Kfl",
+  "R2Kx",
+  "R2Ky",
+  "R2Kfl",
+  "R4Kx",
+  "R4Ky",
+  "R4Kfl",
+  "G2Kx",
+  "G2Ky",
+  "G2Kfl",
+  "G4Kx",
+  "G4Ky",
+  "G4Kfl",
+  "B2Kx",
+  "B2Ky",
+  "B2Kfl",
+  "B4Kx",
+  "B4Ky",
+  "B4Kfl",
+
+  "BW Step-10 2K x",
+  "BW Step-10 2K y",
+  "BW Step-10 2K fl",
+  "BW Step-10 4K x2",
+  "BW Step-10 4K y2",
+  "BW Step-10 4K fl2",
+
+  "Air Pollution Level",
+  "HCHO",
+  "TVOC",
+  "PM 1",
+  "PM 2.5",
+  "PM 10",
+  "Temperature",
+  "Humidity",
+
+  "Focus",
+  "Intergrator",
+  "Any Spot on Screen after PPM",
+  "Check Screen cropping - FLAT and SCOPE",
+  "Convergence checked",
+  "Channels Checked - Scope, Flat, Alternative",
+  "Pixel Defects",
+  "Excessive Image Vibration",
+  "LiteLOC",
+
+  ...RECOMMENDED_PART_HEADERS,
+  "Drive Link",
+  "Remarks",
+]
 
 export const excelValueToDate = (v: any): Date | null => {
   if (v instanceof Date) {
@@ -99,37 +305,36 @@ export const excelValueToDate = (v: any): Date | null => {
   ]
 
   for (const format of formats) {
-    const match = s.match(format)
+    const match = s.match(format);
     if (match) {
-      let year: number, month: number, day: number
+      let year: number, month: number, day: number;
       if (match[1]!.length === 4) {
         // YYYY-MM-DD
-        year = parseInt(match[1]!, 10)
-        month = parseInt(match[2]!, 10) - 1
-        day = parseInt(match[3]!, 10)
+        year = parseInt(match[1]!, 10);
+        month = parseInt(match[2]!, 10) - 1;
+        day = parseInt(match[3]!, 10);
       } else {
-        // DD/MM/YYYY or MM/DD/YYYY - try both
-        const v1 = parseInt(match[1]!, 10)
-        const v2 = parseInt(match[2]!, 10)
-        const v3 = parseInt(match[3]!, 10)
+        // DD/MM/YYYY or MM/DD/YYYY
+        // Prefer DD/MM/YYYY based on user context
+        const v1 = parseInt(match[1]!, 10);
+        const v2 = parseInt(match[2]!, 10);
+        const v3 = parseInt(match[3]!, 10);
+
         if (v3 > 31) {
-          year = v3
-          month = v2 - 1
-          day = v1
-        } else if (v1 > 12) {
-          // DD/MM/YY
-          day = v1
-          month = v2 - 1
-          year = v3 < 50 ? 2000 + v3 : 1900 + v3
+          // DD/MM/YYYY (v3 is year)
+          year = v3;
+          day = v1;
+          month = v2 - 1;
         } else {
-          // MM/DD/YY
-          month = v1 - 1
-          day = v2
-          year = v3 < 50 ? 2000 + v3 : 1900 + v3
+          // DD/MM/YY (v1-v2-v3)
+          // Default to DD/MM/YY instead of MM/DD/YY
+          day = v1;
+          month = v2 - 1;
+          year = v3 < 50 ? 2000 + v3 : 1900 + v3;
         }
       }
-      const d = new Date(year, month, day)
-      if (isValidDate(d)) return d
+      const d = new Date(year, month, day);
+      if (isValidDate(d)) return d;
     }
   }
 
@@ -142,7 +347,12 @@ export const excelValueToDate = (v: any): Date | null => {
 
 // Map Excel row to ServiceRecord data object
 export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
-  const serviceVisit = row["Service Visit"]
+  const serviceVisit =
+    row["Service Visit"] ??
+    row["Service Number"] ??
+    row["Service #"] ??
+    row["Service No"] ??
+    row["Service No."]
   const cinemaName = row["Cinema Name"]
   const address = row["Address"]
   const contactDetails = row["Contact Details"]
@@ -197,7 +407,7 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
 
   const acBlowerStatus = toStringOrNull(row["AC blower and Vane Switch"])
   const extractorStatus = toStringOrNull(row["Extractor Vane Switch"])
-  const exhaustCfmStatus = toStringOrNull(row["Exhaust CFM"])
+  const exhaustCfmRaw = toStringOrNull(row["Exhaust CFM"])
   const leFansStatus = toStringOrNull(row["Light Engine 4 fans with LAD fan"])
   const cardCageFansStatus = toStringOrNull(row["Card Cage Top and Bottom fans"])
   const radiatorFanStatus = toStringOrNull(row["Radiator fan and Pump"])
@@ -207,7 +417,11 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
 
   const acBlowerYesNo = yesNoOkToString(row["AC blower and Vane Switch Yes/No/Ok"])
   const extractorYesNo = yesNoOkToString(row["Extractor Vane Switch Yes/No/Ok"])
-  const exhaustCfmYesNo = yesNoOkToString(row["Exhaust CFM Yes/No/Ok"])
+  const exhaustCfmYesNoRaw = yesNoOkToString(row["Exhaust CFM Yes/No/Ok"])
+  const { status: exhaustCfmStatus, note: exhaustCfmNote } = resolveExhaustFields(
+    exhaustCfmRaw,
+    exhaustCfmYesNoRaw,
+  )
   const leFansYesNo = yesNoOkToString(row["Light Engine 4 fans with LAD fan Yes/No/Ok"])
   const cardCageFansYesNo = yesNoOkToString(row["Card Cage Top and Bottom fans Yes/No/Ok"])
   const radiatorFanYesNo = yesNoOkToString(row["Radiator fan and Pump Yes/No/Ok"])
@@ -296,7 +510,7 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
     row["Photo"]
 
   return {
-    serviceNumber: String(serviceVisit ?? ""),
+    serviceNumber: toStringOrNull(serviceVisit) ?? "",
     cinemaName: toStringOrNull(cinemaName),
     address: toStringOrNull(address),
     contactDetails: toStringOrNull(contactDetails),
@@ -347,7 +561,7 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
     lightEngineBlackNote: blackStatus,
     acBlowerVane: sanitizeStatusValue(acBlowerYesNo),
     extractorVane: sanitizeStatusValue(extractorYesNo),
-    exhaustCfm: sanitizeStatusValue(exhaustCfmYesNo),
+    exhaustCfm: sanitizeStatusValue(exhaustCfmStatus),
     lightEngineFans: sanitizeStatusValue(leFansYesNo),
     cardCageFans: sanitizeStatusValue(cardCageFansYesNo),
     radiatorFanPump: sanitizeStatusValue(radiatorFanYesNo),
@@ -356,7 +570,7 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
     lampLocMechanism: sanitizeStatusValue(lampLocYesNo),
     acBlowerVaneNote: acBlowerStatus,
     extractorVaneNote: extractorStatus,
-    exhaustCfmNote: exhaustCfmStatus,
+    exhaustCfmNote,
     lightEngineFansNote: leFansStatus,
     cardCageFansNote: cardCageFansStatus,
     radiatorFanPumpNote: radiatorFanStatus,
@@ -372,11 +586,11 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
     screenGain,
     screenMake,
     throwDistance,
-    pvVsN: toStringOrNull(row[" P V N"]),
-    pvVsE: toStringOrNull(row["P V E"]),
-    nvVsE: toStringOrNull(row["N VS E"]),
-    flLeft: toFloatOrNull(row["  fL_B"]),
-    flRight: toFloatOrNull(row["  fL_A"]),
+    pvVsN: toStringOrNull(row[" P V N"] ?? row["P V N"] ?? row["PVN"]),
+    pvVsE: toStringOrNull(row["P V E"] ?? row["PVE"]),
+    nvVsE: toStringOrNull(row["N VS E"] ?? row["NVS E"] ?? row["NVSE"]),
+    flLeft: toFloatOrNull(row["  fL_B"] ?? row["fL_B"] ?? row["fL B"]),
+    flRight: toFloatOrNull(row["  fL_A"] ?? row["fL_A"] ?? row["fL A"]),
     contentPlayerModel: toStringOrNull(row["Content player model"]),
     acStatus: toStringOrNull(row["AC Status"]),
     leStatus: toStringOrNull(row["LE Status"]),
@@ -431,8 +645,5 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
     liteloc,
     recommendedParts: recommendedParts.length > 0 ? recommendedParts : null,
     photosDriveLink: toStringOrNull(driveLinkRaw),
-    reportGenerated: false,
-    images: [],
-    brokenImages: [],
   }
 }

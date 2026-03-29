@@ -1111,7 +1111,8 @@ function EditServiceDialog({
             const formAny = formData as any;
             const normalizeNumberLike = (val: any): string => {
               if (val === null || val === undefined) return "";
-              if (typeof val === "number") return Number.isFinite(val) ? String(val) : "";
+              if (typeof val === "number")
+                return Number.isFinite(val) ? String(val) : "";
               const str = String(val).trim();
               if (!str) return "";
               // Extract the first numeric token (handles "6.6 M/S", "6.6", "6,6", etc.)
@@ -2367,6 +2368,9 @@ function EditServiceDialog({
   );
 }
 
+import { format } from "date-fns";
+import { excelValueToDate } from "@/lib/excel-service-record-utils";
+
 function UploadServiceRecordsDialog({
   open,
   onOpenChange,
@@ -2391,6 +2395,17 @@ function UploadServiceRecordsDialog({
     type: "success" | "error" | null;
     message: string;
   }>({ type: null, message: "" });
+  const [uploadJobId, setUploadJobId] = useState<string | null>(null);
+  const [uploadJobState, setUploadJobState] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    percentage: number;
+    stage?: string;
+    message?: string;
+    chunkIndex?: number;
+    totalChunks?: number;
+  }>({ percentage: 0 });
+  const [uploadResult, setUploadResult] = useState<any | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -2417,6 +2432,10 @@ function UploadServiceRecordsDialog({
     setFile(selectedFile);
     setValidationErrors([]);
     setUploadStatus({ type: null, message: "" });
+    setUploadResult(null);
+    setUploadJobId(null);
+    setUploadJobState(null);
+    setUploadProgress({ percentage: 0 });
 
     // Read and preview file
     try {
@@ -2437,6 +2456,7 @@ function UploadServiceRecordsDialog({
 
       const rows: Record<string, any>[] = xlsx.utils.sheet_to_json(sheet, {
         defval: null,
+        raw: true, // Use raw values (numbers for dates)
       });
 
       // Show preview of first 10 rows
@@ -2450,15 +2470,97 @@ function UploadServiceRecordsDialog({
     }
   };
 
-  const handleValidate = async () => {
+  const stopPolling = () => {
+    if (pollTimerRef.current) {
+      clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  };
+
+  const fetchUploadJob = async (jobId: string) => {
+    const response = await fetch(
+      `/api/admin/service-records/upload-jobs/${jobId}`,
+      {
+        credentials: "include",
+      },
+    );
+    if (!response.ok) {
+      throw new Error("Failed to fetch upload job status");
+    }
+    return response.json();
+  };
+
+  const startPolling = (jobId: string) => {
+    stopPolling();
+    pollTimerRef.current = setInterval(async () => {
+      try {
+        const job = await fetchUploadJob(jobId);
+        setUploadJobState(job.state);
+        setUploadProgress(
+          typeof job.progress === "number"
+            ? { percentage: job.progress }
+            : {
+                percentage: job.progress?.percentage ?? 0,
+                stage: job.progress?.stage,
+                message: job.progress?.message,
+                chunkIndex: job.progress?.chunkIndex,
+                totalChunks: job.progress?.totalChunks,
+              },
+        );
+
+        if (job.state === "completed") {
+          stopPolling();
+          setUploading(false);
+          setUploadResult(job.result || null);
+          const result = job.result || {};
+          setValidationErrors(result.validationErrors || []);
+          setUploadStatus({
+            type: "success",
+            message: `Upload complete. Created ${result.createdRecords ?? 0}, updated ${result.updatedRecords ?? 0}, skipped existing ${result.skippedExistingRecords ?? 0}, invalid ${result.invalidRows ?? 0}.`,
+          });
+          onSuccess();
+        } else if (job.state === "failed") {
+          stopPolling();
+          setUploading(false);
+          setUploadStatus({
+            type: "error",
+            message: job.failedReason || "Upload job failed",
+          });
+        }
+      } catch (error) {
+        stopPolling();
+        setUploading(false);
+        setUploadStatus({
+          type: "error",
+          message: `Failed to poll job: ${error instanceof Error ? error.message : String(error)}`,
+        });
+      }
+    }, 2000);
+  };
+
+  useEffect(() => {
+    if (!open) {
+      stopPolling();
+      setUploadJobId(null);
+      setUploadJobState(null);
+      setUploadProgress({ percentage: 0 });
+      setUploadResult(null);
+    }
+    return () => stopPolling();
+  }, [open]);
+
+  const handleValidate = async (mode: "upload" | "preflight" = "upload") => {
     if (!file) return;
 
     try {
       setUploading(true);
       setUploadStatus({ type: null, message: "" });
+      setUploadResult(null);
+      setValidationErrors([]);
 
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("mode", mode);
 
       const response = await fetch("/api/admin/service-records/upload-excel", {
         method: "POST",
@@ -2468,41 +2570,35 @@ function UploadServiceRecordsDialog({
       const result = await response.json();
 
       if (!response.ok) {
-        if (result.validationErrors) {
-          setValidationErrors(result.validationErrors);
-          setUploadStatus({
-            type: "error",
-            message: `Validation failed: ${result.validationErrors.length} row(s) have errors. Please fix them before uploading.`,
-          });
-        } else {
-          setUploadStatus({
-            type: "error",
-            message: result.error || "Validation failed",
-          });
-        }
+        setUploadStatus({
+          type: "error",
+          message: result.error || "Failed to queue upload job",
+        });
+        setUploading(false);
         return;
       }
 
-      // Success
+      // Now both modes use the job queue for progress tracking.
+
+      const queuedJobId = String(result.jobId);
+      setUploadJobId(queuedJobId);
+      setUploadJobState("waiting");
+      setUploadProgress({ percentage: 0, stage: "queued" });
       setUploadStatus({
         type: "success",
-        message: `Successfully uploaded! Created: ${result.created}, Updated: ${result.updated}, Total rows: ${result.totalRows}`,
+        message: result.deduplicated
+          ? `Identical upload already exists. Tracking job ${queuedJobId}.`
+          : `Upload queued (${queuedJobId}). Processing ${result.totalRows} rows in background...`,
       });
-      setFile(null);
-      setFilePreview([]);
-      setValidationErrors([]);
-
-      // Call onSuccess callback to refresh data
-      setTimeout(() => {
-        onSuccess();
-        onOpenChange(false);
-      }, 2000);
+      if (result.result) {
+        setUploadResult(result.result);
+      }
+      startPolling(queuedJobId);
     } catch (error) {
       setUploadStatus({
         type: "error",
         message: `Upload failed: ${error instanceof Error ? error.message : String(error)}`,
       });
-    } finally {
       setUploading(false);
     }
   };
@@ -2532,7 +2628,7 @@ function UploadServiceRecordsDialog({
   };
 
   const hasErrors = validationErrors.length > 0;
-  const canUpload = file && !hasErrors && !uploading;
+  const canUpload = file && !uploading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -2607,13 +2703,25 @@ function UploadServiceRecordsDialog({
                   <tbody>
                     {filePreview.map((row, idx) => (
                       <tr key={idx} className="border-b hover:bg-gray-50">
-                        {Object.values(row)
+                        {Object.entries(row)
                           .slice(0, 8)
-                          .map((val: any, valIdx) => (
-                            <td key={valIdx} className="px-2 py-1 border-r">
-                              {val != null ? String(val).substring(0, 30) : "-"}
-                            </td>
-                          ))}
+                          .map(([key, val]: [string, any], valIdx) => {
+                            let displayValue = val != null ? String(val).substring(0, 30) : "-";
+                            
+                            // Try to format as date if it's a date-related column
+                            if (val && (key.toLowerCase().includes("date") || key.toLowerCase().includes("at"))) {
+                              const dateObj = excelValueToDate(val);
+                              if (dateObj) {
+                                displayValue = format(dateObj, "d MMMM, yyyy");
+                              }
+                            }
+                            
+                            return (
+                              <td key={valIdx} className="px-2 py-1 border-r">
+                                {displayValue}
+                              </td>
+                            );
+                          })}
                         {Object.keys(row).length > 8 && (
                           <td className="px-2 py-1 text-gray-400">...</td>
                         )}
@@ -2665,6 +2773,49 @@ function UploadServiceRecordsDialog({
             </div>
           )}
 
+          {uploadJobId && (
+            <div className="border rounded-md p-3 bg-blue-50 text-sm space-y-1">
+              <p className="font-semibold text-blue-900">
+                Upload Job: {uploadJobId}
+              </p>
+              <p className="text-blue-800">
+                State: {uploadJobState || "waiting"} | Progress:{" "}
+                {uploadProgress.percentage}%
+                {uploadProgress.stage
+                  ? ` | Stage: ${uploadProgress.stage}`
+                  : ""}
+              </p>
+              {uploadProgress.message && (
+                <p className="text-blue-800">{uploadProgress.message}</p>
+              )}
+              {uploadProgress.chunkIndex && uploadProgress.totalChunks && (
+                <p className="text-blue-800">
+                  Chunk {uploadProgress.chunkIndex}/{uploadProgress.totalChunks}
+                </p>
+              )}
+            </div>
+          )}
+
+          {uploadResult && (
+            <div className="border rounded-md p-4 bg-gray-50 space-y-2 text-sm">
+              <p className="font-semibold text-black">Upload Analysis</p>
+              <p>Total rows in sheet: {uploadResult.totalRowsInSheet ?? 0}</p>
+              <p>Processed rows: {uploadResult.processedRows ?? 0}</p>
+              <p>Created records: {uploadResult.createdRecords ?? 0}</p>
+              <p>Updated records: {uploadResult.updatedRecords ?? 0}</p>
+              <p>
+                Skipped existing records:{" "}
+                {uploadResult.skippedExistingRecords ?? 0}
+              </p>
+              <p>
+                Duplicate rows in file: {uploadResult.duplicateRowsInFile ?? 0}
+              </p>
+              <p>Invalid rows: {uploadResult.invalidRows ?? 0}</p>
+              <p>Empty rows skipped: {uploadResult.emptyRowsSkipped ?? 0}</p>
+              <p>Duration: {uploadResult.durationMs ?? 0} ms</p>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4">
             <Button
@@ -2673,11 +2824,19 @@ function UploadServiceRecordsDialog({
               onClick={() => onOpenChange(false)}
               disabled={uploading}
             >
-              Cancel
+              {uploadResult ? "Close" : "Cancel"}
             </Button>
             <Button
               type="button"
-              onClick={handleValidate}
+              variant="outline"
+              onClick={() => handleValidate("preflight")}
+              disabled={!canUpload}
+            >
+              {uploading ? "Running..." : "Preflight"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => handleValidate("upload")}
               disabled={!canUpload}
             >
               {uploading ? "Uploading..." : "Upload"}
@@ -2913,6 +3072,139 @@ function ExportJobsHistoryDialog({
                 <div className="text-xs text-gray-500 border-t pt-2">
                   Email: {job.email}
                 </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function UploadJobsHistoryDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState("");
+  const [stateFilter, setStateFilter] = useState("all");
+
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      if (stateFilter !== "all") params.set("state", stateFilter);
+      const response = await fetch(
+        `/api/admin/service-records/upload-jobs?${params.toString()}`,
+        {
+          credentials: "include",
+        },
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch upload jobs");
+      }
+      const data = await response.json();
+      setJobs(data.jobs || []);
+    } catch (error) {
+      console.error("Failed to fetch upload jobs:", error);
+      toast.error("Failed to load upload jobs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open) {
+      fetchJobs();
+      const interval = setInterval(fetchJobs, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [open, query, stateFilter]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Upload Jobs History</DialogTitle>
+          <DialogDescription>
+            View queued Excel upload jobs and detailed outcomes
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex gap-2">
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by job id, filename, fingerprint..."
+            className="text-sm"
+          />
+          <Select value={stateFilter} onValueChange={setStateFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="State" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All states</SelectItem>
+              <SelectItem value="waiting">Waiting</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {loading && jobs.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-gray-500">Loading jobs...</p>
+          </div>
+        ) : jobs.length === 0 ? (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-gray-500">No upload jobs found</p>
+          </div>
+        ) : (
+          <div className="space-y-4 mt-4">
+            {jobs.map((job) => (
+              <div key={job.jobId} className="border rounded-lg p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="font-semibold text-black">Job #{job.jobId}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(job.createdAt).toLocaleString()}
+                  </p>
+                </div>
+                <p className="text-sm">
+                  State: <span className="font-semibold">{job.state}</span> |
+                  Progress: {Math.round(job.progress?.percentage || 0)}%
+                  {job.progress?.stage ? ` | ${job.progress.stage}` : ""}
+                </p>
+                <p className="text-sm text-gray-700">File: {job.fileName}</p>
+                {job.fingerprint && (
+                  <p className="text-xs text-gray-500 break-all">
+                    Fingerprint: {job.fingerprint}
+                  </p>
+                )}
+                {job.result && (
+                  <div className="text-sm bg-gray-50 border rounded p-3 space-y-1">
+                    <p>Rows in sheet: {job.result.totalRowsInSheet ?? 0}</p>
+                    <p>Processed rows: {job.result.processedRows ?? 0}</p>
+                    <p>Created: {job.result.createdRecords ?? 0}</p>
+                    <p>Updated: {job.result.updatedRecords ?? 0}</p>
+                    <p>
+                      Skipped existing: {job.result.skippedExistingRecords ?? 0}
+                    </p>
+                    <p>
+                      Duplicates in file: {job.result.duplicateRowsInFile ?? 0}
+                    </p>
+                    <p>Invalid rows: {job.result.invalidRows ?? 0}</p>
+                    <p>Duration: {job.result.durationMs ?? 0} ms</p>
+                  </div>
+                )}
+                {job.failedReason && (
+                  <p className="text-sm text-red-600">
+                    Failed: {job.failedReason}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -3425,6 +3717,8 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showJobHistoryDialog, setShowJobHistoryDialog] = useState(false);
+  const [showUploadJobHistoryDialog, setShowUploadJobHistoryDialog] =
+    useState(false);
   const [recommendedPartsDialogOpen, setRecommendedPartsDialogOpen] =
     useState(false);
   const [selectedRecommendedParts, setSelectedRecommendedParts] = useState<
@@ -4619,12 +4913,12 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                       </div>
                     )}
                   </div>
-                  {/* <Button
+                  <Button
                     className="text-sm"
                     onClick={() => setUploadDialogOpen(true)}
                   >
                     Upload
-                  </Button> */}
+                  </Button>
                   <Button
                     className="text-sm"
                     onClick={() => setShowExportModal(true)}
@@ -4637,6 +4931,13 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                     onClick={() => setShowJobHistoryDialog(true)}
                   >
                     Export Jobs
+                  </Button>
+                  <Button
+                    className="text-sm"
+                    variant="outline"
+                    onClick={() => setShowUploadJobHistoryDialog(true)}
+                  >
+                    Upload Jobs
                   </Button>
                 </div>
               </div>
@@ -4925,6 +5226,11 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
       <ExportJobsHistoryDialog
         open={showJobHistoryDialog}
         onOpenChange={setShowJobHistoryDialog}
+      />
+
+      <UploadJobsHistoryDialog
+        open={showUploadJobHistoryDialog}
+        onOpenChange={setShowUploadJobHistoryDialog}
       />
 
       {/* Recommended Parts Preview Dialog */}

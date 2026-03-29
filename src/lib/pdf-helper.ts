@@ -70,10 +70,7 @@ export async function constructAndGeneratePDF(serviceId: string, isDraft?: boole
         mechanical: {
             acBlower: mapStatus(fullService.workDetails?.acBlowerVane, fullService.workDetails?.acBlowerVaneNote),
             extractor: mapStatus(fullService.workDetails?.extractorVane, fullService.workDetails?.extractorVaneNote),
-            exhaustCFM: {
-                status: safe(fullService.workDetails?.exhaustCfm),
-                yesNo: fullService.workDetails?.exhaustCfm ? 'OK' : '',
-            },
+            exhaustCFM: mapStatus(fullService.workDetails?.exhaustCfm, fullService.workDetails?.exhaustCfmNote),
             lightEngine4Fans: mapStatus(fullService.workDetails?.lightEngineFans, fullService.workDetails?.lightEngineFansNote),
             cardCageFans: mapStatus(fullService.workDetails?.cardCageFans, fullService.workDetails?.cardCageFansNote),
             radiatorFan: mapStatus(fullService.workDetails?.radiatorFanPump, fullService.workDetails?.radiatorFanPumpNote),

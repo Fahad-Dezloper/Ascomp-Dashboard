@@ -350,10 +350,10 @@ export default function GenerateReportStep({ data, onBack }: any) {
             fullService.workDetails?.extractorVane,
             fullService.workDetails?.extractorVaneNote,
           ),
-          exhaustCFM: {
-            status: safe(fullService.workDetails?.exhaustCfm),
-            yesNo: fullService.workDetails?.exhaustCfm ? "OK" : "",
-          },
+          exhaustCFM: mapStatus(
+            fullService.workDetails?.exhaustCfm,
+            fullService.workDetails?.exhaustCfmNote,
+          ),
           lightEngine4Fans: mapStatus(
             fullService.workDetails?.lightEngineFans,
             fullService.workDetails?.lightEngineFansNote,

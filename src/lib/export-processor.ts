@@ -151,10 +151,10 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
         workDetails.extractorVane || fullService.extractorVane,
         workDetails.extractorVaneNote || fullService.extractorVaneNote,
       ),
-      exhaustCFM: {
-        status: safe(workDetails.exhaustCfm || fullService.exhaustCfm),
-        yesNo: workDetails.exhaustCfm || fullService.exhaustCfm ? "OK" : "",
-      },
+      exhaustCFM: mapStatus(
+        workDetails.exhaustCfm || fullService.exhaustCfm,
+        workDetails.exhaustCfmNote || fullService.exhaustCfmNote,
+      ),
       lightEngine4Fans: mapStatus(
         workDetails.lightEngineFans || fullService.lightEngineFans,
         workDetails.lightEngineFansNote || fullService.lightEngineFansNote,
