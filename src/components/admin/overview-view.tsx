@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import Image from "next/image";
+import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ExportDataModal from "./modals/export-data-modal";
 import { useAuth } from "@/lib/auth-context";
@@ -3467,7 +3468,8 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
     params.delete("edit");
     params.delete("from");
     const next = params.toString();
-    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+    const href = (next ? `${pathname}?${next}` : pathname) as Route;
+    router.replace(href, { scroll: false });
   };
 
   useEffect(() => {
