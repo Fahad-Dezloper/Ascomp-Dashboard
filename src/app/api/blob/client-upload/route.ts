@@ -13,6 +13,22 @@ const LOG_TYPES = [
   "application/x-7z-compressed",
 ]
 
+function withForwardedOrigin(request: Request) {
+  const host =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host")
+  const proto = request.headers.get("x-forwarded-proto") ?? "https"
+
+  if (!host) return request
+
+  const url = new URL(request.url)
+  url.host = host
+  url.protocol = `${proto}:`
+
+  // `handleUpload` only needs the URL + headers for origin checks.
+  // We pass `body` separately, so we avoid reusing the request body stream.
+  return new Request(url.toString(), { method: request.method, headers: request.headers })
+}
+
 export async function POST(request: Request) {
   try {
     const session = await auth.api.getSession({ headers: request.headers })
@@ -24,7 +40,7 @@ export async function POST(request: Request) {
 
     const jsonResponse = await handleUpload({
       body,
-      request,
+      request: withForwardedOrigin(request),
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const payload = clientPayload ? JSON.parse(clientPayload) : {}
         const folder = (payload.folder as string) || "uploads"
@@ -42,6 +58,9 @@ export async function POST(request: Request) {
           addRandomSuffix: false,
           tokenPayload: JSON.stringify({ folder }),
         }
+      },
+      onUploadCompleted: async () => {
+        // Optional: persist uploaded blob URL in DB if needed.
       },
     })
 
