@@ -718,6 +718,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
   const handleLogsUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
+    if (!file) return;
 
     if (file.size > MAX_LOG_SIZE_MB * 1024 * 1024) {
       setImageError(
