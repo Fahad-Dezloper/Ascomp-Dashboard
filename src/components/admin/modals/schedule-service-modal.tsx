@@ -27,6 +27,7 @@ export default function ScheduleServiceModal({ siteId, projectorId, onClose, onS
   const [formData, setFormData] = useState({
     fieldWorkerId: "",
     scheduledDate: new Date().toISOString().split("T")[0],
+    serviceVisitType: "regular" as "regular" | "special",
   })
 
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function ScheduleServiceModal({ siteId, projectorId, onClose, onS
           projectorId,
           fieldWorkerId: formData.fieldWorkerId,
           scheduledDate: formData.scheduledDate,
+          serviceVisitType: formData.serviceVisitType,
         }),
       })
 
@@ -126,6 +128,24 @@ export default function ScheduleServiceModal({ siteId, projectorId, onClose, onS
                     ))}
                   </select>
                 )}
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-foreground">Service Visit Type</label>
+                <select
+                  value={formData.serviceVisitType}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      serviceVisitType: e.target.value as "regular" | "special",
+                    })
+                  }
+                  className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                >
+                  <option value="regular">Regular (next service)</option>
+                  <option value="special">Special service</option>
+                </select>
               </div>
 
               <div>

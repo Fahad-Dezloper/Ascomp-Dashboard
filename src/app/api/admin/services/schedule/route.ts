@@ -37,7 +37,7 @@ const numberToOrdinalWord = (num: number): string => {
 
 export async function POST(request: NextRequest) {
   try {
-    const { siteId, projectorId, fieldWorkerId, scheduledDate } = await request.json()
+    const { siteId, projectorId, fieldWorkerId, scheduledDate, serviceVisitType } = await request.json()
 
     if (!siteId || !projectorId || !fieldWorkerId || !scheduledDate) {
       return NextResponse.json(
@@ -102,81 +102,126 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid scheduled date." }, { status: 400 })
     }
 
-    // Check if an uncompleted service record already exists for this projector
-    const existingRecord = await prisma.serviceRecord.findFirst({
-      where: {
-        projectorId,
-        date: null,  // Not completed yet
-      },
-      orderBy: {
-        createdAt: "desc",  // Get the latest one
-      },
-    })
+    const normalizeVisitType = (v: unknown): "regular" | "special" | null => {
+      if (typeof v !== "string") return null
+      const t = v.trim().toLowerCase()
+      if (t === "special") return "special"
+      if (t === "regular") return "regular"
+      return null
+    }
+
+    const visitType = normalizeVisitType(serviceVisitType) ?? "regular"
 
     let record
 
-    if (existingRecord) {
-      // Update the existing service record with new assignment
-      record = await prisma.serviceRecord.update({
-        where: { id: existingRecord.id },
-        data: {
-          assignedToId: fieldWorker.id,
-        },
-      })
-    } else {
-      // Create a new service record
-      // Find the highest service number for this projector to avoid unique constraint violations
-      const existingRecords = await prisma.serviceRecord.findMany({
-        where: { projectorId },
-        select: { serviceNumber: true },
+    if (visitType === "special") {
+      const specialKey = { projectorId, serviceNumber: "special" }
+
+      // Special is a dedicated service number per projector (unique constraint).
+      // If it exists and is still uncompleted, re-assign it. Otherwise create it.
+      const existingSpecial = await prisma.serviceRecord.findUnique({
+        where: { projectorId_serviceNumber: specialKey },
+        select: { id: true, date: true },
       })
 
-      // Parse ordinal words back to numbers to find the max
-      const ordinalToNumber = (ordinal: string): number => {
-        const ordinals = [
-          "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
-          "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth",
-          "Eighteenth", "Nineteenth", "Twentieth", "Twenty-First", "Twenty-Second", "Twenty-Third",
-          "Twenty-Fourth", "Twenty-Fifth", "Twenty-Sixth", "Twenty-Seventh", "Twenty-Eighth",
-          "Twenty-Ninth", "Thirtieth", "Thirty-First", "Thirty-Second", "Thirty-Third", "Thirty-Fourth",
-          "Thirty-Fifth", "Thirty-Sixth", "Thirty-Seventh", "Thirty-Eighth", "Thirty-Ninth", "Fortieth",
-          "Forty-First", "Forty-Second", "Forty-Third", "Forty-Fourth", "Forty-Fifth", "Forty-Sixth",
-          "Forty-Seventh", "Forty-Eighth", "Forty-Ninth", "Fiftieth", "Fifty-First", "Fifty-Second",
-          "Fifty-Third", "Fifty-Fourth", "Fifty-Fifth", "Fifty-Sixth", "Fifty-Seventh", "Fifty-Eighth",
-          "Fifty-Ninth", "Sixtieth", "Sixty-First", "Sixty-Second", "Sixty-Third", "Sixty-Fourth",
-          "Sixty-Fifth", "Sixty-Sixth", "Sixty-Seventh", "Sixty-Eighth", "Sixty-Ninth", "Seventieth",
-          "Seventy-First", "Seventy-Second", "Seventy-Third", "Seventy-Fourth", "Seventy-Fifth",
-          "Seventy-Sixth", "Seventy-Seventh", "Seventy-Eighth", "Seventy-Ninth", "Eightieth",
-          "Eighty-First", "Eighty-Second", "Eighty-Third", "Eighty-Fourth", "Eighty-Fifth",
-          "Eighty-Sixth", "Eighty-Seventh", "Eighty-Eighth", "Eighty-Ninth", "Ninetieth",
-          "Ninety-First", "Ninety-Second", "Ninety-Third", "Ninety-Fourth", "Ninety-Fifth",
-          "Ninety-Sixth", "Ninety-Seventh", "Ninety-Eighth", "Ninety-Ninth", "One Hundredth"
-        ]
-        const index = ordinals.indexOf(ordinal)
-        return index !== -1 ? index + 1 : 0
+      if (existingSpecial && existingSpecial.date === null) {
+        record = await prisma.serviceRecord.update({
+          where: { id: existingSpecial.id },
+          data: { assignedToId: fieldWorker.id },
+        })
+      } else if (existingSpecial && existingSpecial.date !== null) {
+        return NextResponse.json(
+          { error: "Special service already exists for this projector and is completed. Please create a regular service instead." },
+          { status: 409 },
+        )
+      } else {
+        record = await prisma.serviceRecord.create({
+          data: {
+            id: generateObjectId(),
+            userId: admin.id,
+            assignedToId: fieldWorker.id,
+            projectorId: projector.id,
+            siteId: site.id,
+            serviceNumber: "special",
+            cinemaName: site.siteName,
+            address: site.address,
+            contactDetails: site.contactDetails,
+            location: site.address,
+          },
+        })
       }
-
-      const maxServiceNumber = existingRecords.reduce((max, record) => {
-        const num = ordinalToNumber(record.serviceNumber || "")
-        return num > max ? num : max
-      }, 0)
-
-      const nextServiceNumber = maxServiceNumber + 1
-
-      record = await prisma.serviceRecord.create({
-        data: {
-          id: generateObjectId(),
-          userId: admin.id,
-          assignedToId: fieldWorker.id,
-          projectorId: projector.id,
-          siteId: site.id,
-          serviceNumber: numberToOrdinalWord(nextServiceNumber) as any,
-          cinemaName: site.siteName,
-          address: site.address,
-          contactDetails: site.contactDetails,
-          location: site.address,
+    } else {
+      // Regular scheduling: only ever re-assign the *current* regular (latest uncompleted) record.
+      // Do NOT reuse a different visit type record (e.g., "special").
+      const existingRegularRecord = await prisma.serviceRecord.findFirst({
+        where: {
+          projectorId,
+          date: null, // Not completed yet
+          NOT: { serviceNumber: "special" },
         },
+        orderBy: { createdAt: "desc" },
       })
+
+      if (existingRegularRecord) {
+        record = await prisma.serviceRecord.update({
+          where: { id: existingRegularRecord.id },
+          data: { assignedToId: fieldWorker.id },
+        })
+      } else {
+        // Create a new regular service record with next service number.
+        // Find the highest service number for this projector to avoid unique constraint violations.
+        const existingRecords = await prisma.serviceRecord.findMany({
+          where: { projectorId },
+          select: { serviceNumber: true },
+        })
+
+        // Parse ordinal words back to numbers to find the max
+        const ordinalToNumber = (ordinal: string): number => {
+          const ordinals = [
+            "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
+            "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth",
+            "Eighteenth", "Nineteenth", "Twentieth", "Twenty-First", "Twenty-Second", "Twenty-Third",
+            "Twenty-Fourth", "Twenty-Fifth", "Twenty-Sixth", "Twenty-Seventh", "Twenty-Eighth",
+            "Twenty-Ninth", "Thirtieth", "Thirty-First", "Thirty-Second", "Thirty-Third", "Thirty-Fourth",
+            "Thirty-Fifth", "Thirty-Sixth", "Thirty-Seventh", "Thirty-Eighth", "Thirty-Ninth", "Fortieth",
+            "Forty-First", "Forty-Second", "Forty-Third", "Forty-Fourth", "Forty-Fifth", "Forty-Sixth",
+            "Forty-Seventh", "Forty-Eighth", "Forty-Ninth", "Fiftieth", "Fifty-First", "Fifty-Second",
+            "Fifty-Third", "Fifty-Fourth", "Fifty-Fifth", "Fifty-Sixth", "Fifty-Seventh", "Fifty-Eighth",
+            "Fifty-Ninth", "Sixtieth", "Sixty-First", "Sixty-Second", "Sixty-Third", "Sixty-Fourth",
+            "Sixty-Fifth", "Sixty-Sixth", "Sixty-Seventh", "Sixty-Eighth", "Sixty-Ninth", "Seventieth",
+            "Seventy-First", "Seventy-Second", "Seventy-Third", "Seventy-Fourth", "Seventy-Fifth",
+            "Seventy-Sixth", "Seventy-Seventh", "Seventy-Eighth", "Seventy-Ninth", "Eightieth",
+            "Eighty-First", "Eighty-Second", "Eighty-Third", "Eighty-Fourth", "Eighty-Fifth",
+            "Eighty-Sixth", "Eighty-Seventh", "Eighty-Eighth", "Eighty-Ninth", "Ninetieth",
+            "Ninety-First", "Ninety-Second", "Ninety-Third", "Ninety-Fourth", "Ninety-Fifth",
+            "Ninety-Sixth", "Ninety-Seventh", "Ninety-Eighth", "Ninety-Ninth", "One Hundredth"
+          ]
+          const index = ordinals.indexOf(ordinal)
+          return index !== -1 ? index + 1 : 0
+        }
+
+        const maxServiceNumber = existingRecords.reduce((max, record) => {
+          const num = ordinalToNumber(record.serviceNumber || "")
+          return num > max ? num : max
+        }, 0)
+
+        const nextServiceNumber = maxServiceNumber + 1
+
+        record = await prisma.serviceRecord.create({
+          data: {
+            id: generateObjectId(),
+            userId: admin.id,
+            assignedToId: fieldWorker.id,
+            projectorId: projector.id,
+            siteId: site.id,
+            serviceNumber: numberToOrdinalWord(nextServiceNumber) as any,
+            cinemaName: site.siteName,
+            address: site.address,
+            contactDetails: site.contactDetails,
+            location: site.address,
+          },
+        })
+      }
     }
 
     // Update projector status to SCHEDULED

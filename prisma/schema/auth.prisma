@@ -28,6 +28,11 @@ enum ServiceStatus {
   PACKED
 }
 
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+}
+
 model User {
   id               String          @id @map("_id")
   name             String
@@ -42,6 +47,8 @@ model User {
   accounts         Account[]
   createdServices  ServiceRecord[] @relation("CreatedServices")
   assignedServices ServiceRecord[] @relation("AssignedServices")
+  verifiedServices ServiceRecord[] @relation("VerifiedServices")
+  editedServices   ServiceRecord[] @relation("EditedServices")
   role             Role            @default(FIELD_WORKER)
   accessLevel      AccessLevel?
   pvrAccess        PVR             @default(BOTH)
@@ -316,6 +323,14 @@ model ServiceRecord {
   photosDriveLink               String?
   replacementRequired           Boolean?  @default(false)
   logs                          String?
+  verificationStatus            VerificationStatus @default(PENDING)
+  verifiedAt                    DateTime?
+  verifiedById                  String?
+  verifiedBy                    User?              @relation("VerifiedServices", fields: [verifiedById], references: [id], onDelete: SetNull)
+  lastEditedAt                  DateTime?
+  lastEditedById                String?
+  lastEditedBy                  User?              @relation("EditedServices", fields: [lastEditedById], references: [id], onDelete: SetNull)
+  editCount                     Int                @default(0)
 
   @@unique([projectorId, serviceNumber])
   @@index([projectorId, serviceNumber])
@@ -325,6 +340,9 @@ model ServiceRecord {
   @@index([siteId, date])
   @@index([date])
   @@index([assignedToId])
+  @@index([verificationStatus])
+  @@index([verifiedById])
+  @@index([lastEditedById])
   @@map("service_record")
 }
 

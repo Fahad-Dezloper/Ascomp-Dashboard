@@ -37,6 +37,12 @@ export async function POST(request: NextRequest) {
       date: new Date(),  // Record completion date
       reportGenerated: true,
       endTime: new Date(),
+      verificationStatus: "PENDING",
+      verifiedAt: null,
+      verifiedById: null,
+      lastEditedAt: null,
+      lastEditedById: null,
+      editCount: 0,
     }
 
     // Helper to convert value to proper type
@@ -132,6 +138,8 @@ export async function POST(request: NextRequest) {
       'hcho', 'tvoc', 'pm1', 'pm2_5', 'pm10', 'temperature', 'humidity',
       'remarks', 'lightEngineSerialNumber', 'signatures', 'recommendedParts',
       'images', 'brokenImages', 'afterImages', 'reportUrl', 'photosDriveLink', 'logs',
+      'verificationStatus', 'verifiedAt', 'verifiedById',
+      'lastEditedAt', 'lastEditedById', 'editCount',
       // Note fields
       'reflectorNote', 'uvFilterNote', 'integratorRodNote', 'coldMirrorNote', 'foldMirrorNote',
       'touchPanelNote', 'evbBoardNote', 'ImcbBoardNote', 'pibBoardNote', 'IcpBoardNote', 'imbSBoardNote',

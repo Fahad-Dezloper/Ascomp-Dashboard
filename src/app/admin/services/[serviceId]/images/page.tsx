@@ -105,6 +105,9 @@ export default function ServiceImagesPage({ params }: ImagesPageProps) {
     }
   }
 
+  const isVideoUrl = (url: string) =>
+    /\.(mp4|mov|m4v|avi|mkv|webm)$/i.test(url.split('?')[0] || "")
+
   const Section = ({ title, images, emptyMessage, sectionKey }: { title: string; images: string[]; emptyMessage?: string; sectionKey: string }) => {
     if (images.length === 0) {
       if (emptyMessage) {
@@ -149,17 +152,31 @@ export default function ServiceImagesPage({ params }: ImagesPageProps) {
         </div>
         <div className="p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {images.map((imageUrl, index) => (
-              <div key={index} className="relative aspect-video border border-gray-300 rounded overflow-hidden bg-gray-100">
-                <Image
-                  src={imageUrl}
-                  alt={`${title} ${index + 1}`}
-                  fill
-                  className="object-contain"
-                  unoptimized
-                />
-              </div>
-            ))}
+            {images.map((mediaUrl, index) => {
+              const isVideo = isVideoUrl(mediaUrl)
+              return (
+                <div
+                  key={index}
+                  className="relative aspect-video border border-gray-300 rounded overflow-hidden bg-gray-100 flex items-center justify-center"
+                >
+                  {isVideo ? (
+                    <video
+                      src={mediaUrl}
+                      controls
+                      className="w-full h-full object-contain bg-black"
+                    />
+                  ) : (
+                    <Image
+                      src={mediaUrl}
+                      alt={`${title} ${index + 1}`}
+                      fill
+                      className="object-contain"
+                      unoptimized
+                    />
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
       </div>

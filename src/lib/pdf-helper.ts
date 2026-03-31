@@ -9,6 +9,10 @@ export async function constructAndGeneratePDF(serviceId: string, isDraft?: boole
 
     const json = await res.json()
     const fullService = json.service || json
+    const draftMode =
+        typeof isDraft === "boolean"
+            ? isDraft
+            : fullService.verificationStatus !== "VERIFIED"
 
     const mapStatus = (value?: string | null, note?: string | null) => {
         const valStr = value ? String(value) : ""
@@ -222,7 +226,7 @@ export async function constructAndGeneratePDF(serviceId: string, isDraft?: boole
 
         return undefined;
         })(),
-        isDraft,
+        isDraft: draftMode,
     }
 
     return generateMaintenanceReport(reportData)

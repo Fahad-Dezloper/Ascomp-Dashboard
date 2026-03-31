@@ -39,6 +39,18 @@ export async function GET(
             serialNo: true,
           },
         },
+        verifiedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        lastEditedBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     })
 
@@ -81,6 +93,12 @@ export async function GET(
       signatures: service.signatures,
       reportGenerated: service.reportGenerated,
       reportUrl: service.reportUrl,
+      verificationStatus: service.verificationStatus,
+      verifiedAt: service.verifiedAt?.toISOString() || null,
+      verifiedBy: service.verifiedBy || null,
+      lastEditedAt: service.lastEditedAt?.toISOString() || null,
+      lastEditedBy: service.lastEditedBy || null,
+      editCount: service.editCount ?? 0,
       workDetails: {
         reflector: service.reflector,
         reflectorNote: service.reflectorNote,
@@ -328,6 +346,8 @@ export async function PUT(
       'hcho', 'tvoc', 'pm1', 'pm2_5', 'pm10', 'temperature', 'humidity',
       'remarks', 'lightEngineSerialNumber', 'signatures', 'recommendedParts',
       'images', 'afterImages', 'brokenImages', 'logs', 'reportUrl', 'photosDriveLink',
+      'verificationStatus', 'verifiedAt', 'verifiedById',
+      'lastEditedAt', 'lastEditedById', 'editCount',
       'reflectorNote', 'uvFilterNote', 'integratorRodNote', 'coldMirrorNote', 'foldMirrorNote',
       'touchPanelNote', 'evbBoardNote', 'ImcbBoardNote', 'pibBoardNote', 'IcpBoardNote', 'imbSBoardNote',
       'serialNumberVerifiedNote', 'AirIntakeLadRadNote', 'coolantLevelColorNote',
@@ -376,7 +396,7 @@ export async function PUT(
     }
 
     const readonlyFields = new Set([
-      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'serviceNumber', 'assignedToId', 'date'
+      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'serviceNumber', 'assignedToId', 'date', 'verificationStatus', 'verifiedAt', 'verifiedById', 'lastEditedAt', 'lastEditedById', 'editCount'
     ])
 
     const updateData: any = {}
@@ -497,10 +517,28 @@ export async function PUT(
       }
     })
 
+    // Any admin edit requires re-verification.
+    cleanedData.verificationStatus = "PENDING"
+    cleanedData.verifiedAt = null
+    cleanedData.verifiedById = null
+    cleanedData.lastEditedAt = new Date()
+    cleanedData.lastEditedById = session.user.id
+
+    const changedFieldsCount = Object.keys(cleanedData).filter((key) => (
+      key !== "verificationStatus" &&
+      key !== "verifiedAt" &&
+      key !== "verifiedById" &&
+      key !== "lastEditedAt" &&
+      key !== "lastEditedById"
+    )).length
+
     // Update the service record
     const updatedRecord = await prisma.serviceRecord.update({
       where: { id: serviceRecordId },
-      data: cleanedData,
+      data: {
+        ...cleanedData,
+        editCount: { increment: changedFieldsCount },
+      },
     })
 
     return NextResponse.json({

@@ -204,6 +204,7 @@ export default function PdfPreviewDialog({ open, onOpenChange, serviceRecordId }
           name: part.name || part.description || "",
         }))
         : [],
+      isDraft: service.verificationStatus !== "VERIFIED",
       engineerSignatureUrl: service.signatures?.engineer || (service.signatures as any)?.engineerSignatureUrl || "",
       siteSignatureUrl: service.signatures?.site || (service.signatures as any)?.siteSignatureUrl || "",
       imagesLink: (() => {
@@ -303,7 +304,7 @@ export default function PdfPreviewDialog({ open, onOpenChange, serviceRecordId }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0" showCloseButton={true}>
-        <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle>Service Report Preview</DialogTitle>
             <Button onClick={handleDownload} disabled={!pdfBlob || isGenerating} size="sm" className="gap-2">

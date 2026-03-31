@@ -7,6 +7,7 @@ import {
   FileEdit,
   Database,
   CalendarClock,
+  ShieldCheck,
 } from "lucide-react";
 import type { Route } from "next";
 
@@ -51,6 +52,11 @@ const navMainData: NavMainItem[] = [
     title: "Field Workers",
     url: "/admin/dashboard/field-workers" as Route,
     icon: User,
+  },
+  {
+    title: "Verification",
+    url: "/admin/dashboard/verification" as Route,
+    icon: ShieldCheck,
   },
   {
     title: "Update Form",

@@ -39,6 +39,8 @@ export interface Service {
   signatures: any;
   reportGenerated: boolean;
   reportUrl: string | null;
+  verificationStatus?: "PENDING" | "VERIFIED";
+  verifiedAt?: string | null;
   workDetails: any;
 }
 
@@ -47,11 +49,8 @@ interface ServiceDetailViewProps {
   onBack: () => void;
 }
 
-import { useAuth } from "@/lib/auth-context";
-
 export function ServiceDetailView({ service, onBack }: ServiceDetailViewProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const { user } = useAuth();
 
   console.log("service view details", service);
   const handleDownloadPDF = async (service: Service) => {
@@ -66,7 +65,7 @@ export function ServiceDetailView({ service, onBack }: ServiceDetailViewProps) {
         return;
       }
 
-      const isDraft = user?.role === "FIELD_WORKER";
+      const isDraft = service.verificationStatus !== "VERIFIED";
       const pdfBytes = await constructAndGeneratePDF(service.id, isDraft);
 
       const blob = new Blob([pdfBytes as any], { type: "application/pdf" });
@@ -122,7 +121,7 @@ export function ServiceDetailView({ service, onBack }: ServiceDetailViewProps) {
             <span className="text-gray-500 text-xs uppercase tracking-wider mb-1">
               {item.label}
             </span>
-            <span className="font-medium text-black break-words">
+            <span className="font-medium text-black wrap-break-word">
               {item.value.toString()}
             </span>
           </div>
@@ -189,6 +188,17 @@ export function ServiceDetailView({ service, onBack }: ServiceDetailViewProps) {
                   {service.date
                     ? new Date(service.date).toLocaleDateString()
                     : "N/A"}
+                </span>
+                <span
+                  className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                    service.verificationStatus === "VERIFIED"
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-amber-50 text-amber-700 border-amber-200"
+                  }`}
+                >
+                  {service.verificationStatus === "VERIFIED"
+                    ? "Sign Verified"
+                    : "Pending Verification"}
                 </span>
               </h1>
               <p className="text-sm text-gray-600 truncate max-w-[300px]">

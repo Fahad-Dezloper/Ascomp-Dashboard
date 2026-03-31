@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 
 interface Service {
   id: string
-  serviceNumber: number
+  serviceNumber: string
   site: string
   siteId: string
   address: string

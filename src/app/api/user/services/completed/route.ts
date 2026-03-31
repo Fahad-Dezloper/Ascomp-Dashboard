@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
       signatures: service.signatures,
       reportGenerated: service.reportGenerated,
       reportUrl: service.reportUrl,
+      verificationStatus: service.verificationStatus,
+      verifiedAt: service.verifiedAt?.toISOString() || null,
       // Include all work details
       workDetails: {
         reflector: service.reflector,

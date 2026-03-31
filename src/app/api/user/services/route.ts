@@ -89,6 +89,7 @@ export async function GET(request: NextRequest) {
 
       // The historical data is now nested inside projector.serviceRecords[0]
       const lastService = service.projector.serviceRecords?.[0] || null
+      const isSpecial = (service.serviceNumber || "").toLowerCase() === "special"
 
       return {
         id: service.id,
@@ -101,7 +102,12 @@ export async function GET(request: NextRequest) {
         projector: service.projector.serialNo,
         projectorId: service.projector.id,
         projectorModel: service.projector.modelNo,
-        type: service.startTime !== null ? "In Progress" : "Scheduled Maintenance",
+        type:
+          service.startTime !== null
+            ? "In Progress"
+            : isSpecial
+              ? "Special Service"
+              : "Scheduled Maintenance",
         date: formattedDate,
         rawDate: service.date?.toISOString() || null,
         status: service.startTime !== null ? "in_progress" : "scheduled",

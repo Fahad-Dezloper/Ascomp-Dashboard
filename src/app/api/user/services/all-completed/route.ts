@@ -10,13 +10,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch ALL completed services (not filtered by userId)
-    // Completed services have endTime or reportGenerated set
+    const isAdmin = (session.user as any).role === "ADMIN"
+    const isReadOnlyAdmin = isAdmin && (session.user as any).accessLevel === "READ_ONLY"
+    const canViewUnverified = isAdmin && !isReadOnlyAdmin
+
+    // Fetch completed services; unverified records are only visible to RW admins.
     const services = await prisma.serviceRecord.findMany({
       where: {
-        projector: {
-          status: "COMPLETED",
-        },
+        AND: [
+          {
+            OR: [
+              { endTime: { not: null } },
+              { reportGenerated: true },
+              { projector: { status: "COMPLETED" } },
+            ],
+          },
+          ...(canViewUnverified ? [] : [{ verificationStatus: "VERIFIED" as const }]),
+        ],
       },
       include: {
         assignedTo: {
@@ -78,6 +88,8 @@ export async function GET(request: NextRequest) {
       signatures: service.signatures,
       reportGenerated: service.reportGenerated,
       reportUrl: service.reportUrl,
+      verificationStatus: service.verificationStatus,
+      verifiedAt: service.verifiedAt?.toISOString() || null,
       // Include all work details
       workDetails: {
         reflector: service.reflector,

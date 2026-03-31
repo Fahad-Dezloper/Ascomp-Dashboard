@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import ExportDataModal from "./modals/export-data-modal";
 import { useAuth } from "@/lib/auth-context";
 
@@ -131,6 +132,7 @@ const NOTE_FIELD_MAP: Record<string, string> = {
 const COLUMN_PRIORITY = [
   "action",
   "date",
+  "verificationStatus",
   "serviceNumber",
   "siteName",
   "siteCode",
@@ -167,6 +169,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   projectorLastServiceAt: "Last Service At",
   workerName: "Worker",
   status: "Status",
+  verificationStatus: "Verification",
   scheduledDate: "Scheduled Date",
   date: "Date",
   createdAt: "Created At",
@@ -182,6 +185,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
 const DEFAULT_VISIBLE_COLUMNS = new Set([
   "action",
   "date",
+  "verificationStatus",
   "serviceNumber",
   "siteName",
   "siteAddress",
@@ -252,6 +256,12 @@ const FILTER_FIELDS: {
   serviceRecord: [
     { key: "serviceNumber", label: "Service Number", type: "string" },
     { key: "date", label: "Date", type: "date" },
+    {
+      key: "verificationStatus",
+      label: "Verification Status",
+      type: "enum",
+      options: ["PENDING", "VERIFIED"],
+    },
     { key: "cinemaName", label: "Cinema Name", type: "string" },
     { key: "screenNumber", label: "Screen Number", type: "string" },
     { key: "reportGenerated", label: "Report Generated", type: "boolean" },
@@ -3389,6 +3399,9 @@ type OverviewViewProps = {
 };
 
 export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3430,6 +3443,9 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   const [selectedRecommendedParts, setSelectedRecommendedParts] = useState<
     RecommendedPart[]
   >([]);
+  const [verifyingServiceId, setVerifyingServiceId] = useState<string | null>(
+    null,
+  );
 
   // Advanced filter states
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -3445,6 +3461,14 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
     }>
   >([]);
   const [filterLogic, setFilterLogic] = useState<"AND" | "OR">("AND");
+
+  const clearEditQueryParams = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("edit");
+    params.delete("from");
+    const next = params.toString();
+    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+  };
 
   useEffect(() => {
     const fetchRecords = async () => {
@@ -3576,6 +3600,18 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
 
     fetchRecords();
   }, []);
+
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (!editId || records.length === 0 || editDialogOpen) return;
+    const rowData = records.find((record) => record.id === editId);
+    if (!rowData) return;
+
+    setEditingServiceId(editId);
+    setEditingServiceData(rowData);
+    setEditDialogOpen(true);
+    clearEditQueryParams();
+  }, [searchParams, records, editDialogOpen]);
 
   // Filter helper functions - must be defined before filtered useMemo
   const getFieldsForTable = (table: "projector" | "site" | "serviceRecord") => {
@@ -3955,11 +3991,52 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
     setExpandedRemarks((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
   };
 
+  const handleVerifyRecord = async (rowId: string) => {
+    try {
+      setVerifyingServiceId(rowId);
+      const res = await fetch("/api/admin/service-records/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ serviceRecordId: rowId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to verify record");
+      }
+
+      setRecords((prev) =>
+        prev.map((record) =>
+          record.id === rowId
+            ? {
+                ...record,
+                verificationStatus: "VERIFIED",
+                verifiedAt: new Date().toISOString(),
+              }
+            : record,
+        ),
+      );
+      toast.success("Record verified successfully");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to verify record",
+      );
+    } finally {
+      setVerifyingServiceId(null);
+    }
+  };
+
   const formatValue = (key: string, value: any, rowId: string) => {
     if (value === null || value === undefined) return "—";
+    const rowData = records.find((r) => r.id === rowId);
 
     // Handle download action
     if (key === "action") {
+      const canVerify =
+        user?.role === "ADMIN" &&
+        user?.accessLevel !== "READ_ONLY" &&
+        rowData?.verificationStatus !== "VERIFIED";
       return (
         <div className="flex gap-2">
           <button
@@ -3986,7 +4063,32 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
               <Edit className="h-4 w-4" />
             </button>
           )}
+          {canVerify && (
+            <button
+              onClick={() => handleVerifyRecord(rowId)}
+              disabled={verifyingServiceId === rowId}
+              className="inline-flex gap-2 rounded-md items-center justify-center text-white bg-emerald-600 p-2 w-full transition-colors disabled:opacity-60"
+              title="Verify Service Record"
+            >
+              {verifyingServiceId === rowId ? "..." : "Verify"}
+            </button>
+          )}
         </div>
+      );
+    }
+
+    if (key === "verificationStatus") {
+      const isVerified = String(value).toUpperCase() === "VERIFIED";
+      return (
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold ${
+            isVerified
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "bg-amber-50 text-amber-700 border-amber-200"
+          }`}
+        >
+          {isVerified ? "Sign Verified" : "Pending Verification"}
+        </span>
       );
     }
 
@@ -4816,6 +4918,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
           if (!open) {
             setEditingServiceData(null);
             setEditingServiceId(null);
+            clearEditQueryParams();
           }
         }}
         serviceId={editingServiceId}

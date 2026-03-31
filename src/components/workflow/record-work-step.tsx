@@ -644,51 +644,90 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     }
   };
 
+  const MAX_MEDIA_SIZE_MB = 100
+  const MAX_LOG_SIZE_MB = 200
+  const SERVER_UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024 // 4 MB - server route limit ~4.5 MB
+
   const uploadToBlob = async (
     file: File,
     category: "before" | "after" | "broken" | "logs",
   ): Promise<UploadedImage> => {
-    let fileToUpload = file;
-    let folderName = `${category}-images`;
+    let fileToUpload = file
+    let folderName = `${category}-media`
 
-    if (category !== "logs") {
-      const { compressImage } = await import("@/lib/image-compression");
-      const compressedBlob = await compressImage(file, 1200, 1200, 0.8);
+    const isVideo =
+      file.type.startsWith("video/") ||
+      /\.(mp4|mov|m4v|avi|mkv|webm)$/i.test(file.name)
+
+    if (category === "logs") {
+      folderName = "projector-logs"
+    } else if (!isVideo) {
+      // Only compress images; upload videos as-is
+      const { compressImage } = await import("@/lib/image-compression")
+      const compressedBlob = await compressImage(file, 1200, 1200, 0.8)
 
       fileToUpload = new File(
         [compressedBlob],
         file.name.replace(/\.[^/.]+$/, ".jpg"),
         { type: "image/jpeg" },
-      );
-    } else {
-      folderName = "projector-logs";
+      )
     }
 
-    const formData = new FormData();
-    formData.append("file", fileToUpload);
-    formData.append("folder", folderName);
+    const useClientUpload =
+      isVideo ||
+      category === "logs" ||
+      fileToUpload.size > SERVER_UPLOAD_LIMIT_BYTES
+
+    if (useClientUpload) {
+      const { upload } = await import("@vercel/blob/client")
+      const pathname = `${folderName}/${Date.now()}-${fileToUpload.name.replace(/\s+/g, "-")}`
+
+      const blob = await upload(pathname, fileToUpload, {
+        access: "public",
+        handleUploadUrl: "/api/blob/client-upload",
+        clientPayload: JSON.stringify({ folder: folderName }),
+      })
+
+      return {
+        name: file.name,
+        url: blob.url,
+        size: (blob as { size?: number }).size ?? fileToUpload.size,
+      }
+    }
+
+    const formData = new FormData()
+    formData.append("file", fileToUpload)
+    formData.append("folder", folderName)
 
     const response = await fetch("/api/blob/upload", {
       method: "POST",
       body: formData,
-    });
+    })
 
     if (!response.ok) {
       const message = await response
         .json()
-        .catch(() => ({ error: "Upload failed" }));
-      throw new Error(message.error || "Upload failed");
+        .catch(() => ({ error: "Upload failed" }))
+      throw new Error(message.error || "Upload failed")
     }
 
-    const result = await response.json();
-    return { name: file.name, url: result.url, size: result.size };
-  };
+    const result = await response.json()
+    return { name: file.name, url: result.url, size: result.size }
+  }
 
   const handleLogsUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
+    const file = files[0];
+
+    if (file.size > MAX_LOG_SIZE_MB * 1024 * 1024) {
+      setImageError(
+        `Log file is too large. Maximum allowed size is ${MAX_LOG_SIZE_MB} MB.`,
+      );
+      return;
+    }
+
     setUploading(true);
     try {
-      const file = files[0];
       if (file) {
         const upload = await uploadToBlob(file, "logs");
         setValue("logs", upload.url, { shouldDirty: true });
@@ -707,6 +746,17 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     files: FileList | null,
   ) => {
     if (!files || files.length === 0) return;
+
+    const tooLarge = Array.from(files).find(
+      (file) => file.size > MAX_MEDIA_SIZE_MB * 1024 * 1024,
+    );
+    if (tooLarge) {
+      setImageError(
+        `One or more files are too large. Maximum allowed size is ${MAX_MEDIA_SIZE_MB} MB per file.`,
+      );
+      return;
+    }
+
     setUploading(true);
     try {
       const uploads = await Promise.all(
@@ -1770,14 +1820,14 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         </FormSection>
 
         <FormSection title="Service Images">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <p className="font-semibold text-sm text-black mb-2">
-                Before Images (Optional)
+                Before Media (Images / Videos, Optional)
               </p>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 onChange={(e) => handleImageUpload("before", e.target.files)}
                 className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 disabled:opacity-50"
@@ -1814,11 +1864,11 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
             <div>
               <p className="font-semibold text-sm text-black mb-2">
-                After Images (Optional)
+                After Media (Images / Videos, Optional)
               </p>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 onChange={(e) => handleImageUpload("after", e.target.files)}
                 className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50"
@@ -1854,11 +1904,11 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
             <div>
               <p className="font-semibold text-sm text-black mb-2">
-                Broken Parts Images (Optional)
+                Broken Parts Media (Images / Videos, Optional)
               </p>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 onChange={(e) => handleImageUpload("broken", e.target.files)}
                 className="w-full border-2 border-dashed border-black p-4 text-sm bg-gray-50 disabled:opacity-50"

@@ -40,6 +40,17 @@ export function ServiceCard({ service, onClick, viewMode }: ServiceCardProps) {
             <h3 className="text-xl font-bold text-black">
               Service #{service.serviceNumber} - <span className="text-base text-gray-800">{service.engineerName}</span>
             </h3>
+            <span
+              className={`text-xs font-semibold px-2 py-0.5 rounded border ${
+                service.verificationStatus === "VERIFIED"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200"
+              }`}
+            >
+              {service.verificationStatus === "VERIFIED"
+                ? "Sign Verified"
+                : "Pending Verification"}
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
             <div>
