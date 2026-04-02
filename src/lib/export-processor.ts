@@ -884,7 +884,16 @@ function flattenRecord(record: any): Record<string, any> {
   });
 
   if (record.recommendedParts && Array.isArray(record.recommendedParts)) {
-    flattened.recommendedParts = JSON.stringify(record.recommendedParts);
+    for (let i = 0; i < 6; i++) {
+      const p = record.recommendedParts[i];
+      if (p && (p.name || p.description || p.partNumber || p.part_number)) {
+        flattened[`Recommended Part ${i + 1}`] = String(p.name ?? p.description ?? "");
+        flattened[`Recommended Part Number ${i + 1}`] = String(p.partNumber ?? p.part_number ?? "");
+      } else {
+        flattened[`Recommended Part ${i + 1}`] = "";
+        flattened[`Recommended Part Number ${i + 1}`] = "";
+      }
+    }
   }
 
   if (record.images && Array.isArray(record.images)) {
@@ -1005,7 +1014,18 @@ const COLUMN_PRIORITY = [
   "pvVsE",
   "pvVsN",
   "radiatorFanPump",
-  "recommendedParts",
+  "Recommended Part 1",
+  "Recommended Part Number 1",
+  "Recommended Part 2",
+  "Recommended Part Number 2",
+  "Recommended Part 3",
+  "Recommended Part Number 3",
+  "Recommended Part 4",
+  "Recommended Part Number 4",
+  "Recommended Part 5",
+  "Recommended Part Number 5",
+  "Recommended Part 6",
+  "Recommended Part Number 6",
   "red2Kfl",
   "red2Kx",
   "red2Ky",

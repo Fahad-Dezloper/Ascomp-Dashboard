@@ -74,8 +74,10 @@ export const sanitizeStatusValue = (value: string | null): string | null => {
 const isExhaustReading = (value: string | null): boolean => {
   if (!value) return false
   const normalized = value.trim()
-  // Accept formats like "11.1 M/S", "11.1", "11 m/s", "11M/S"
-  return /^-?\d+(\.\d+)?\s*(m\/s)?$/i.test(normalized)
+  // Recognize as reading if it starts with a number (potentially with minus sign and decimals)
+  // and is followed by any unit string or nothing at all.
+  // e.g "11.3 M/S", "-11", "11 CFM", "11m/s", "11.23   text"
+  return /^-?\d+(\.\d+)?\s*([a-zA-Z\/\-]+(?:[a-zA-Z\/\-\s]+)?)?$/.test(normalized)
 }
 
 const normalizeStatusToken = (value: string | null): string | null => {
@@ -128,7 +130,7 @@ const resolveExhaustFields = (
 import { isValid as isValidDate } from "date-fns"
 
 const RECOMMENDED_PART_HEADERS = Array.from({ length: 6 }, (_, i) => i + 1).flatMap(
-  (index) => [`Recommeded Part ${index}`, `Recommeded Part Number ${index}`]
+  (index) => [`Recommended Part ${index}`, `Recommended Part Number ${index}`]
 )
 
 export const EXCEL_SERVICE_RECORD_TEMPLATE_HEADERS: string[] = [
@@ -494,8 +496,9 @@ export const mapExcelRowToServiceRecordData = (row: Record<string, any>) => {
 
   const recommendedParts: any[] = []
   for (let i = 1; i <= 6; i++) {
-    const name = toStringOrNull(row[`Recommeded Part ${i}`])
-    const partNumber = toStringOrNull(row[`Recommeded Part Number ${i}`])
+    // Support both correct and misspelled headers just in case
+    const name = toStringOrNull(row[`Recommended Part ${i}`]) ?? toStringOrNull(row[`Recommeded Part ${i}`])
+    const partNumber = toStringOrNull(row[`Recommended Part Number ${i}`]) ?? toStringOrNull(row[`Recommeded Part Number ${i}`])
     if (!name && !partNumber) continue
     recommendedParts.push({ name, partNumber })
   }
