@@ -25,11 +25,6 @@ const parseOriginList = (value?: string | null) =>
 		.filter((item): item is string => Boolean(item));
 
 function getTrustedOrigins() {
-	// In development, disable strict origin checking to allow v0 preview URLs
-	if (process.env.NODE_ENV === "development") {
-		return [];
-	}
-
 	const origins = new Set<string>();
 	
 	// Add configured origins
@@ -52,8 +47,16 @@ function getTrustedOrigins() {
 	origins.add("http://localhost:3001");
 	origins.add("http://localhost:8000");
 	
-	// Allow v0 preview URLs
+	// Allow v0 preview URLs - add specific domains
+	// v0 uses vusercontent.net domain pattern
 	origins.add("https://vusercontent.net");
+	
+	// If no specific BETTER_AUTH_URL is configured, disable strict origin checking
+	// This allows v0 preview and other development environments to work
+	if (!process.env.BETTER_AUTH_URL) {
+		// Return empty array to disable strict origin validation
+		return [];
+	}
 	
 	return Array.from(origins);
 }
@@ -64,9 +67,47 @@ declare global {
 }
 
 function createAuthInstance() {
-	if (global.__auth__) {
-		return global.__auth__;
+	if (global._authInstance) return global._authInstance;
+
+	const authConfig: BetterAuthOptions = {
+		database: prismaAdapter(prisma, {
+			provider: "postgresql",
+		}),
+		baseURL: process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+		emailAndPassword: {
+			enabled: true,
+		},
+		user: {
+			additionalFields: {
+				role: {
+					type: "string",
+					required: false,
+					returned: true,
+				},
+				accessLevel: {
+					type: "string",
+					required: false,
+					returned: true,
+				},
+				pvrAccess: {
+					type: "string",
+					required: false,
+					returned: true,
+				}
+			},
+		},
+	};
+
+	// Only set trustedOrigins if BETTER_AUTH_URL is explicitly configured
+	// Otherwise, skip origin validation for development/preview environments
+	if (process.env.BETTER_AUTH_URL) {
+		authConfig.trustedOrigins = getTrustedOrigins();
 	}
+
+	global._authInstance = betterAuth<BetterAuthOptions>(authConfig);
+
+	return global._authInstance;
+}
 
 	global.__auth__ = betterAuth<BetterAuthOptions>({
 		database: prismaAdapter(prisma, {
