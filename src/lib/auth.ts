@@ -36,6 +36,8 @@ const trustedOrigins = Array.from(
 		parseOrigin(process.env.VERCEL_BRANCH_URL),
 		parseOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL),
 		"http://localhost:3000",
+		// Allow v0 preview URLs
+		"https://vusercontent.net",
 	]),
 );
 
