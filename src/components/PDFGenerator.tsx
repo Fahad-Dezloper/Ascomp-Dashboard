@@ -1600,14 +1600,16 @@ export async function generateMaintenanceReport(
 
   rightY -= 10;
 
-  leftY -= 60;
+  // Determine the lowest Y position between the left and right columns
+  // to ensure the full-width Air Pollution section is drawn below both
+  let bottomY = Math.min(leftY, rightY) - 30;
 
   drawTableRow(
     page2,
     timesRomanBold,
     timesRomanBold,
     leftTableX,
-    leftY,
+    bottomY,
     width - 80,
     [
       "Air Pollution Level",
@@ -1622,14 +1624,14 @@ export async function generateMaintenanceReport(
     [100, 59, 59, 59, 59, 59, 59, 59],
     20,
   );
-  leftY -= 20;
+  bottomY -= 20;
 
   drawTableRow(
     page2,
     timesRoman,
     timesRoman,
     leftTableX,
-    leftY,
+    bottomY,
     width - 80,
     [
       data.airPollution.airPollutionLevel,
@@ -1646,8 +1648,10 @@ export async function generateMaintenanceReport(
   );
 
   // Draw signature images and labels
-  const signatureLabelY = 30;
-  const signatureImageY = 50;
+  // Try to keep them at the bottom (50), but if the content pushed further down,
+  // ensure they maintain a gap from the table above.
+  const signatureImageY = Math.min(50, bottomY - 60);
+  const signatureLabelY = signatureImageY - 20;
   const signatureHeight = 50;
   const signatureWidth = 120;
 
