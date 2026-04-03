@@ -417,7 +417,9 @@ type ProjectorPart = {
 };
 type RecommendedPart = {
   part_number: string;
+  partNumber?: string;
   description: string;
+  name?: string;
 };
 
 const createInitialFormData = () => ({
@@ -2706,16 +2708,21 @@ function UploadServiceRecordsDialog({
                         {Object.entries(row)
                           .slice(0, 8)
                           .map(([key, val]: [string, any], valIdx) => {
-                            let displayValue = val != null ? String(val).substring(0, 30) : "-";
-                            
+                            let displayValue =
+                              val != null ? String(val).substring(0, 30) : "-";
+
                             // Try to format as date if it's a date-related column
-                            if (val && (key.toLowerCase().includes("date") || key.toLowerCase().includes("at"))) {
+                            if (
+                              val &&
+                              (key.toLowerCase().includes("date") ||
+                                key.toLowerCase().includes("at"))
+                            ) {
                               const dateObj = excelValueToDate(val);
                               if (dateObj) {
                                 displayValue = format(dateObj, "d MMMM, yyyy");
                               }
                             }
-                            
+
                             return (
                               <td key={valIdx} className="px-2 py-1 border-r">
                                 {displayValue}
@@ -5266,10 +5273,12 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                         className="border-b last:border-b-0 hover:bg-gray-50"
                       >
                         <td className="py-3 px-4 text-black font-mono">
-                          {part.part_number}
+                          {part.part_number
+                            ? part.part_number
+                            : part.partNumber}
                         </td>
                         <td className="py-3 px-4 text-black">
-                          {part.description}
+                          {part.description ? part.description : part.name}
                         </td>
                       </tr>
                     ))}
