@@ -569,7 +569,19 @@ export default function GenerateReportStep({ data, onBack }: any) {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${data.workDetails?.projectorSerialNumber || "Service_Report"}.pdf`;
+      const sanitize = (str: string) => str.replace(/[^a-zA-Z0-9-_#]/g, "_");
+      const siteCode = sanitize(String(fullService?.site?.siteCode || "NA"));
+      const address = sanitize(
+        String(fullService?.address || fullService?.site?.address || "NA"),
+      );
+      const screenNo = sanitize(
+        String(fullService?.site?.screenNo || fullService?.screenNumber || "NA"),
+      );
+      const serialNo = sanitize(
+        String(fullService?.projector?.serialNo || fullService?.projectorSerial || "NA"),
+      );
+      const serviceVisit = sanitize(String(fullService?.serviceNumber || "NA"));
+      link.download = `${siteCode}_${address}_SC#${screenNo}_${serialNo}_${serviceVisit}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
