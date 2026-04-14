@@ -652,7 +652,31 @@ const StatusSelectWithNote = ({
 
   // Use ref to track if we've initialized from currentNoteValue
   const initializedRef = useRef(false);
+  const embeddedMigrationRef = useRef(false);
   const prevStatusRef = useRef(status);
+
+  // If a historical record stored the note inside the status value (e.g. "YES - damage hose"),
+  // split it so the UI shows status + note correctly even before saving.
+  useEffect(() => {
+    if (embeddedMigrationRef.current) return;
+    if (!statusVal || typeof statusVal !== "string") return;
+    if (currentNoteValue.trim().length > 0) return;
+
+    const idx = statusVal.indexOf(" - ");
+    if (idx === -1) return;
+
+    const prefix = statusVal.substring(0, idx).trim();
+    const suffix = statusVal.substring(idx + 3).trim();
+    if (!suffix) return;
+
+    const allowed = options?.map((o) => o.value) ?? ["OK", "YES"];
+    if (!allowed.includes(prefix)) return;
+
+    // Hydrate form values without marking dirty; user didn't change anything yet.
+    setValue(field as any, prefix, { shouldDirty: false });
+    setValue(noteField as any, suffix, { shouldDirty: false });
+    embeddedMigrationRef.current = true;
+  }, [statusVal, currentNoteValue, options, field, noteField, setValue]);
 
   // Parse currentNoteValue once on mount or when it changes externally (e.g., from form.reset)
   // But only if we haven't manually set it ourselves
@@ -676,6 +700,11 @@ const StatusSelectWithNote = ({
         } else {
           setNoteText("");
         }
+      } else {
+        // Fallback: the stored note doesn't match the configured note options.
+        // Still show it to the user so it doesn't look like data is missing.
+        setNoteChoice(initialChoice);
+        setNoteText(cleanedNoteValue);
       }
       initializedRef.current = true;
     }
@@ -697,7 +726,8 @@ const StatusSelectWithNote = ({
       : status === "YES" ||
         status === "Concern" ||
         status.startsWith("YES") ||
-        status.includes("Concern");
+        status.includes("Concern") ||
+        currentNoteValue.trim().length > 0;
 
   // Format note as "Choice - Text" for the note field only
   const formatNote = (choice: string, text: string) => {
@@ -1047,11 +1077,10 @@ function EditServiceDialog({
       const fetchService = async () => {
         try {
           setIsFetching(true);
-          let data;
-
-          if (initialData) {
-            data = initialData;
-          } else if (serviceId) {
+          // `initialData` comes from the table list endpoint and is often partial.
+          // Prefer fetching the full record by id to avoid wiping form fields.
+          let data: any = initialData ?? null;
+          if (serviceId) {
             const res = await fetch(`/api/admin/service-records/${serviceId}`, {
               credentials: "include",
             });
@@ -1154,6 +1183,29 @@ function EditServiceDialog({
               });
             }
 
+          // Some older records have exhaust cfm stored in the note field (or only there).
+          // If the main value is empty, try extracting a number from the note.
+          if (!formAny.exhaustCfm) {
+            const fallbackNote =
+              (data.exhaustCfmNote as any) ||
+              (data.workDetails && (typeof data.workDetails === "string"
+                ? (() => {
+                    try {
+                      return JSON.parse(data.workDetails)?.exhaustCfmNote;
+                    } catch {
+                      return undefined;
+                    }
+                  })()
+                : (data.workDetails as any).exhaustCfmNote));
+            if (fallbackNote) {
+              formAny.exhaustCfm = normalizeNumberLike(fallbackNote);
+              // Preserve the full note text too
+              if (!formAny.exhaustCfmNote) {
+                formAny.exhaustCfmNote = String(fallbackNote);
+              }
+            }
+          }
+
             // Explicitly map projectorSerial -> projectorSerialNumber if not already set or if data has it differently
             if (!formAny.projectorSerialNumber && data.projectorSerial) {
               formAny.projectorSerialNumber = data.projectorSerial;
@@ -1162,6 +1214,14 @@ function EditServiceDialog({
             if (!formAny.projectorModel && data.projectorModel) {
               formAny.projectorModel = data.projectorModel;
             }
+
+          // Prefer nested projector object from the admin GET endpoint
+          if (!formAny.projectorModel && data.projector?.model) {
+            formAny.projectorModel = data.projector.model;
+          }
+          if (!formAny.projectorSerialNumber && data.projector?.serialNo) {
+            formAny.projectorSerialNumber = data.projector.serialNo;
+          }
 
             reset(formData);
           }
@@ -1482,7 +1542,12 @@ function EditServiceDialog({
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {fields.map((field) => {
-          if (field.componentType === "statusSelectWithNote") {
+          // Always use the note-capable UI for fields that have a corresponding `<field>Note`
+          // column, even if the config didn't explicitly set `componentType`.
+          if (
+            field.componentType === "statusSelectWithNote" ||
+            NOTE_FIELD_MAP[field.key]
+          ) {
             return (
               <StatusSelectWithNote
                 key={field.key}
