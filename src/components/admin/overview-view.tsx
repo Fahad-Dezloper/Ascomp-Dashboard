@@ -1140,16 +1140,6 @@ function EditServiceDialog({
             // Map data to form
             const formData = createInitialFormData();
             const formAny = formData as any;
-            const normalizeNumberLike = (val: any): string => {
-              if (val === null || val === undefined) return "";
-              if (typeof val === "number")
-                return Number.isFinite(val) ? String(val) : "";
-              const str = String(val).trim();
-              if (!str) return "";
-              // Extract the first numeric token (handles "6.6 M/S", "6.6", "6,6", etc.)
-              const match = str.replace(",", ".").match(/-?\d+(\.\d+)?/);
-              return match ? match[0] : "";
-            };
 
             Object.keys(formData).forEach((key) => {
               if (key in data) {
@@ -1158,8 +1148,6 @@ function EditServiceDialog({
                   formAny[key] = new Date(data[key])
                     .toISOString()
                     .split("T")[0];
-                } else if (key === "exhaustCfm") {
-                  formAny[key] = normalizeNumberLike(data[key]);
                 } else {
                   formAny[key] = data[key] ?? "";
                 }
@@ -1174,36 +1162,35 @@ function EditServiceDialog({
                   : data.workDetails;
               Object.keys(details).forEach((k) => {
                 if (k in formData) {
-                  if (k === "exhaustCfm") {
-                    formAny[k] = normalizeNumberLike(details[k]);
-                  } else {
-                    formAny[k] = details[k];
-                  }
+                  formAny[k] = details[k];
                 }
               });
             }
 
-          // Some older records have exhaust cfm stored in the note field (or only there).
-          // If the main value is empty, try extracting a number from the note.
-          if (!formAny.exhaustCfm) {
-            const fallbackNote =
-              (data.exhaustCfmNote as any) ||
-              (data.workDetails && (typeof data.workDetails === "string"
-                ? (() => {
-                    try {
-                      return JSON.parse(data.workDetails)?.exhaustCfmNote;
-                    } catch {
-                      return undefined;
-                    }
-                  })()
-                : (data.workDetails as any).exhaustCfmNote));
-            if (fallbackNote) {
-              formAny.exhaustCfm = normalizeNumberLike(fallbackNote);
-              // Preserve the full note text too
-              if (!formAny.exhaustCfmNote) {
-                formAny.exhaustCfmNote = String(fallbackNote);
-              }
-            }
+          // Exhaust CFM persistence:
+          // - status lives in `exhaustCfm` (OK/YES)
+          // - value lives in `exhaustCfmNote` (e.g. "6.6 M/S")
+          // Also handle legacy records where the number might be stored in `exhaustCfm`.
+          const noteFromStatusValue = (raw: any) => {
+            if (!raw) return "";
+            const str = String(raw).trim();
+            if (!str) return "";
+            const match = str.replace(",", ".").match(/-?\d+(\.\d+)?/);
+            if (!match) return "";
+            // Preserve original unit if present
+            return str.toUpperCase().includes("M/S") ? str : `${match[0]} M/S`;
+          };
+
+          if (!formAny.exhaustCfmNote && formAny.exhaustCfm) {
+            const migrated = noteFromStatusValue(formAny.exhaustCfm);
+            if (migrated) formAny.exhaustCfmNote = migrated;
+          }
+
+          // Requirement: keep OK if exhaustCfmNote is available, else YES
+          if (formAny.exhaustCfmNote && String(formAny.exhaustCfmNote).trim()) {
+            formAny.exhaustCfm = "OK";
+          } else {
+            formAny.exhaustCfm = "YES";
           }
 
             // Explicitly map projectorSerial -> projectorSerialNumber if not already set or if data has it differently
@@ -1485,7 +1472,10 @@ function EditServiceDialog({
       const payload = {
         workDetails: {
           ...values,
-          exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+          // Persist exhaust CFM in NOTE and drive status from presence.
+          exhaustCfmNote: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+          // Requirement: keep OK if note is available, else YES
+          exhaustCfm: values.exhaustCfm ? "OK" : "YES",
           // Save "Service Visit Type" selection into DB field `serviceNumber`
           serviceNumber: values.serviceVisitType || undefined,
           // Ensure recommendedParts is saved with the rest of the work details
