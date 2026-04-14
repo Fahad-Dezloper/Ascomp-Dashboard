@@ -356,25 +356,6 @@ export async function PUT(
       'Removed', 'Not removed', 'OK (Part is Ok)', 'YES (Needs Replacement)'
     ]
 
-    // Sanitize status field value - removes any note-like patterns
-    const sanitizeStatusValue = (value: string): string => {
-      if (!value || typeof value !== 'string') return value
-
-      const separatorIndex = value.indexOf(' - ')
-      if (separatorIndex === -1) return value
-
-      const statusPart = value.substring(0, separatorIndex).trim()
-      const isValidStatus = validStatusPrefixes.some(prefix =>
-        statusPart === prefix || statusPart.startsWith(prefix)
-      )
-
-      if (isValidStatus) {
-        return statusPart
-      }
-
-      return value
-    }
-
     const readonlyFields = new Set([
       'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'serviceNumber', 'assignedToId', 'date'
     ])
