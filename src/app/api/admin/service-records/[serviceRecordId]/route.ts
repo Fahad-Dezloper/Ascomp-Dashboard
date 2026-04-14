@@ -305,6 +305,7 @@ export async function PUT(
     const validSchemaFields = new Set([
       'reportGenerated', 'endTime', 'startTime',
       'cinemaName', 'address', 'contactDetails', 'location', 'screenNumber',
+      'serviceNumber',
       'projectorRunningHours', 'replacementRequired',
       'reflector', 'uvFilter', 'integratorRod', 'coldMirror', 'foldMirror',
       'touchPanel', 'evbBoard', 'ImcbBoard', 'pibBoard', 'IcpBoard', 'imbSBoard',
@@ -357,7 +358,7 @@ export async function PUT(
     ]
 
     const readonlyFields = new Set([
-      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'serviceNumber', 'assignedToId', 'date'
+      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'assignedToId', 'date'
     ])
 
     const updateData: any = {}

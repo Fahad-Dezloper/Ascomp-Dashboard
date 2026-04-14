@@ -1223,6 +1223,11 @@ function EditServiceDialog({
             formAny.projectorSerialNumber = data.projector.serialNo;
           }
 
+          // Persisted visit type lives in `serviceNumber` in DB; show it in the UI field.
+          if (!formAny.serviceVisitType && data.serviceNumber) {
+            formAny.serviceVisitType = String(data.serviceNumber);
+          }
+
             reset(formData);
           }
         } catch (error) {
@@ -1481,6 +1486,8 @@ function EditServiceDialog({
         workDetails: {
           ...values,
           exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+          // Save "Service Visit Type" selection into DB field `serviceNumber`
+          serviceNumber: values.serviceVisitType || undefined,
           // Ensure recommendedParts is saved with the rest of the work details
           recommendedParts,
         },

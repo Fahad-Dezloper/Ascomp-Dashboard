@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
     const validSchemaFields = new Set([
       'date', 'reportGenerated', 'endTime', 'startTime',
       'cinemaName', 'address', 'contactDetails', 'location', 'screenNumber',
+      'serviceNumber',
       'projectorRunningHours', 'replacementRequired',
       'reflector', 'uvFilter', 'integratorRod', 'coldMirror', 'foldMirror',
       'touchPanel', 'evbBoard', 'ImcbBoard', 'pibBoard', 'IcpBoard', 'imbSBoard',
@@ -159,11 +160,16 @@ export async function POST(request: NextRequest) {
       // (e.g., "YES - Solarized"). Do not sanitize these as the sub-option data is intentional.
     }
 
+    // Persist "Service Visit Type" UI into `serviceNumber` (DB column).
+    if (workDetails?.serviceVisitType && !workDetails.serviceNumber) {
+      workDetails.serviceNumber = workDetails.serviceVisitType
+    }
+
 
 
     // Fields that should not be updated (read-only or set on creation)
     const readonlyFields = new Set([
-      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'serviceNumber', 'assignedToId'
+      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'assignedToId'
     ])
 
     // Handle recommendedParts as JSON

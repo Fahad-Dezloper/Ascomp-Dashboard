@@ -76,6 +76,8 @@ const createInitialFormData = () => ({
   contactDetails: "",
   location: "",
   screenNumber: "",
+  // Persist this selection into `ServiceRecord.serviceNumber` on save.
+  // We keep this key in the form to avoid breaking existing form config/UI.
   serviceVisitType: "",
   projectorModel: "",
   projectorSerialNumber: "",
@@ -333,6 +335,12 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       reset({
         ...initial,
         ...data.workDetails,
+        // Keep UI field in sync with persisted DB field
+        serviceVisitType:
+          data.workDetails.serviceVisitType ||
+          data.workDetails.serviceNumber ||
+          data.selectedService?.serviceNumber ||
+          initial.serviceVisitType,
         // Override with selectedService values only if workDetails doesn't have them (user's saved changes take precedence)
         cinemaName:
           data.workDetails.cinemaName ||
@@ -376,6 +384,11 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         reset({
           ...initial,
           ...parsed,
+          serviceVisitType:
+            parsed.serviceVisitType ||
+            parsed.serviceNumber ||
+            data.selectedService?.serviceNumber ||
+            initial.serviceVisitType,
           // Override with selectedService values only if parsed doesn't have them (user's saved changes take precedence)
           cinemaName:
             parsed.cinemaName ||
@@ -415,6 +428,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           date: initial.date,
           address: data.selectedService?.address || initial.address,
           contactDetails: contactDetails,
+          serviceVisitType:
+            data.selectedService?.serviceNumber || initial.serviceVisitType,
           projectorModel:
             data.selectedService?.projectorModel || initial.projectorModel,
           projectorSerialNumber:
@@ -1315,6 +1330,8 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       ...values,
       contactDetails: combinedContactDetails,
       exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+    // Store the selected visit type into the DB field
+    serviceNumber: values.serviceVisitType || undefined,
     };
 
     onNext({
