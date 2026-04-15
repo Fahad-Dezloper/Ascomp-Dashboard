@@ -76,6 +76,8 @@ const createInitialFormData = () => ({
   contactDetails: "",
   location: "",
   screenNumber: "",
+  // Persist this selection into `ServiceRecord.serviceNumber` on save.
+  // We keep this key in the form to avoid breaking existing form config/UI.
   serviceVisitType: "",
   projectorModel: "",
   projectorSerialNumber: "",
@@ -321,6 +323,14 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
   useEffect(() => {
     const initial = createInitialFormData();
+    const numberFromText = (val: any): string => {
+      if (val === null || val === undefined) return "";
+      if (typeof val === "number") return Number.isFinite(val) ? String(val) : "";
+      const str = String(val).trim();
+      if (!str) return "";
+      const match = str.replace(",", ".").match(/-?\d+(\.\d+)?/);
+      return match ? match[0] : "";
+    };
     if (data?.workDetails) {
       const contactDetails =
         data.workDetails.contactDetails ||
@@ -333,6 +343,12 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       reset({
         ...initial,
         ...data.workDetails,
+        // Keep UI field in sync with persisted DB field
+        serviceVisitType:
+          data.workDetails.serviceVisitType ||
+          data.workDetails.serviceNumber ||
+          data.selectedService?.serviceNumber ||
+          initial.serviceVisitType,
         // Override with selectedService values only if workDetails doesn't have them (user's saved changes take precedence)
         cinemaName:
           data.workDetails.cinemaName ||
@@ -359,6 +375,11 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           initial.screenNumber,
         issueNotes: data.workDetails.issueNotes || {},
         recommendedParts: data.workDetails.recommendedParts || [],
+        // UI has a numeric input; DB stores the value in `exhaustCfmNote`
+        exhaustCfm:
+          numberFromText(data.workDetails.exhaustCfmNote) ||
+          numberFromText(data.workDetails.exhaustCfm) ||
+          "",
       });
     } else if (typeof window !== "undefined" && data?.selectedService?.id) {
       const storageKey = `recordWorkFormData_${data.selectedService.id}`;
@@ -376,6 +397,11 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         reset({
           ...initial,
           ...parsed,
+          serviceVisitType:
+            parsed.serviceVisitType ||
+            parsed.serviceNumber ||
+            data.selectedService?.serviceNumber ||
+            initial.serviceVisitType,
           // Override with selectedService values only if parsed doesn't have them (user's saved changes take precedence)
           cinemaName:
             parsed.cinemaName ||
@@ -400,6 +426,10 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
             initial.screenNumber,
           issueNotes: parsed.issueNotes || {},
           recommendedParts: parsed.recommendedParts || [],
+          exhaustCfm:
+            numberFromText(parsed.exhaustCfmNote) ||
+            numberFromText(parsed.exhaustCfm) ||
+            "",
         });
       } else {
         // No saved data, but we have service details - use today's date
@@ -415,12 +445,15 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           date: initial.date,
           address: data.selectedService?.address || initial.address,
           contactDetails: contactDetails,
+          serviceVisitType:
+            data.selectedService?.serviceNumber || initial.serviceVisitType,
           projectorModel:
             data.selectedService?.projectorModel || initial.projectorModel,
           projectorSerialNumber:
             data.selectedService?.projector || initial.projectorSerialNumber,
           screenNumber:
             data.selectedService?.screenNumber || initial.screenNumber,
+          exhaustCfm: "",
         });
       }
     }
@@ -1314,7 +1347,12 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     const formattedValues = {
       ...values,
       contactDetails: combinedContactDetails,
-      exhaustCfm: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+      // Persist exhaust CFM in NOTE and drive status from presence.
+      exhaustCfmNote: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+      // Requirement: keep OK if note is available, else YES
+      exhaustCfm: values.exhaustCfm ? "OK" : "YES",
+      // Store the selected visit type into the DB field
+      serviceNumber: values.serviceVisitType || undefined,
     };
 
     onNext({

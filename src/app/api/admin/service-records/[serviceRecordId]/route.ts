@@ -305,6 +305,7 @@ export async function PUT(
     const validSchemaFields = new Set([
       'reportGenerated', 'endTime', 'startTime',
       'cinemaName', 'address', 'contactDetails', 'location', 'screenNumber',
+      'serviceNumber',
       'projectorRunningHours', 'replacementRequired',
       'reflector', 'uvFilter', 'integratorRod', 'coldMirror', 'foldMirror',
       'touchPanel', 'evbBoard', 'ImcbBoard', 'pibBoard', 'IcpBoard', 'imbSBoard',
@@ -356,27 +357,8 @@ export async function PUT(
       'Removed', 'Not removed', 'OK (Part is Ok)', 'YES (Needs Replacement)'
     ]
 
-    // Sanitize status field value - removes any note-like patterns
-    const sanitizeStatusValue = (value: string): string => {
-      if (!value || typeof value !== 'string') return value
-
-      const separatorIndex = value.indexOf(' - ')
-      if (separatorIndex === -1) return value
-
-      const statusPart = value.substring(0, separatorIndex).trim()
-      const isValidStatus = validStatusPrefixes.some(prefix =>
-        statusPart === prefix || statusPart.startsWith(prefix)
-      )
-
-      if (isValidStatus) {
-        return statusPart
-      }
-
-      return value
-    }
-
     const readonlyFields = new Set([
-      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'serviceNumber', 'assignedToId', 'date'
+      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'assignedToId', 'date'
     ])
 
     const updateData: any = {}
@@ -391,12 +373,38 @@ export async function PUT(
       }
     }
 
-    // Sanitize all status fields before processing
+    // Sanitize all status fields before processing.
+    // IMPORTANT: Some historical records stored note text inside the status field,
+    // e.g. "YES - Chipped - corner broken". If we simply strip after " - " we would
+    // permanently lose the note. So we migrate the suffix into the corresponding
+    // "<field>Note" column when possible.
     if (workDetails) {
-      statusFields.forEach(field => {
-        if (workDetails[field] && typeof workDetails[field] === 'string') {
-          workDetails[field] = sanitizeStatusValue(workDetails[field])
+      statusFields.forEach((field) => {
+        const raw = workDetails[field]
+        if (!raw || typeof raw !== "string") return
+
+        const separatorIndex = raw.indexOf(" - ")
+        if (separatorIndex === -1) return
+
+        const statusPart = raw.substring(0, separatorIndex).trim()
+        const suffix = raw.substring(separatorIndex + 3).trim()
+        const isValidStatus = validStatusPrefixes.some(
+          (prefix) => statusPart === prefix || statusPart.startsWith(prefix),
+        )
+
+        if (!isValidStatus) return
+
+        // Move suffix into note field if the schema supports it and it's currently empty.
+        const noteKey = `${field}Note`
+        if (
+          suffix &&
+          validSchemaFields.has(noteKey) &&
+          (!workDetails[noteKey] || String(workDetails[noteKey]).trim() === "")
+        ) {
+          workDetails[noteKey] = suffix
         }
+
+        workDetails[field] = statusPart
       })
     }
 
