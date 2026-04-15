@@ -160,9 +160,53 @@ export async function POST(request: NextRequest) {
       // (e.g., "YES - Solarized"). Do not sanitize these as the sub-option data is intentional.
     }
 
-    // Persist "Service Visit Type" UI into `serviceNumber` (DB column).
-    if (workDetails?.serviceVisitType && !workDetails.serviceNumber) {
-      workDetails.serviceNumber = workDetails.serviceVisitType
+    // Ensure `serviceNumber` stays unique per projector.
+    // Only apply suffixing logic when user selected "special service".
+    // Example:
+    // - existing: "special service"
+    // - new selection: "special service" => saved as "special service 2"
+    // - if "special service 2" exists => saved as "special service 3", etc.
+    const normalizeSpacesLower = (s: unknown) =>
+      String(s ?? "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLowerCase()
+
+    const requestedServiceNumberRaw =
+      workDetails?.serviceNumber ?? workDetails?.serviceVisitType
+
+    const SPECIAL_BASE = "special service"
+    if (
+      requestedServiceNumberRaw &&
+      normalizeSpacesLower(requestedServiceNumberRaw) === SPECIAL_BASE
+    ) {
+      const existing = await prisma.serviceRecord.findMany({
+        where: {
+          projectorId: serviceRecord.projectorId,
+          OR: [
+            { serviceNumber: { equals: SPECIAL_BASE } },
+            { serviceNumber: { startsWith: `${SPECIAL_BASE} ` } },
+          ],
+        },
+        select: { serviceNumber: true },
+      })
+
+      let maxN = 0
+      for (const r of existing) {
+        const sn = normalizeSpacesLower(r.serviceNumber)
+        if (sn === SPECIAL_BASE) {
+          maxN = Math.max(maxN, 1)
+          continue
+        }
+        const m = sn.match(/^special service\s+(\d+)$/)
+        if (m?.[1]) {
+          const n = Number(m[1])
+          if (Number.isFinite(n)) maxN = Math.max(maxN, n)
+        }
+      }
+
+      const nextN = maxN + 1
+      workDetails.serviceNumber = nextN <= 1 ? SPECIAL_BASE : `${SPECIAL_BASE} ${nextN}`
     }
 
 
@@ -313,11 +357,32 @@ export async function POST(request: NextRequest) {
       console.log('Update data (sanitized):', JSON.stringify(sanitizedData, null, 2))
     }
 
-    // Update the service record
-    const updatedRecord = await prisma.serviceRecord.update({
-      where: { id: serviceRecordId },
-      data: cleanedData,
-    })
+    // Update the service record.
+    // If `serviceNumber` violates the unique (projectorId, serviceNumber) constraint,
+    // retry without changing `serviceNumber` so completion isn't blocked in prod.
+    let updatedRecord: any
+    try {
+      updatedRecord = await prisma.serviceRecord.update({
+        where: { id: serviceRecordId },
+        data: cleanedData,
+      })
+    } catch (e: any) {
+      const isUniqueViolation =
+        e?.code === "P2002" &&
+        Array.isArray(e?.meta?.target) &&
+        e.meta.target.includes("projectorId") &&
+        e.meta.target.includes("serviceNumber")
+
+      if (isUniqueViolation && cleanedData?.serviceNumber !== undefined) {
+        const { serviceNumber: _ignored, ...withoutServiceNumber } = cleanedData
+        updatedRecord = await prisma.serviceRecord.update({
+          where: { id: serviceRecordId },
+          data: withoutServiceNumber,
+        })
+      } else {
+        throw e
+      }
+    }
 
     // console.log(`✅ Service record updated successfully:`)
     // console.log(`   - ID: ${updatedRecord.id}`)

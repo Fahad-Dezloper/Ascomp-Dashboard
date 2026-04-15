@@ -363,6 +363,53 @@ export async function PUT(
 
     const updateData: any = {}
 
+    // Ensure `serviceNumber` stays unique per projector when admin selects "special service".
+    const normalizeSpacesLower = (s: unknown) =>
+      String(s ?? "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLowerCase()
+
+    const requestedServiceNumberRaw =
+      workDetails?.serviceNumber ?? workDetails?.serviceVisitType
+
+    const SPECIAL_BASE = "special service"
+    if (
+      requestedServiceNumberRaw &&
+      normalizeSpacesLower(requestedServiceNumberRaw) === SPECIAL_BASE &&
+      serviceRecord.projectorId
+    ) {
+      const existing = await prisma.serviceRecord.findMany({
+        where: {
+          projectorId: serviceRecord.projectorId,
+          OR: [
+            { serviceNumber: { equals: SPECIAL_BASE } },
+            { serviceNumber: { startsWith: `${SPECIAL_BASE} ` } },
+          ],
+        },
+        select: { serviceNumber: true },
+      })
+
+      let maxN = 0
+      for (const r of existing) {
+        const sn = normalizeSpacesLower(r.serviceNumber)
+        if (sn === SPECIAL_BASE) {
+          maxN = Math.max(maxN, 1)
+          continue
+        }
+        const m = sn.match(/^special service\s+(\d+)$/)
+        if (m?.[1]) {
+          const n = Number(m[1])
+          if (Number.isFinite(n)) maxN = Math.max(maxN, n)
+        }
+      }
+
+      const nextN = maxN + 1
+      if (workDetails) {
+        workDetails.serviceNumber = nextN <= 1 ? SPECIAL_BASE : `${SPECIAL_BASE} ${nextN}`
+      }
+    }
+
     // Handle recommendedParts as JSON
     if (workDetails?.recommendedParts) {
       const recommendedParts = workDetails.recommendedParts
@@ -505,11 +552,32 @@ export async function PUT(
       }
     })
 
-    // Update the service record
-    const updatedRecord = await prisma.serviceRecord.update({
-      where: { id: serviceRecordId },
-      data: cleanedData,
-    })
+    // Update the service record.
+    // If `serviceNumber` violates the unique (projectorId, serviceNumber) constraint,
+    // retry without changing `serviceNumber` so admin updates aren't blocked.
+    let updatedRecord: any
+    try {
+      updatedRecord = await prisma.serviceRecord.update({
+        where: { id: serviceRecordId },
+        data: cleanedData,
+      })
+    } catch (e: any) {
+      const isUniqueViolation =
+        e?.code === "P2002" &&
+        Array.isArray(e?.meta?.target) &&
+        e.meta.target.includes("projectorId") &&
+        e.meta.target.includes("serviceNumber")
+
+      if (isUniqueViolation && cleanedData?.serviceNumber !== undefined) {
+        const { serviceNumber: _ignored, ...withoutServiceNumber } = cleanedData
+        updatedRecord = await prisma.serviceRecord.update({
+          where: { id: serviceRecordId },
+          data: withoutServiceNumber,
+        })
+      } else {
+        throw e
+      }
+    }
 
     return NextResponse.json({
       success: true,
