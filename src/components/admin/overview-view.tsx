@@ -1469,13 +1469,24 @@ function EditServiceDialog({
     try {
       setLoading(true);
 
+      const normalizeExhaustCfmNote = (raw: unknown) => {
+        const str = raw == null ? "" : String(raw).trim();
+        if (!str) return "";
+        // If user entered a plain number, standardize to "<number> M/S"
+        const match = str.replace(",", ".").match(/-?\d+(\.\d+)?/);
+        if (!match) return str; // leave as-is (might be "NA", etc.)
+        return str.toUpperCase().includes("M/S") ? str : `${match[0]} M/S`;
+      };
+
+      const exhaustCfmNote = normalizeExhaustCfmNote((values as any).exhaustCfmNote);
+
       const payload = {
         workDetails: {
           ...values,
           // Persist exhaust CFM in NOTE and drive status from presence.
-          exhaustCfmNote: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
-          // Requirement: keep OK if note is available, else YES
-          exhaustCfm: values.exhaustCfm ? "OK" : "YES",
+          exhaustCfmNote,
+          // Requirement: keep OK if exhaustCfmNote is available, else YES
+          exhaustCfm: exhaustCfmNote ? "OK" : "YES",
           // Save "Service Visit Type" selection into DB field `serviceNumber`
           serviceNumber: values.serviceVisitType || undefined,
           // Ensure recommendedParts is saved with the rest of the work details
