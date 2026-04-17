@@ -1,4 +1,10 @@
 import { useState, useEffect } from "react"
+import {
+  RECOMMENDED_CFM_MODEL_RULES,
+  type CfmModelRule,
+} from "@/lib/cfm-model-rules"
+
+export type { CfmModelRule }
 
 export type FieldType = "text" | "number" | "date" | "textarea" | "select" | "checkbox"
 
@@ -42,12 +48,14 @@ const DEFAULT_CONFIG: FieldConfig[] = [
 
 export function useFormConfig() {
   const [config, setConfig] = useState<FieldConfig[]>(DEFAULT_CONFIG)
+  const [cfmModelRules, setCfmModelRules] = useState<CfmModelRule[]>(
+    RECOMMENDED_CFM_MODEL_RULES,
+  )
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        // Add cache-busting timestamp to ensure fresh data
         const res = await fetch(`/api/admin/form-config?t=${Date.now()}`, {
           credentials: "include",
           cache: "no-store",
@@ -57,6 +65,12 @@ export function useFormConfig() {
           if (data.config && Array.isArray(data.config) && data.config.length > 0) {
             setConfig(data.config)
           }
+          const rules: CfmModelRule[] = Array.isArray(data.cfmModelRules)
+            ? data.cfmModelRules
+            : []
+          setCfmModelRules(
+            rules.length > 0 ? rules : RECOMMENDED_CFM_MODEL_RULES,
+          )
         } else {
           console.error("Failed to fetch form config:", res.status, res.statusText)
         }
@@ -68,8 +82,6 @@ export function useFormConfig() {
     }
     loadConfig()
 
-    // Poll for changes every 10 seconds (in case user updates config)
-    // This ensures the form stays in sync with admin updates
     const interval = setInterval(loadConfig, 10000)
 
     return () => {
@@ -77,5 +89,5 @@ export function useFormConfig() {
     }
   }, [])
 
-  return { config, loading }
+  return { config, cfmModelRules, loading }
 }

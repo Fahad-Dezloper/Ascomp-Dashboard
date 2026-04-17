@@ -2,18 +2,38 @@ import { NextResponse } from "next/server"
 import { promises as fs } from "fs"
 import path from "path"
 import prisma from "@/lib/db"
+import {
+  sanitizeCfmModelRules,
+  type CfmModelRule,
+} from "@/lib/cfm-model-rules"
 
 const CONFIG_FILE_PATH = path.join(process.cwd(), "data", "form-config.json")
 
-// Fields that must always match form-config.json (file is source of truth)
-// Use when DB has stale/incorrect type (e.g. exhaustCfm should be number, not select)
 const FILE_OVERRIDE_KEYS = new Set(["exhaustCfm"])
+
+function parseStoredConfig(raw: unknown): {
+  fields: any[]
+  cfmModelRules: CfmModelRule[]
+} {
+  if (Array.isArray(raw)) {
+    return { fields: raw, cfmModelRules: [] }
+  }
+  if (raw && typeof raw === "object") {
+    const o = raw as Record<string, unknown>
+    if (Array.isArray(o.fields)) {
+      return {
+        fields: o.fields as any[],
+        cfmModelRules: sanitizeCfmModelRules(o.cfmModelRules),
+      }
+    }
+  }
+  return { fields: [], cfmModelRules: [] }
+}
 
 async function readConfigFromFile(): Promise<any[] | null> {
   try {
     const dir = path.dirname(CONFIG_FILE_PATH)
-    // Ensure access to file system just in case, but ignore errors if it doesn't exist
-    await fs.access(dir).catch(() => { })
+    await fs.access(dir).catch(() => {})
 
     const data = await fs.readFile(CONFIG_FILE_PATH, "utf-8")
     return JSON.parse(data)
@@ -26,20 +46,24 @@ async function readConfigFromFile(): Promise<any[] | null> {
   }
 }
 
-async function readConfig(): Promise<any[] | null> {
+export type FormConfigReadResult = {
+  fields: any[]
+  cfmModelRules: CfmModelRule[]
+}
+
+async function readConfig(): Promise<FormConfigReadResult | null> {
   try {
-    // Try reading from Database
     const dbConfig = await prisma.formConfiguration.findFirst({
       where: { isActive: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: "desc" },
     })
 
     if (dbConfig?.config) {
-      const dbConfigArray = dbConfig.config as any[]
+      let { fields, cfmModelRules } = parseStoredConfig(dbConfig.config)
       const fileConfig = await readConfigFromFile()
       if (fileConfig && fileConfig.length > 0) {
         const fileByKey = new Map(fileConfig.map((f: any) => [f.key, f]))
-        return dbConfigArray.map((f: any) => {
+        fields = fields.map((f: any) => {
           if (FILE_OVERRIDE_KEYS.has(f.key)) {
             const fileField = fileByKey.get(f.key)
             if (fileField) return fileField
@@ -47,10 +71,9 @@ async function readConfig(): Promise<any[] | null> {
           return f
         })
       }
-      return dbConfigArray
+      return { fields, cfmModelRules }
     }
 
-    // If no DB config, fallback to file and seed DB
     console.log("No DB config found. Falling back to file...")
     const fileConfig = await readConfigFromFile()
 
@@ -59,71 +82,108 @@ async function readConfig(): Promise<any[] | null> {
       try {
         await prisma.formConfiguration.create({
           data: {
-            config: fileConfig,
+            config: { fields: fileConfig, cfmModelRules: [] },
             version: 1,
-            isActive: true
-          }
+            isActive: true,
+          },
         })
       } catch (seedError) {
         console.error("Failed to seed form config to DB:", seedError)
       }
-      return fileConfig
+      return { fields: fileConfig, cfmModelRules: [] }
     }
   } catch (error) {
     console.error("Error in readConfig:", error)
-    // Fallback solely to file if DB fails completely
-    return readConfigFromFile()
+    const fileOnly = await readConfigFromFile()
+    if (fileOnly) {
+      return { fields: fileOnly, cfmModelRules: [] }
+    }
   }
 
   return null
 }
 
-async function writeConfig(config: any[]): Promise<void> {
-  try {
-    await prisma.formConfiguration.create({
-      data: {
-        config: config,
-        isActive: true
-      }
-    })
-    console.log("Form config saved to database.")
-  } catch (error) {
-    console.error("Error writing form config to DB:", error)
-    throw error
-  }
+async function writeConfig(payload: {
+  fields: any[]
+  cfmModelRules: CfmModelRule[]
+}): Promise<void> {
+  await prisma.formConfiguration.create({
+    data: {
+      config: payload as object,
+      isActive: true,
+    },
+  })
+  console.log("Form config saved to database.")
 }
 
 export async function GET() {
   try {
-    const config = await readConfig()
-    return NextResponse.json({ config }, {
-      headers: {
-        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0",
+    const result = await readConfig()
+    if (!result) {
+      return NextResponse.json(
+        { config: [], cfmModelRules: [] },
+        {
+          headers: {
+            "Cache-Control":
+              "no-store, no-cache, must-revalidate, proxy-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      )
+    }
+    return NextResponse.json(
+      { config: result.fields, cfmModelRules: result.cfmModelRules },
+      {
+        headers: {
+          "Cache-Control":
+            "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       },
-    })
+    )
   } catch (error) {
     console.error("Error fetching form config:", error)
-    return NextResponse.json({ error: "Failed to fetch form config" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to fetch form config" },
+      { status: 500 },
+    )
   }
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { config } = body
+    const { config, cfmModelRules: rawRules } = body
 
     if (!config || !Array.isArray(config)) {
-      console.error("Invalid config format:", typeof config, Array.isArray(config))
-      return NextResponse.json({ error: "Invalid config format" }, { status: 400 })
+      console.error(
+        "Invalid config format:",
+        typeof config,
+        Array.isArray(config),
+      )
+      return NextResponse.json(
+        { error: "Invalid config format" },
+        { status: 400 },
+      )
     }
 
-    await writeConfig(config)
+    const cfmModelRules = sanitizeCfmModelRules(rawRules)
 
-    return NextResponse.json({ success: true, message: "Form configuration saved", savedFields: config.length })
+    await writeConfig({ fields: config, cfmModelRules })
+
+    return NextResponse.json({
+      success: true,
+      message: "Form configuration saved",
+      savedFields: config.length,
+      savedCfmRules: cfmModelRules.length,
+    })
   } catch (error) {
     console.error("Error saving form config:", error)
-    return NextResponse.json({ error: "Failed to save form config", details: String(error) }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to save form config", details: String(error) },
+      { status: 500 },
+    )
   }
 }

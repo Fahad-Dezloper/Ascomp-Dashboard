@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useFormConfig } from "@/hooks/use-form-config";
+import {
+  evaluateCfmBand,
+  exhaustCfmStatusForStorage,
+  findMatchingCfmRule,
+} from "@/lib/cfm-model-rules";
 import { DynamicFormField } from "./dynamic-form-field";
 
 type IssueNotes = Record<string, string>;
@@ -287,12 +292,45 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
   const beforeImagesRef = useRef<UploadedImage[]>([]);
   const afterImagesRef = useRef<UploadedImage[]>([]);
   const brokenImagesRef = useRef<UploadedImage[]>([]);
-  const { config: formConfig, loading: configLoading } = useFormConfig();
+  const { config: formConfig, cfmModelRules, loading: configLoading } =
+    useFormConfig();
 
   const { register, handleSubmit, reset, watch, setValue, getValues } =
     useForm<RecordWorkForm>({
       defaultValues: createInitialFormData(),
     });
+
+  const watchedExhaustCfm = watch("exhaustCfm");
+  const watchedProjectorModel = watch("projectorModel");
+
+  const exhaustCfmBandHint = useMemo(() => {
+    const rule = findMatchingCfmRule(
+      String(watchedProjectorModel || ""),
+      cfmModelRules,
+    );
+    if (!rule) return null;
+    const raw = String(watchedExhaustCfm ?? "").trim();
+    if (raw === "") {
+      return {
+        rule,
+        band: null as "OK" | "LOW" | "HIGH" | null,
+        message: `Range for ${rule.projectorModelPattern}: ${rule.min}–${rule.max} M/S (inclusive)`,
+      };
+    }
+    const n = Number(raw);
+    if (Number.isNaN(n)) return null;
+    const band = evaluateCfmBand(n, rule.min, rule.max);
+    return {
+      rule,
+      band,
+      message:
+        band === "OK"
+          ? `Within range (${rule.min}–${rule.max} M/S)`
+          : band === "LOW"
+            ? `Below range (min ${rule.min} M/S)`
+            : `Above range (max ${rule.max} M/S)`,
+    };
+  }, [watchedExhaustCfm, watchedProjectorModel, cfmModelRules]);
 
   // Helper function to parse contactDetails into name and phone
   const parseContactDetails = (
@@ -890,33 +928,24 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
       }
     }
 
-    // 2. Specific Rule: CFM Value for Projector Models
+    // 2. CFM vs model-specific bands (from form config / recommended defaults)
     if (field.key === "exhaustCfm") {
-      const model = allValues.projectorModel?.toUpperCase() || "";
       const numValue = Number(value);
-
-      if (!isNaN(numValue)) {
-        if (model.includes("CP2220") || model.includes("CP4220")) {
-          if (numValue < 6.6)
+      if (!Number.isNaN(numValue) && String(value).trim() !== "") {
+        const rule = findMatchingCfmRule(
+          String(allValues.projectorModel || ""),
+          cfmModelRules,
+        );
+        if (rule) {
+          if (numValue < rule.min)
             return {
               status: "warning",
-              message: "Low CFM (Standard: 6.6 - 7.3)",
+              message: `Low CFM (range ${rule.min}–${rule.max} M/S for ${rule.projectorModelPattern})`,
             };
-          if (numValue > 7.3)
+          if (numValue > rule.max)
             return {
               status: "warning",
-              message: "High CFM (Standard: 6.6 - 7.3)",
-            };
-        } else if (model.includes("CP2230") || model.includes("CP4230")) {
-          if (numValue < 8.8)
-            return {
-              status: "warning",
-              message: "Low CFM (Standard: 8.8 - 9.5)",
-            };
-          if (numValue > 9.5)
-            return {
-              status: "warning",
-              message: "High CFM (Standard: 8.8 - 9.5)",
+              message: `High CFM (range ${rule.min}–${rule.max} M/S for ${rule.projectorModelPattern})`,
             };
         }
       }
@@ -1102,6 +1131,22 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                       placeholder={field.placeholder || "Enter exhaust CFM"}
                       className="border-2 border-black text-sm"
                     />
+                    {exhaustCfmBandHint && (
+                      <p
+                        className={`mt-1.5 text-xs font-medium ${
+                          exhaustCfmBandHint.band === "LOW" ||
+                          exhaustCfmBandHint.band === "HIGH"
+                            ? "text-amber-700"
+                            : exhaustCfmBandHint.band === "OK"
+                              ? "text-green-700"
+                              : "text-gray-600"
+                        }`}
+                      >
+                        {exhaustCfmBandHint.band
+                          ? `Report status: ${exhaustCfmBandHint.band} — ${exhaustCfmBandHint.message}`
+                          : exhaustCfmBandHint.message}
+                      </p>
+                    )}
                   </FormField>
                 );
               }
@@ -1347,10 +1392,12 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     const formattedValues = {
       ...values,
       contactDetails: combinedContactDetails,
-      // Persist exhaust CFM in NOTE and drive status from presence.
       exhaustCfmNote: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
-      // Requirement: keep OK if note is available, else YES
-      exhaustCfm: values.exhaustCfm ? "OK" : "YES",
+      exhaustCfm: exhaustCfmStatusForStorage(
+        String(values.projectorModel || ""),
+        String(values.exhaustCfm ?? ""),
+        cfmModelRules,
+      ),
       // Store the selected visit type into the DB field
       serviceNumber: values.serviceVisitType || undefined,
     };

@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import ExportDataModal from "./modals/export-data-modal";
 import { useAuth } from "@/lib/auth-context";
+import { exhaustCfmStatusForStorage } from "@/lib/cfm-model-rules";
 
 type ServiceRecord = {
   id: string;
@@ -71,6 +72,30 @@ const formatIsoDate = (date: Date) => {
   const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 };
+
+/** Normalize column keys so afterImages / After Images / after_images all match. */
+const normalizeColumnKey = (key: string) =>
+  key.replace(/[\s_]/g, "").toLowerCase();
+
+function coerceImageUrlArray(value: unknown): string[] | null {
+  if (value == null) return null;
+  let raw: unknown[] | null = null;
+  if (Array.isArray(value)) {
+    raw = value;
+  } else if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return null;
+    try {
+      const p = JSON.parse(t);
+      if (Array.isArray(p)) raw = p;
+    } catch {
+      return null;
+    }
+  }
+  if (!raw) return null;
+  const urls = raw.filter((x): x is string => typeof x === "string" && x.length > 0);
+  return urls.length > 0 ? urls : null;
+}
 
 const EXCLUDED_KEYS = new Set([
   "id",
@@ -917,7 +942,8 @@ function EditServiceDialog({
   const engineerCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  const { config: formConfig, loading: configLoading } = useFormConfig();
+  const { config: formConfig, cfmModelRules, loading: configLoading } =
+    useFormConfig();
 
   const form = useForm<RecordWorkForm>({
     defaultValues: createInitialFormData(),
@@ -1186,9 +1212,14 @@ function EditServiceDialog({
             if (migrated) formAny.exhaustCfmNote = migrated;
           }
 
-          // Requirement: keep OK if exhaustCfmNote is available, else YES
+          // Band status (LOW/OK/HIGH) must be preserved when present; else legacy OK if note exists
           if (formAny.exhaustCfmNote && String(formAny.exhaustCfmNote).trim()) {
-            formAny.exhaustCfm = "OK";
+            const st = String(formAny.exhaustCfm || "").trim().toUpperCase();
+            if (st === "LOW" || st === "HIGH") {
+              formAny.exhaustCfm = st;
+            } else {
+              formAny.exhaustCfm = "OK";
+            }
           } else {
             formAny.exhaustCfm = "YES";
           }
@@ -1479,14 +1510,18 @@ function EditServiceDialog({
       };
 
       const exhaustCfmNote = normalizeExhaustCfmNote((values as any).exhaustCfmNote);
+      const cfmNumericMatch = exhaustCfmNote.match(/-?\d+(\.\d+)?/);
+      const cfmNumeric = cfmNumericMatch ? cfmNumericMatch[0] : "";
 
       const payload = {
         workDetails: {
           ...values,
-          // Persist exhaust CFM in NOTE and drive status from presence.
           exhaustCfmNote,
-          // Requirement: keep OK if exhaustCfmNote is available, else YES
-          exhaustCfm: exhaustCfmNote ? "OK" : "YES",
+          exhaustCfm: exhaustCfmStatusForStorage(
+            String(values.projectorModel || ""),
+            cfmNumeric,
+            cfmModelRules,
+          ),
           // Save "Service Visit Type" selection into DB field `serviceNumber`
           serviceNumber: values.serviceVisitType || undefined,
           // Ensure recommendedParts is saved with the rest of the work details
@@ -4439,29 +4474,46 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
       );
     }
 
-    // Handle image arrays
-    if (key === "images" && Array.isArray(value) && value.length > 0) {
+    // Handle image arrays (normalize keys for imports / alternate casing)
+    const nk = normalizeColumnKey(key);
+    const imageUrls = coerceImageUrlArray(value);
+
+    if (nk === "images" && imageUrls) {
       return (
         <button
-          onClick={() => handleImageClick(value, "Images")}
+          onClick={() => handleImageClick(imageUrls, "Images")}
           className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
         >
           <ImageIcon className="h-4 w-4" />
           <span>
-            {value.length} image{value.length !== 1 ? "s" : ""}
+            {imageUrls.length} image{imageUrls.length !== 1 ? "s" : ""}
           </span>
         </button>
       );
     }
 
-    if (key === "brokenImages" && Array.isArray(value) && value.length > 0) {
+    if (nk === "afterimages" && imageUrls) {
       return (
         <button
-          onClick={() => handleImageClick(value, "Broken Images")}
+          onClick={() => handleImageClick(imageUrls, "After Images")}
+          className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          <ImageIcon className="h-4 w-4" />
+          <span>
+            {imageUrls.length} image{imageUrls.length !== 1 ? "s" : ""}
+          </span>
+        </button>
+      );
+    }
+
+    if (nk === "brokenimages" && imageUrls) {
+      return (
+        <button
+          onClick={() => handleImageClick(imageUrls, "Broken Images")}
           className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-800 hover:underline"
         >
           <ImageIcon className="h-4 w-4" />
-          <span>{value.length} broken</span>
+          <span>{imageUrls.length} broken</span>
         </button>
       );
     }

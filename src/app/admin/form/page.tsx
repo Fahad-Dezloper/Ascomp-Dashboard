@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Save, ChevronDown, ChevronRight } from "lucide-react";
+import { CfmModelRulesEditor } from "@/components/admin/cfm-model-rules-editor";
+import type { CfmModelRule } from "@/lib/cfm-model-rules";
+import { RECOMMENDED_CFM_MODEL_RULES } from "@/lib/cfm-model-rules";
 
 type FieldType =
   | "text"
@@ -539,6 +542,9 @@ export default function FormBuilderPage() {
   const [fieldConfigs, setFieldConfigs] = useState<FieldConfig[]>(
     getInitialFieldConfigs(),
   );
+  const [cfmModelRules, setCfmModelRules] = useState<CfmModelRule[]>(() => [
+    ...RECOMMENDED_CFM_MODEL_RULES,
+  ]);
   const [newOption, setNewOption] = useState<Record<string, string>>({});
   const [newSubOption, setNewSubOption] = useState<Record<string, string>>({});
   const [expandedSubOptions, setExpandedSubOptions] = useState<Set<string>>(
@@ -560,6 +566,11 @@ export default function FormBuilderPage() {
           ) {
             setFieldConfigs(data.config);
           }
+          if (Array.isArray(data.cfmModelRules) && data.cfmModelRules.length > 0) {
+            setCfmModelRules(data.cfmModelRules);
+          } else {
+            setCfmModelRules([...RECOMMENDED_CFM_MODEL_RULES]);
+          }
         }
       } catch (error) {
         console.error("Failed to load form config:", error);
@@ -576,7 +587,7 @@ export default function FormBuilderPage() {
     );
 
     try {
-      const payload = { config: fieldConfigs };
+      const payload = { config: fieldConfigs, cfmModelRules };
       console.log(
         "Sending payload:",
         JSON.stringify(payload).substring(0, 200) + "...",
@@ -751,6 +762,7 @@ export default function FormBuilderPage() {
         </div>
 
         <div className="space-y-6">
+          <CfmModelRulesEditor rules={cfmModelRules} onChange={setCfmModelRules} />
           {FORM_SECTIONS.map((section) => {
             const fields = fieldsBySection[section] || [];
             if (fields.length === 0) return null;
