@@ -37,7 +37,22 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Register service worker
+    const host = window.location.hostname
+    const isLocalLoopback =
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '[::1]' ||
+      host === '::1'
+
+    // Local Next.js dev + any stale SW breaks navigations/API (FetchEvent / invalid Response).
+    if (isLocalLoopback && 'serviceWorker' in navigator) {
+      void navigator.serviceWorker.getRegistrations().then((regs) => {
+        for (const r of regs) void r.unregister()
+      })
+      return
+    }
+
+    // Register service worker (production / non-loopback hosts only)
     const register = () => {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker

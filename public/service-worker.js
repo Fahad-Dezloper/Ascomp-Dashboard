@@ -28,15 +28,36 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
 
   const url = new URL(event.request.url)
+
+  // Dev / loopback: do not intercept — Next.js navigations / RSC break when handled here,
+  // and invalid respondWith surfaces as FetchEvent errors in the console.
+  const loopbackHost =
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.hostname === '[::1]' ||
+    url.hostname === '::1'
+  if (loopbackHost) {
+    return
+  }
+
   if (url.pathname.startsWith('/api/auth') || url.pathname.startsWith('/api/admin/form-config')) {
     return
   }
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request, { cache: 'no-store' })
-        .then((response) => response)
-        .catch(() => caches.match(event.request).then((match) => match || caches.match('/offline.html')))
+      (async () => {
+        try {
+          return await fetch(event.request, { cache: 'no-store' })
+        } catch {
+          const fromCache =
+            (await caches.match(event.request)) ?? (await caches.match('/offline.html'))
+          return (
+            fromCache ??
+            new Response('Offline', { status: 503, statusText: 'Service Unavailable' })
+          )
+        }
+      })()
     )
     return
   }
@@ -45,7 +66,11 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((response) => response)
-        .catch(() => caches.match(event.request))
+        .catch(async () => {
+          const cached = await caches.match(event.request)
+          if (cached) return cached
+          return new Response('', { status: 503, statusText: 'Unavailable' })
+        })
     )
   }
 })

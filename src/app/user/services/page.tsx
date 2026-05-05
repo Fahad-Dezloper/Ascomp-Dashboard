@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,6 +41,7 @@ export default function ServicesPage() {
   const { user, isLoading } = useAuth()
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("completed")
 
@@ -53,52 +55,121 @@ export default function ServicesPage() {
   }, [viewMode])
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!user) {
-        router.push("/login")
-        return
-      }
-      fetchServices(viewMode)
+    if (isLoading) return
+
+    if (!user) {
+      router.push("/login")
+      return
     }
+
+    const ac = new AbortController()
+
+    ;(async () => {
+      try {
+        setLoading(true)
+        const endpoint =
+          viewMode === "completed"
+            ? "/api/user/services/completed"
+            : "/api/user/services/all-completed"
+
+        const response = await fetch(endpoint, {
+          credentials: "include",
+          signal: ac.signal,
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setServices(Array.isArray(data.services) ? data.services : [])
+        } else {
+          console.error(`Failed to fetch ${viewMode} services:`, response.statusText)
+          setServices([])
+          if (viewMode === "allCompleted") {
+            toast.error(
+              response.status === 401
+                ? "Not authorized to load all completed services."
+                : "Could not load all completed services.",
+            )
+          }
+        }
+      } catch (error: unknown) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          (error as Error).name === "AbortError"
+        ) {
+          return
+        }
+        console.error("Failed to fetch services:", error)
+        setServices([])
+        toast.error(
+          viewMode === "allCompleted"
+            ? "Network error loading all completed services."
+            : "Network error loading services.",
+        )
+      } finally {
+        if (!ac.signal.aborted) {
+          setLoading(false)
+        }
+      }
+    })()
+
+    return () => ac.abort()
   }, [user, isLoading, router, viewMode])
 
-  const fetchServices = async (mode: ViewMode) => {
-    try {
-      setLoading(true)
-      const endpoint =
-        mode === "completed"
-          ? "/api/user/services/completed"
-          : "/api/user/services/all-completed"
+  async function openServiceDetail(service: Service) {
+    if (viewMode === "completed" && service.workDetails != null) {
+      setSelectedService(service)
+      return
+    }
 
-      const response = await fetch(endpoint, {
+    setDetailLoading(true)
+    try {
+      const res = await fetch(`/api/admin/service-records/${service.id}`, {
         credentials: "include",
       })
-
-      if (response.ok) {
-        const data = await response.json()
-        setServices(data.services || [])
-      } else {
-        console.error(`Failed to fetch ${mode} services:`, response.statusText)
-        setServices([])
+      if (!res.ok) {
+        toast.error(
+          res.status === 401 ? "Not authorized." : "Could not load full service record.",
+        )
+        return
       }
-    } catch (error) {
-      console.error("Failed to fetch services:", error)
+      const data = await res.json()
+      const full = data.service as Service | undefined
+      if (!full?.id) {
+        toast.error("Invalid response when loading details.")
+        return
+      }
+      setSelectedService(full)
+    } catch {
+      toast.error("Could not load full service record.")
     } finally {
-      setLoading(false)
+      setDetailLoading(false)
     }
   }
 
   const filteredServices = services.filter((service) => {
-    const query = debouncedSearchQuery.toLowerCase()
+    const query = debouncedSearchQuery.trim().toLowerCase()
+
+    const fieldMatches = (value: string | number | null | undefined) => {
+      if (value === null || value === undefined) return false
+      return String(value).toLowerCase().includes(query)
+    }
 
     const matchesSearch =
-      (service.site?.name?.toLowerCase().includes(query) ?? false) ||
-      (service.projector?.model?.toLowerCase().includes(query) ?? false) ||
-      (service.projector?.serialNo?.toLowerCase().includes(query) ?? false) ||
-      (service.serviceNumber?.toString().includes(query) ?? false) ||
-      (service.cinemaName?.toLowerCase().includes(query) ?? false) ||
-      (service.site?.address?.toLowerCase().includes(query) ?? false) ||
-      (service.address?.toLowerCase().includes(query) ?? false)
+      !query ||
+      fieldMatches(service.site?.name) ||
+      fieldMatches(service.projector?.model) ||
+      fieldMatches(service.projector?.serialNo) ||
+      fieldMatches(service.serviceNumber) ||
+      fieldMatches(service.cinemaName) ||
+      fieldMatches(service.site?.address) ||
+      fieldMatches(service.address) ||
+      fieldMatches(service.location) ||
+      fieldMatches(service.remarks) ||
+      fieldMatches(service.contactDetails) ||
+      fieldMatches(service.site?.contactDetails) ||
+      fieldMatches(service.screenNumber) ||
+      fieldMatches(service.engineerName)
 
     const matchesDate = dateFilter
       ? service.date?.startsWith(format(dateFilter, "yyyy-MM-dd"))
@@ -111,7 +182,7 @@ export default function ServicesPage() {
     return new Date(bDate || "").getTime() - new Date(aDate || "").getTime()
   })
 
-  if (loading && !selectedService) {
+  if (detailLoading || (loading && !selectedService)) {
     return (
       <div className="min-h-screen bg-white w-full">
         <div className="border-b-2 border-black p-4 sm:p-6">
@@ -163,7 +234,7 @@ export default function ServicesPage() {
               <div className="relative w-full sm:w-64 group">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400 group-focus-within:text-black transition-colors" />
                 <Input
-                  placeholder="Search site, address, model, serial..."
+                  placeholder="Search site, cinema, model, serial, address..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9 border-2 border-gray-200 focus-visible:border-black focus-visible:ring-0 transition-colors"
@@ -265,7 +336,7 @@ export default function ServicesPage() {
               <ServiceCard
                 key={service.id}
                 service={service}
-                onClick={() => setSelectedService(service)}
+                onClick={() => openServiceDetail(service)}
                 viewMode={viewMode}
               />
             ))}

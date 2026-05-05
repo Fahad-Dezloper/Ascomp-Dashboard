@@ -55,6 +55,14 @@ export function ServiceCard({ service, onClick, viewMode }: ServiceCardProps) {
                 {service.projector.model} <span className="text-gray-400 font-normal">|</span> {service.projector.serialNo}
               </p>
             </div>
+            {(service.screenNumber || service.site?.screenNo) && (
+              <div>
+                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Screen</p>
+                <p className="font-semibold text-black">
+                  {service.screenNumber ?? service.site?.screenNo}
+                </p>
+              </div>
+            )}
             <div>
               <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Service Date</p>
               <p className="font-semibold text-black">{formatDate(service.date)}</p>
