@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import ScheduleServiceModal from "./modals/schedule-service-modal";
 import PdfPreviewDialog from "./pdf-preview-dialog";
+import ProjectorAmcSection from "./projector-amc-section";
 import EditProjectorModal from "./modals/edit-projector-modal";
 import { FileText } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -390,15 +391,14 @@ export default function ProjectorDetailPage({
         >
           Back to Site
         </Button>
-        {canEdit &&
-          (projector.status === "pending" || projector.status === "packed") && (
-            <Button
-              onClick={() => setShowSchedule(true)}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Schedule Service
-            </Button>
-          )}
+        {canEdit && (
+          <Button
+            onClick={() => setShowSchedule(true)}
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            Schedule Service
+          </Button>
+        )}
         {canEdit && (
           <Button
             variant="outline"
@@ -441,6 +441,8 @@ export default function ProjectorDetailPage({
           </Button>
         )}
       </div>
+
+      <ProjectorAmcSection projectorId={projectorId} canEdit={canEdit} />
 
       <Card className="border-border bg-white shadow-sm">
         <CardHeader className="pb-4 border-b border-border">

@@ -1,39 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma, { ServiceStatus } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
-
-// Helper to generate Mongo-style IDs (since schema uses string IDs)
-const generateObjectId = () => [...Array(24)].map(() => Math.floor(Math.random() * 16).toString(16)).join("")
-
-// Helper to convert number to ordinal word
-const numberToOrdinalWord = (num: number): string => {
-  const ordinals = [
-    "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
-    "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth",
-    "Eighteenth", "Nineteenth", "Twentieth", "Twenty-First", "Twenty-Second", "Twenty-Third",
-    "Twenty-Fourth", "Twenty-Fifth", "Twenty-Sixth", "Twenty-Seventh", "Twenty-Eighth",
-    "Twenty-Ninth", "Thirtieth", "Thirty-First", "Thirty-Second", "Thirty-Third", "Thirty-Fourth",
-    "Thirty-Fifth", "Thirty-Sixth", "Thirty-Seventh", "Thirty-Eighth", "Thirty-Ninth", "Fortieth",
-    "Forty-First", "Forty-Second", "Forty-Third", "Forty-Fourth", "Forty-Fifth", "Forty-Sixth",
-    "Forty-Seventh", "Forty-Eighth", "Forty-Ninth", "Fiftieth", "Fifty-First", "Fifty-Second",
-    "Fifty-Third", "Fifty-Fourth", "Fifty-Fifth", "Fifty-Sixth", "Fifty-Seventh", "Fifty-Eighth",
-    "Fifty-Ninth", "Sixtieth", "Sixty-First", "Sixty-Second", "Sixty-Third", "Sixty-Fourth",
-    "Sixty-Fifth", "Sixty-Sixth", "Sixty-Seventh", "Sixty-Eighth", "Sixty-Ninth", "Seventieth",
-    "Seventy-First", "Seventy-Second", "Seventy-Third", "Seventy-Fourth", "Seventy-Fifth",
-    "Seventy-Sixth", "Seventy-Seventh", "Seventy-Eighth", "Seventy-Ninth", "Eightieth",
-    "Eighty-First", "Eighty-Second", "Eighty-Third", "Eighty-Fourth", "Eighty-Fifth",
-    "Eighty-Sixth", "Eighty-Seventh", "Eighty-Eighth", "Eighty-Ninth", "Ninetieth",
-    "Ninety-First", "Ninety-Second", "Ninety-Third", "Ninety-Fourth", "Ninety-Fifth",
-    "Ninety-Sixth", "Ninety-Seventh", "Ninety-Eighth", "Ninety-Ninth", "One Hundredth"
-  ]
-
-  if (num >= 1 && num <= 100) {
-    return ordinals[num - 1]!
-  }
-
-  // Fallback for numbers beyond 100
-  return `${num}th`
-}
+import { assignProjectorToFieldWorker } from "@/lib/projector-service-assignment"
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,47 +14,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const site = await prisma.site.findUnique({
-      where: { id: siteId },
-    })
-    if (!site) {
-      return NextResponse.json({ error: "Site not found." }, { status: 404 })
-    }
-
-    const projector = await prisma.projector.findUnique({
-      where: { id: projectorId },
-      select: {
-        id: true,
-        siteId: true,
-        serialNo: true,
-        modelNo: true,
-        pvr: true,
-      },
-    })
-    if (!projector || projector.siteId !== siteId) {
-      return NextResponse.json({ error: "Projector not found for this site." }, { status: 404 })
-    }
-
     const fieldWorker = await prisma.user.findFirst({
       where: { id: fieldWorkerId, role: "FIELD_WORKER" },
       select: { id: true, email: true, name: true, pvrAccess: true },
     })
     if (!fieldWorker || !fieldWorker.email) {
       return NextResponse.json({ error: "Field worker not found." }, { status: 404 })
-    }
-
-    // PVR restriction: check that the field worker is allowed to service this projector type
-    if (projector.pvr && fieldWorker.pvrAccess !== "BOTH") {
-      if (fieldWorker.pvrAccess !== projector.pvr) {
-        const workerLabel = fieldWorker.pvrAccess === "PVR" ? "PVR" : "Non-PVR"
-        const projectorLabel = projector.pvr === "PVR" ? "PVR" : "Non-PVR"
-        return NextResponse.json(
-          {
-            error: `This field worker is restricted to ${workerLabel} projectors only, but the selected projector is ${projectorLabel}.`,
-          },
-          { status: 403 },
-        )
-      }
     }
 
     const admin = await prisma.user.findFirst({
@@ -97,109 +30,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Admin user not found." }, { status: 500 })
     }
 
-    const parsedDate = new Date(scheduledDate)
-    if (Number.isNaN(parsedDate.getTime())) {
-      return NextResponse.json({ error: "Invalid scheduled date." }, { status: 400 })
-    }
-
-    // Check if an uncompleted service record already exists for this projector
-    const existingRecord = await prisma.serviceRecord.findFirst({
-      where: {
-        projectorId,
-        date: null,  // Not completed yet
+    const assigned = await assignProjectorToFieldWorker({
+      siteId,
+      projectorId,
+      fieldWorker: {
+        id: fieldWorker.id,
+        email: fieldWorker.email,
+        name: fieldWorker.name,
+        pvrAccess: fieldWorker.pvrAccess,
       },
-      orderBy: {
-        createdAt: "desc",  // Get the latest one
-      },
+      recordUserId: admin.id,
+      scheduledDate,
+      allowOverrideAssignee: true,
     })
 
-    let record
-
-    if (existingRecord) {
-      // Update the existing service record with new assignment
-      record = await prisma.serviceRecord.update({
-        where: { id: existingRecord.id },
-        data: {
-          assignedToId: fieldWorker.id,
-        },
-      })
-    } else {
-      // Create a new service record
-      // Find the highest service number for this projector to avoid unique constraint violations
-      const existingRecords = await prisma.serviceRecord.findMany({
-        where: { projectorId },
-        select: { serviceNumber: true },
-      })
-
-      // Parse ordinal words back to numbers to find the max
-      const ordinalToNumber = (ordinal: string): number => {
-        const ordinals = [
-          "First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth",
-          "Eleventh", "Twelfth", "Thirteenth", "Fourteenth", "Fifteenth", "Sixteenth", "Seventeenth",
-          "Eighteenth", "Nineteenth", "Twentieth", "Twenty-First", "Twenty-Second", "Twenty-Third",
-          "Twenty-Fourth", "Twenty-Fifth", "Twenty-Sixth", "Twenty-Seventh", "Twenty-Eighth",
-          "Twenty-Ninth", "Thirtieth", "Thirty-First", "Thirty-Second", "Thirty-Third", "Thirty-Fourth",
-          "Thirty-Fifth", "Thirty-Sixth", "Thirty-Seventh", "Thirty-Eighth", "Thirty-Ninth", "Fortieth",
-          "Forty-First", "Forty-Second", "Forty-Third", "Forty-Fourth", "Forty-Fifth", "Forty-Sixth",
-          "Forty-Seventh", "Forty-Eighth", "Forty-Ninth", "Fiftieth", "Fifty-First", "Fifty-Second",
-          "Fifty-Third", "Fifty-Fourth", "Fifty-Fifth", "Fifty-Sixth", "Fifty-Seventh", "Fifty-Eighth",
-          "Fifty-Ninth", "Sixtieth", "Sixty-First", "Sixty-Second", "Sixty-Third", "Sixty-Fourth",
-          "Sixty-Fifth", "Sixty-Sixth", "Sixty-Seventh", "Sixty-Eighth", "Sixty-Ninth", "Seventieth",
-          "Seventy-First", "Seventy-Second", "Seventy-Third", "Seventy-Fourth", "Seventy-Fifth",
-          "Seventy-Sixth", "Seventy-Seventh", "Seventy-Eighth", "Seventy-Ninth", "Eightieth",
-          "Eighty-First", "Eighty-Second", "Eighty-Third", "Eighty-Fourth", "Eighty-Fifth",
-          "Eighty-Sixth", "Eighty-Seventh", "Eighty-Eighth", "Eighty-Ninth", "Ninetieth",
-          "Ninety-First", "Ninety-Second", "Ninety-Third", "Ninety-Fourth", "Ninety-Fifth",
-          "Ninety-Sixth", "Ninety-Seventh", "Ninety-Eighth", "Ninety-Ninth", "One Hundredth"
-        ]
-        const index = ordinals.indexOf(ordinal)
-        return index !== -1 ? index + 1 : 0
-      }
-
-      const maxServiceNumber = existingRecords.reduce((max, record) => {
-        const num = ordinalToNumber(record.serviceNumber || "")
-        return num > max ? num : max
-      }, 0)
-
-      const nextServiceNumber = maxServiceNumber + 1
-
-      record = await prisma.serviceRecord.create({
-        data: {
-          id: generateObjectId(),
-          userId: admin.id,
-          assignedToId: fieldWorker.id,
-          projectorId: projector.id,
-          siteId: site.id,
-          serviceNumber: numberToOrdinalWord(nextServiceNumber) as any,
-          cinemaName: site.siteName,
-          address: site.address,
-          contactDetails: site.contactDetails,
-          location: site.address,
-        },
-      })
+    if (!assigned.ok) {
+      return NextResponse.json({ error: assigned.error }, { status: assigned.status })
     }
 
-    // Update projector status to SCHEDULED
-    await prisma.projector.update({
-      where: { id: projectorId },
-      data: {
-        status: ServiceStatus.SCHEDULED,
-      },
-    })
+    const { record, site, projector, fieldWorker: assignedWorker, scheduledDate: dateStr } = assigned
 
     // Send email notification to field worker
     try {
-      const formattedDate = new Date(scheduledDate).toLocaleDateString("en-US", {
+      const formattedDate = new Date(dateStr).toLocaleDateString("en-US", {
         weekday: "long",
         year: "numeric",
         month: "long",
         day: "numeric",
       })
 
-      // fieldWorker.email
-
       await sendEmail({
-        to: fieldWorker.email,
+        to: assignedWorker.email!,
         subject: `New Service Assignment - ${site.siteName}`,
         html: `
           <!DOCTYPE html>
@@ -225,7 +86,7 @@ export async function POST(request: NextRequest) {
               <div style="padding: 40px 30px;">
                 <!-- Greeting -->
                 <p style="margin: 0 0 25px 0; color: #333333; font-size: 16px; line-height: 1.6;">
-                  Hello <strong>${fieldWorker.name}</strong>,
+                  Hello <strong>${assignedWorker.name}</strong>,
                 </p>
                 
                 <p style="margin: 0 0 30px 0; color: #555555; font-size: 15px; line-height: 1.6;">
@@ -305,7 +166,7 @@ export async function POST(request: NextRequest) {
           </html>
         `,
       })
-      console.log("Service assignment email sent successfully to:", fieldWorker.email)
+      console.log("Service assignment email sent successfully to:", assignedWorker.email)
     } catch (emailError) {
       console.error("Failed to send service assignment email:", emailError)
       // Don't fail the request if email fails, but log it
@@ -316,7 +177,7 @@ export async function POST(request: NextRequest) {
       serviceRecord: {
         id: record.id,
         date: record.date,
-        assignedToId: fieldWorker.id,
+        assignedToId: assignedWorker.id,
       },
     })
   } catch (error) {

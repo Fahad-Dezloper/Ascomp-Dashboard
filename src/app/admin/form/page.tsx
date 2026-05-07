@@ -14,8 +14,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Save, ChevronDown, ChevronRight } from "lucide-react";
 import { CfmModelRulesEditor } from "@/components/admin/cfm-model-rules-editor";
+import { LaserProjectorModelsEditor } from "@/components/admin/laser-projector-models-editor";
 import type { CfmModelRule } from "@/lib/cfm-model-rules";
 import { RECOMMENDED_CFM_MODEL_RULES } from "@/lib/cfm-model-rules";
+import { sanitizeLaserProjectorModels } from "@/lib/laser-projector-models";
 
 type FieldType =
   | "text"
@@ -545,6 +547,9 @@ export default function FormBuilderPage() {
   const [cfmModelRules, setCfmModelRules] = useState<CfmModelRule[]>(() => [
     ...RECOMMENDED_CFM_MODEL_RULES,
   ]);
+  const [laserProjectorModels, setLaserProjectorModels] = useState<string[]>(
+    [],
+  );
   const [newOption, setNewOption] = useState<Record<string, string>>({});
   const [newSubOption, setNewSubOption] = useState<Record<string, string>>({});
   const [expandedSubOptions, setExpandedSubOptions] = useState<Set<string>>(
@@ -571,6 +576,9 @@ export default function FormBuilderPage() {
           } else {
             setCfmModelRules([...RECOMMENDED_CFM_MODEL_RULES]);
           }
+          setLaserProjectorModels(
+            sanitizeLaserProjectorModels(data.laserProjectorModels),
+          );
         }
       } catch (error) {
         console.error("Failed to load form config:", error);
@@ -587,7 +595,11 @@ export default function FormBuilderPage() {
     );
 
     try {
-      const payload = { config: fieldConfigs, cfmModelRules };
+      const payload = {
+        config: fieldConfigs,
+        cfmModelRules,
+        laserProjectorModels,
+      };
       console.log(
         "Sending payload:",
         JSON.stringify(payload).substring(0, 200) + "...",
@@ -606,7 +618,7 @@ export default function FormBuilderPage() {
         const result = await res.json();
         console.log("Config saved successfully:", result);
         alert(
-          `Form configuration saved successfully! ${result.savedFields || fieldConfigs.length} fields saved.`,
+          `Form configuration saved successfully! ${result.savedFields || fieldConfigs.length} fields, ${result.savedLaserModels ?? laserProjectorModels.length} laser model(s).`,
         );
       } else {
         const errorText = await res.text();
@@ -763,6 +775,10 @@ export default function FormBuilderPage() {
 
         <div className="space-y-6">
           <CfmModelRulesEditor rules={cfmModelRules} onChange={setCfmModelRules} />
+          <LaserProjectorModelsEditor
+            models={laserProjectorModels}
+            onChange={setLaserProjectorModels}
+          />
           {FORM_SECTIONS.map((section) => {
             const fields = fieldsBySection[section] || [];
             if (fields.length === 0) return null;

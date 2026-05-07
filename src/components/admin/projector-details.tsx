@@ -10,6 +10,8 @@ interface ProjectorDetailsProps {
   onSchedule?: () => void;
   onEdit?: () => void;
   onViewDetails?: () => void;
+  /** Label for the primary schedule action (default “Schedule”). */
+  scheduleButtonLabel?: string;
 }
 
 export default function ProjectorDetails({
@@ -18,6 +20,7 @@ export default function ProjectorDetails({
   onSchedule,
   onEdit,
   onViewDetails,
+  scheduleButtonLabel = "Schedule",
 }: ProjectorDetailsProps) {
   const statusColor =
     projector.status.toLowerCase() === "pending"
@@ -98,15 +101,15 @@ export default function ProjectorDetails({
         className="flex items-center justify-between gap-3 border-t border-border px-4 py-3"
         onClick={(e) => e.stopPropagation()}
       >
-        {onSchedule && (
-          <Button
-            size="sm"
-            onClick={onSchedule}
-            className="bg-black text-white hover:bg-gray-800 px-4"
-          >
-            Schedule
-          </Button>
-        )}
+            {onSchedule && (
+              <Button
+                size="sm"
+                onClick={onSchedule}
+                className="bg-black text-white hover:bg-gray-800 px-4"
+              >
+                {scheduleButtonLabel}
+              </Button>
+            )}
         {onEdit && (
           <Button
             size="sm"

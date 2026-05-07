@@ -168,6 +168,19 @@ export default function WorkflowPage() {
                 {/* <DropdownMenuItem onClick={() => navigateTo("/user/profile")} className="cursor-pointer">
                    User Profile
                 </DropdownMenuItem> */}
+                <DropdownMenuItem onClick={() => navigateTo("/user/schedule-visit")} className="cursor-pointer">
+                  Schedule a visit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigateTo("/user/claim")} className="cursor-pointer">
+                  Claim a visit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigateTo("/user/assignment-requests")}
+                  className="cursor-pointer"
+                >
+                  Assignment requests
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigateTo("/user/services")} className="cursor-pointer">
                   History / Services
                 </DropdownMenuItem>

@@ -14,8 +14,10 @@ import {
 import { Plus, Trash2, Save, RefreshCw } from "lucide-react";
 import { FormFieldConfigCard } from "@/components/admin/form-field-config-card";
 import { CfmModelRulesEditor } from "@/components/admin/cfm-model-rules-editor";
+import { LaserProjectorModelsEditor } from "@/components/admin/laser-projector-models-editor";
 import type { CfmModelRule } from "@/lib/cfm-model-rules";
 import { RECOMMENDED_CFM_MODEL_RULES } from "@/lib/cfm-model-rules";
+import { sanitizeLaserProjectorModels } from "@/lib/laser-projector-models";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 
@@ -540,6 +542,9 @@ export default function FormBuilderPage() {
   const [cfmModelRules, setCfmModelRules] = useState<CfmModelRule[]>(() => [
     ...RECOMMENDED_CFM_MODEL_RULES,
   ]);
+  const [laserProjectorModels, setLaserProjectorModels] = useState<string[]>(
+    [],
+  );
   const [newOption, setNewOption] = useState<Record<string, string>>({});
   const [newSubOption, setNewSubOption] = useState<Record<string, string>>({});
   const [expandedSubOptions, setExpandedSubOptions] = useState<Set<string>>(
@@ -612,6 +617,9 @@ export default function FormBuilderPage() {
           } else {
             setCfmModelRules([...RECOMMENDED_CFM_MODEL_RULES]);
           }
+          setLaserProjectorModels(
+            sanitizeLaserProjectorModels(data.laserProjectorModels),
+          );
         }
       } catch (error) {
         console.error("Failed to load form config:", error);
@@ -729,7 +737,11 @@ export default function FormBuilderPage() {
 
   const saveConfig = async () => {
     try {
-      const payload = { config: fieldConfigs, cfmModelRules };
+      const payload = {
+        config: fieldConfigs,
+        cfmModelRules,
+        laserProjectorModels,
+      };
 
       const res = await fetch("/api/admin/form-config", {
         method: "POST",
@@ -741,7 +753,7 @@ export default function FormBuilderPage() {
       if (res.ok) {
         const result = await res.json();
         toast.success(
-          `Saved ${result.savedFields || fieldConfigs.length} fields and ${result.savedCfmRules ?? cfmModelRules.length} CFM rules.`,
+          `Saved ${result.savedFields || fieldConfigs.length} fields, ${result.savedCfmRules ?? cfmModelRules.length} CFM rules, ${result.savedLaserModels ?? laserProjectorModels.length} laser model(s).`,
         );
       } else {
         const errorText = await res.text();
@@ -1200,6 +1212,10 @@ export default function FormBuilderPage() {
 
         <div className="space-y-3">
           <CfmModelRulesEditor rules={cfmModelRules} onChange={setCfmModelRules} />
+          <LaserProjectorModelsEditor
+            models={laserProjectorModels}
+            onChange={setLaserProjectorModels}
+          />
           {FORM_SECTIONS.map((section) => {
             const fields = fieldsBySection[section] || [];
             if (fields.length === 0) return null;

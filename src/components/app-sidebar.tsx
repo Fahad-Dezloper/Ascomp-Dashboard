@@ -7,6 +7,8 @@ import {
   FileEdit,
   Database,
   CalendarClock,
+  Award,
+  Inbox,
 } from "lucide-react";
 import type { Route } from "next";
 
@@ -40,6 +42,18 @@ const navMainData: NavMainItem[] = [
     title: "Sites & Projectors",
     url: "/admin/dashboard/sites" as Route,
     icon: Projector,
+    for: "christie",
+  },
+  {
+    title: "AMC lookup",
+    url: "/admin/dashboard/amc" as Route,
+    icon: Award,
+    for: "christie",
+  },
+  {
+    title: "Assignment requests",
+    url: "/admin/dashboard/assignment-requests" as Route,
+    icon: Inbox,
     for: "christie",
   },
   {

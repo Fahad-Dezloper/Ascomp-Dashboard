@@ -16,12 +16,16 @@ import ScheduleServiceModal from "./modals/schedule-service-modal";
 import ProjectorDetails from "./projector-details";
 import { ChevronDown, ChevronUp, Edit } from "lucide-react";
 import type { Site, Projector } from "@/lib/types";
+import { matchesSitesDirectorySearch } from "@/lib/site-directory-search";
 
 interface ProjectorData {
   id: string;
   name: string;
   model: string;
   serialNumber: string;
+  address?: string | null;
+  region?: string | null;
+  state?: string | null;
   installDate: string;
   lastServiceDate: string;
   status: "completed" | "pending" | "scheduled" | "packed";
@@ -35,6 +39,8 @@ interface SiteData {
   location: string;
   address: string;
   contactDetails: string;
+  siteCode?: string | null;
+  email?: string | null;
   screenNo: string;
   createdDate: string;
   totalCompletedServices?: number;
@@ -109,19 +115,7 @@ export default function SitesView() {
 
   const filteredSites = useMemo(() => {
     return sites
-      .filter(
-        (site) =>
-          site.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          site.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          site.projectors.some(
-            (p) =>
-              p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              p.serialNumber
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase()) ||
-              p.model.toLowerCase().includes(searchQuery.toLowerCase()),
-          ),
-      )
+      .filter((site) => matchesSitesDirectorySearch(searchQuery, site))
       .map((site) => ({
         ...site,
         projectors: site.projectors.filter((p) => {
@@ -151,7 +145,7 @@ export default function SitesView() {
       </div>
 
       <SearchBar
-        placeholder="Search by site name, address, projector name or serial number..."
+        placeholder="Site name or address (multi-word OK), contact, site code, projector serial/model/region…"
         value={searchQuery}
         onChange={setSearchQuery}
       />

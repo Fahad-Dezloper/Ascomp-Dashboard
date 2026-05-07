@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
@@ -20,8 +20,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ServiceDetailView, type Service } from "@/components/services/service-detail-view"
 import { ServiceCard } from "@/components/services/service-card"
 import { ServiceListSkeleton } from "@/components/services/service-list-skeleton"
+import { CompletedServicesTable } from "@/components/services/completed-services-table"
+import { haystackMatchesFreeTextQuery } from "@/lib/site-free-text-search"
 
 type ViewMode = "completed" | "allCompleted"
+type LayoutMode = "cards" | "table"
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value)
@@ -44,6 +47,7 @@ export default function ServicesPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("completed")
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("cards")
 
   const [searchQuery, setSearchQuery] = useState("")
   const [dateFilter, setDateFilter] = useState<Date>()
@@ -52,6 +56,10 @@ export default function ServicesPage() {
 
   useEffect(() => {
     setSelectedService(null)
+  }, [viewMode])
+
+  useEffect(() => {
+    setLayoutMode("cards")
   }, [viewMode])
 
   useEffect(() => {
@@ -147,40 +155,73 @@ export default function ServicesPage() {
     }
   }
 
-  const filteredServices = services.filter((service) => {
-    const query = debouncedSearchQuery.trim().toLowerCase()
+  const filteredServices = useMemo(() => {
+    const query = debouncedSearchQuery.trim()
 
-    const fieldMatches = (value: string | number | null | undefined) => {
-      if (value === null || value === undefined) return false
-      return String(value).toLowerCase().includes(query)
+    /** When the user searches by site/cinema/address text, include every visit for that site — not only rows that still carry the address snapshot. */
+    const siteIdsFromContextMatch = new Set<string>()
+    if (query) {
+      for (const s of services) {
+        const sid = s.site?.id
+        if (!sid) continue
+        const contextHaystack = [
+          s.site?.name,
+          s.site?.address,
+          s.site?.contactDetails,
+          s.site?.siteCode,
+          s.cinemaName,
+          s.address,
+          s.location,
+        ]
+        if (haystackMatchesFreeTextQuery(contextHaystack, query))
+          siteIdsFromContextMatch.add(sid)
+      }
     }
 
-    const matchesSearch =
-      !query ||
-      fieldMatches(service.site?.name) ||
-      fieldMatches(service.projector?.model) ||
-      fieldMatches(service.projector?.serialNo) ||
-      fieldMatches(service.serviceNumber) ||
-      fieldMatches(service.cinemaName) ||
-      fieldMatches(service.site?.address) ||
-      fieldMatches(service.address) ||
-      fieldMatches(service.location) ||
-      fieldMatches(service.remarks) ||
-      fieldMatches(service.contactDetails) ||
-      fieldMatches(service.site?.contactDetails) ||
-      fieldMatches(service.screenNumber) ||
-      fieldMatches(service.engineerName)
+    return services
+      .filter((service) => {
+        if (!query) return true
 
-    const matchesDate = dateFilter
-      ? service.date?.startsWith(format(dateFilter, "yyyy-MM-dd"))
-      : true
+        const onSameSiteAsContext =
+          !!service.site?.id && siteIdsFromContextMatch.has(service.site.id)
 
-    return matchesSearch && matchesDate
-  }).sort((a, b) => {
-    const aDate = a.completedAt || a.date
-    const bDate = b.completedAt || b.date
-    return new Date(bDate || "").getTime() - new Date(aDate || "").getTime()
-  })
+        const haystackFallback = haystackMatchesFreeTextQuery(
+          [
+            service.projector?.serialNo,
+            service.projector?.model,
+            service.serviceNumber !== undefined &&
+            service.serviceNumber !== null
+              ? String(service.serviceNumber)
+              : undefined,
+            service.cinemaName,
+            service.site?.name,
+            service.site?.address,
+            service.address,
+            service.location,
+            service.remarks,
+            service.contactDetails,
+            service.site?.contactDetails,
+            service.screenNumber,
+            service.engineerName,
+            service.site?.siteCode,
+          ],
+          query,
+        )
+
+        const matchesSearch = onSameSiteAsContext || haystackFallback
+
+        const matchesDate = dateFilter
+          ? service.date?.startsWith(format(dateFilter, "yyyy-MM-dd"))
+          : true
+
+        return matchesSearch && matchesDate
+      })
+      .sort((a, b) => {
+        const aDate = a.completedAt || a.date
+        const bDate = b.completedAt || b.date
+        return new Date(bDate || "").getTime() - new Date(aDate || "").getTime()
+      })
+  }, [services, debouncedSearchQuery, dateFilter])
 
   if (detailLoading || (loading && !selectedService)) {
     return (
@@ -228,6 +269,10 @@ export default function ServicesPage() {
                 {filteredServices.length} service{filteredServices.length !== 1 ? "s" : ""} found
                 {services.length !== filteredServices.length && ` (filtered from ${services.length})`}
               </p>
+              <p className="text-xs text-gray-500 mt-1 max-w-xl">
+                Table view is read-only, like the admin database grid: browse columns and download PDF reports only —{" "}
+                email is not available here (admins use the dashboard to send).
+              </p>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -264,35 +309,55 @@ export default function ServicesPage() {
                   />
                 </PopoverContent>
               </Popover>
-              <div className="flex rounded-md border-2 border-black overflow-hidden shadow-sm">
-                <Button
-                  type="button"
-                  variant={viewMode === "completed" ? "default" : "ghost"}
-                  className={`flex-1 rounded-none font-semibold ${viewMode === "completed" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
-                  onClick={() => {
-                    if (viewMode !== "completed") {
-                      setLoading(true)
-                      setViewMode("completed")
-                      setSearchQuery("")
-                    }
-                  }}
-                >
-                  Completed
-                </Button>
-                <Button
-                  type="button"
-                  variant={viewMode === "allCompleted" ? "default" : "ghost"}
-                  className={`flex-1 rounded-none font-semibold ${viewMode === "allCompleted" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
-                  onClick={() => {
-                    if (viewMode !== "allCompleted") {
-                      setLoading(true)
-                      setViewMode("allCompleted")
-                      setSearchQuery("")
-                    }
-                  }}
-                >
-                  All Completed
-                </Button>
+              <div className="flex flex-col gap-2 w-full sm:w-auto">
+                <div className="flex rounded-md border-2 border-black overflow-hidden shadow-sm">
+                  <Button
+                    type="button"
+                    variant={viewMode === "completed" ? "default" : "ghost"}
+                    className={`flex-1 rounded-none font-semibold ${viewMode === "completed" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
+                    onClick={() => {
+                      if (viewMode !== "completed") {
+                        setLoading(true)
+                        setViewMode("completed")
+                        setSearchQuery("")
+                      }
+                    }}
+                  >
+                    Completed
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={viewMode === "allCompleted" ? "default" : "ghost"}
+                    className={`flex-1 rounded-none font-semibold ${viewMode === "allCompleted" ? "bg-black text-white" : "text-black hover:bg-gray-100"}`}
+                    onClick={() => {
+                      if (viewMode !== "allCompleted") {
+                        setLoading(true)
+                        setViewMode("allCompleted")
+                        setSearchQuery("")
+                      }
+                    }}
+                  >
+                    All Completed
+                  </Button>
+                </div>
+                <div className="flex rounded-md border-2 border-gray-300 overflow-hidden">
+                  <Button
+                    type="button"
+                    variant={layoutMode === "cards" ? "secondary" : "ghost"}
+                    className={`flex-1 rounded-none text-sm font-semibold ${layoutMode === "cards" ? "bg-gray-200 text-black" : "text-gray-600"}`}
+                    onClick={() => setLayoutMode("cards")}
+                  >
+                    Cards
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={layoutMode === "table" ? "secondary" : "ghost"}
+                    className={`flex-1 rounded-none text-sm font-semibold ${layoutMode === "table" ? "bg-gray-200 text-black" : "text-gray-600"}`}
+                    onClick={() => setLayoutMode("table")}
+                  >
+                    Table
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -330,6 +395,8 @@ export default function ServicesPage() {
               )}
             </CardContent>
           </Card>
+        ) : layoutMode === "table" ? (
+          <CompletedServicesTable services={filteredServices} />
         ) : (
           <div className="grid grid-cols-2 gap-4">
             {filteredServices.map((service) => (

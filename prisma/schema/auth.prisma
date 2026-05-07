@@ -42,12 +42,20 @@ model User {
   accounts         Account[]
   createdServices  ServiceRecord[] @relation("CreatedServices")
   assignedServices ServiceRecord[] @relation("AssignedServices")
+  assignmentRequestsSent ServiceAssignmentRequest[] @relation("AssignmentRequestsSent")
   role             Role            @default(FIELD_WORKER)
   accessLevel      AccessLevel?
   pvrAccess        PVR             @default(BOTH)
 
   @@unique([email])
   @@map("user")
+}
+
+enum AssignmentRequestStatus {
+  PENDING
+  CANCELLED
+  DENIED
+  COMPLETED
 }
 
 model Site {
@@ -77,10 +85,36 @@ model Projector {
   site           Site            @relation(fields: [siteId], references: [id])
   serviceRecords ServiceRecord[]
   moveHistory    ProjectorMoveHistory[]
+  amcPeriods     ProjectorAmc[]
   lastServiceAt  DateTime?
 
   @@index([lastServiceAt])
   @@map("projector")
+}
+
+model ProjectorAmc {
+  id                  String    @id @default(cuid()) @map("_id")
+  projectorId         String
+  projector           Projector @relation(fields: [projectorId], references: [id], onDelete: Cascade)
+  /** Snapshot at creation — certificate & history stay accurate if master data changes */
+  siteNameSnapshot    String
+  /** Optional; older rows may lack this — UI falls back to current site address */
+  siteAddressSnapshot String?
+  modelNoSnapshot     String
+  serialNoSnapshot    String
+  startDate           DateTime  @db.Date
+  endDate             DateTime  @db.Date
+  clientPoNumber      String
+  invoiceNumber       String
+  certificateNumber   String    @unique
+  certificateBlobUrl  String?
+  certificateIssuedAt DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([projectorId])
+  @@index([startDate, endDate])
+  @@map("projector_amc")
 }
 
 model ProjectorMoveHistory {
@@ -316,6 +350,7 @@ model ServiceRecord {
   photosDriveLink               String?
   replacementRequired           Boolean?  @default(false)
   logs                          String?
+  assignmentRequests            ServiceAssignmentRequest[]
 
   @@unique([projectorId, serviceNumber])
   @@index([projectorId, serviceNumber])
@@ -326,6 +361,25 @@ model ServiceRecord {
   @@index([date])
   @@index([assignedToId])
   @@map("service_record")
+}
+
+/// Engineer B requests a visit currently assigned to A; A must approve, deny, or release.
+model ServiceAssignmentRequest {
+  id                  String                  @id @default(cuid()) @map("_id")
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  serviceRecordId     String
+  serviceRecord       ServiceRecord           @relation(fields: [serviceRecordId], references: [id], onDelete: Cascade)
+  requesterId         String
+  requester           User                    @relation("AssignmentRequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  /// assignee (snapshot) when the request was created — for audit / notifications
+  assigneeIdAtRequest String
+  status              AssignmentRequestStatus @default(PENDING)
+
+  @@index([serviceRecordId])
+  @@index([requesterId])
+  @@index([status])
+  @@map("service_assignment_request")
 }
 
 model FormConfiguration {

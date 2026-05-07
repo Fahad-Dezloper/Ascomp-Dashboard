@@ -12,7 +12,8 @@ export async function GET(request: NextRequest) {
 
     // Fetch ALL completed services (not filtered by userId).
     // Align with /completed: a visit counts as completed when it has endTime,
-    // report is generated, or the projector is marked COMPLETED.
+    // report is generated, completion date on the record, or the projector is marked COMPLETED.
+    // Note: legacy / imported rows often have `date` set without `endTime` — omitting `date` under-counts vs admin “all visits” (~total ServiceRecords).
     // Use `select`, not full documents: each ServiceRecord has 100+ fields; loading entire
     // rows for thousands of completions will hang Mongo/Node and serialize forever.
     const services = await prisma.serviceRecord.findMany({
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
         OR: [
           { endTime: { not: null } },
           { reportGenerated: true },
+          { date: { not: null } },
           { projector: { status: "COMPLETED" } },
         ],
       },
@@ -49,6 +51,7 @@ export async function GET(request: NextRequest) {
             siteName: true,
             address: true,
             contactDetails: true,
+            siteCode: true,
           },
         },
         projector: {
@@ -59,9 +62,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: {
-        endTime: "desc",
-      },
+      orderBy: [{ endTime: "desc" }, { date: "desc" }],
     })
 
     // Format services for the frontend
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
         name: service.site.siteName,
         address: service.site.address,
         contactDetails: service.site.contactDetails,
+        siteCode: service.site.siteCode ?? null,
         screenNo: service.screenNumber, // screenNumber is on ServiceRecord, not Site
       },
       projector: {

@@ -13,13 +13,14 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id
 
     // Fetch completed services assigned to this user
-    // Completed services have endTime or reportGenerated set
+    // Completed: endTime, report, completion `date` on record, or projector COMPLETED (see all-completed)
     const services = await prisma.serviceRecord.findMany({
       where: {
         assignedToId: userId,
         OR: [
           { endTime: { not: null } },
           { reportGenerated: true },
+          { date: { not: null } },
           { projector: { status: "COMPLETED" } },
         ],
       },
@@ -35,6 +36,7 @@ export async function GET(request: NextRequest) {
             siteName: true,
             address: true,
             contactDetails: true,
+            siteCode: true,
           },
         },
         projector: {
@@ -60,6 +62,7 @@ export async function GET(request: NextRequest) {
         name: service.site.siteName,
         address: service.site.address,
         contactDetails: service.site.contactDetails,
+        siteCode: service.site.siteCode ?? null,
         screenNo: service.screenNumber, // screenNumber is on ServiceRecord, not Site
       },
       projector: {

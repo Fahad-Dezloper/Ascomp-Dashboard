@@ -37,6 +37,40 @@ export default function SelectServiceStep({ onNext }: any) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [timeFilter, setTimeFilter] = useState<"24h" | "7d" | "30d" | "all">("7d")
+  const [visitStats, setVisitStats] = useState<{ completedTotal: number; completedThisMonth: number } | null>(
+    null,
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch("/api/user/services/stats", { credentials: "include" })
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled) return
+        if (typeof data.completedTotal === "number" && typeof data.completedThisMonth === "number") {
+          setVisitStats({ completedTotal: data.completedTotal, completedThisMonth: data.completedThisMonth })
+        }
+      } catch {
+        /* non-blocking */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function VisitStatsLine({ className }: { className?: string }) {
+    if (!visitStats) return null
+    return (
+      <p className={className ?? "text-xs text-gray-500 mb-3"}>
+        Your completed visits:{" "}
+        <span className="text-gray-700 font-medium">{visitStats.completedTotal}</span> (this month:{" "}
+        <span className="text-gray-700 font-medium">{visitStats.completedThisMonth}</span>)
+      </p>
+    )
+  }
 
   useEffect(() => {
     const fetchServices = async (retryCount = 0) => {
@@ -132,6 +166,7 @@ export default function SelectServiceStep({ onNext }: any) {
     return (
       <div>
         <h2 className="text-lg sm:text-xl font-bold text-black mb-2">Select Service Visit</h2>
+        <VisitStatsLine />
         <p className="text-sm text-gray-700 mb-6">Loading your scheduled services...</p>
         <div className="space-y-3 mb-6">
           {[1, 2, 3].map((i) => (
@@ -153,6 +188,7 @@ export default function SelectServiceStep({ onNext }: any) {
     return (
       <div>
         <h2 className="text-lg sm:text-xl font-bold text-black mb-2">Select Service Visit</h2>
+        <VisitStatsLine />
         <div className="p-4 border-2 border-red-500 bg-red-50 mb-4">
           <p className="text-sm text-red-700">{error}</p>
         </div>
@@ -170,6 +206,7 @@ export default function SelectServiceStep({ onNext }: any) {
     return (
       <div>
         <h2 className="text-lg sm:text-xl font-bold text-black mb-2">Select Service Visit</h2>
+        <VisitStatsLine />
         <div className="p-8 border-2 border-gray-300 text-center">
           <p className="text-base text-gray-700 mb-2 font-medium">No scheduled services found.</p>
           <p className="text-sm text-gray-500">Contact your administrator to get assigned to a service.</p>
@@ -181,6 +218,7 @@ export default function SelectServiceStep({ onNext }: any) {
   return (
     <div>
       <h2 className="text-lg sm:text-xl font-bold text-black mb-2">Select Service Visit</h2>
+      <VisitStatsLine />
       <p className="text-sm text-gray-700 mb-4">Choose from your pending assigned services.</p>
 
       <div className="flex w-full mb-3 justify-between items-center">
