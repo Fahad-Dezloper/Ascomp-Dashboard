@@ -1011,6 +1011,241 @@
         "description": "Yellow Notch Filter"
       },
       {
+        "projector_model": "CP2230U",
+        "part_number": "03-240115-51P",
+        "description": "12\" Glass Reflector"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-001209-01",
+        "description": "AC Power Relay"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-001184-01",
+        "description": "Air Filter - Qty 5"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-110827-03",
+        "description": "ASSY Fan 12V 0.6A 4-Wire 92MM"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-110854-01",
+        "description": "ASSY Fan 12V DC 50MM Blower"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "awaited",
+        "description": "Washable Air Intake filter"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "awaited",
+        "description": "Washable RAD filter"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "03-005027-52P",
+        "description": "Cold Mirror (120x 90)"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "03-005028-51P",
+        "description": "Cold Mirror (130x 90)"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111198-02",
+        "description": "Cooling Pump"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-006243-01",
+        "description": "Duct Plastic Blower Fixed"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111709-01",
+        "description": "Fan 12V 0.45A 4-Wire 60mm"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-121114-02",
+        "description": "Fan 12V 120mm"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-005779-01",
+        "description": "HARN Ballast PNL MTG 2230&4230 For Interlock and comm cable"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111170-01",
+        "description": "HARN BP To TPC PNL MTG"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-005705-01",
+        "description": "HARN Enviro Temperature sensor"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-005702-01",
+        "description": "HARN Fans - (Cardcage exhaust, LAD fan, LE intake fan and radiator fan)"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111337-01",
+        "description": "HARN ICP Fans - For Intake fans only"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111350-01",
+        "description": "HARN Inline To Pump"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111127-01",
+        "description": "HARN LVPS To BP-PL"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-003790-01",
+        "description": "HARN SPB2 LID"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-006431-01",
+        "description": "High Security Lock"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-001526-01",
+        "description": "High Security Lock & Key"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-105488-01",
+        "description": "Illumination Optics System (IOS Assembly) W/O LiteLOC YNF INT"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-102035-01",
+        "description": "Integrator Rod & Holder Assembly"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-100550-01",
+        "description": "Kit Assy Harness LAMP HV 2PK"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-004777-01",
+        "description": "Kit Duct 4K Green FPGA"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "000-102299-02",
+        "description": "Kit Duct 4K Red FPGA"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-005682-01",
+        "description": "Kit Harn LE Temperature -3PK"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-005847-01",
+        "description": "Kit SHLD INTEGRATOR Snood - 3PK"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-005937-01",
+        "description": "LAD Fan Housing"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "03-001982-54P",
+        "description": "LAD Filter - QTY 3"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "03-000158-61P",
+        "description": "Lamp Blower AC Fan"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-001193-01",
+        "description": "Leveling Feet (2 front and 2 rear)"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-006245-01",
+        "description": "Light Dump Bracket"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111236-01",
+        "description": "Light Engine Flex Cable - Qty 3"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-005452-01",
+        "description": "Plastic Blower Duct"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-003082-01",
+        "description": "Radiator Filter - Qty 1"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-001559-01",
+        "description": "Security Interlock Switch"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-100618-01",
+        "description": "Temperature Sensor PCB"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111169-01",
+        "description": "TPC Harness"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "03-008003-61P",
+        "description": "UV Filter"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-003700-03",
+        "description": "Vane Blower Bracket"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-003699-02",
+        "description": "Vane Extractor Duct"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-102051-01",
+        "description": "Water Blocks for Series 2 4K"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "03-008004-52P",
+        "description": "Yellow Notch Filter"
+      },
+      {
+        "projector_model": "CP2230U",
+        "part_number": "003-111180-01",
+        "description": "LEDB PC Board"
+      },
+      {
         "projector_model": "CP4425-RGB",
         "part_number": "011-110436-xx",
         "description": "Light Engine Filter"

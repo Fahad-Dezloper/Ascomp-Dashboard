@@ -709,7 +709,10 @@ export default function FormBuilderPage() {
   }, []);
 
   const uniquePartsModels = Array.from(
-    new Set(projectorPartsData.map((p) => p.projector_model)),
+    new Set([
+      ...projectorPartsData.map((p) => p.projector_model),
+      ...(selectedPartsProjector ? [selectedPartsProjector] : []),
+    ]),
   )
     .filter(Boolean)
     .sort();
