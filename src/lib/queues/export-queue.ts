@@ -6,6 +6,8 @@ export interface ExportJobData {
   columns: string[] | "all";
   filters: {
     type: "none" | "current" | "custom";
+    /** Filter to only laser or only standard records. Defaults to "all". */
+    reportType?: "all" | "standard" | "laser";
     latestRecordsOnly: boolean;
     conditions: Array<{
       id: string;

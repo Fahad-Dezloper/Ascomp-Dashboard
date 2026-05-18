@@ -49,6 +49,7 @@ import Image from "next/image";
 import ExportDataModal from "./modals/export-data-modal";
 import { useAuth } from "@/lib/auth-context";
 import { exhaustCfmStatusForStorage } from "@/lib/cfm-model-rules";
+import { isLaserProjectorModel } from "@/lib/laser-projector-models";
 
 type ServiceRecord = {
   id: string;
@@ -201,6 +202,36 @@ const LABEL_OVERRIDES: Record<string, string> = {
   flLeft: "Fl Before",
   flRight: "Fl After",
   logs: "Projector Logs",
+};
+
+/**
+ * When the "Laser" filter is active, these standard column keys are relabelled
+ * to their true laser field names so the table header matches the DB.
+ */
+const LASER_LABEL_OVERRIDES: Record<string, string> = {
+  // Opticals
+  reflector: "Diffuser",
+  uvFilter: "Coupling Fold Mirror",
+  integratorRod: "Rotating Integrator",
+  coldMirror: "Short Integrator",
+  foldMirror: "Coupling Elbow",
+  // Electronics
+  touchPanel: "F Main Board",
+  evbBoard: "Hub NX Board",
+  ImcbBoard: "HKBB Board",
+  pibBoard: "DTSM Board",
+  // Consumables
+  AirIntakeLadRad: "Filter Rad Filter",
+  // Mechanical
+  acBlowerVane: "LE Pump",
+  extractorVane: "LOS Pump",
+  exhaustCfm: "Radiator Fan",
+  lightEngineFans: "Exhaust Fan",
+  cardCageFans: "LE Intake Fan",
+  radiatorFanPump: "LE Blower",
+  pumpConnectorHose: "Shutter",
+  // Lamp → Laser
+  lampTotalRunningHours: "Laser Hours",
 };
 
 // Default columns to show on initial load
@@ -3797,6 +3828,7 @@ type OverviewViewProps = {
 
 export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   const { user } = useAuth();
+  const { laserProjectorModels } = useFormConfig();
   const [records, setRecords] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -3839,6 +3871,9 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
   const [selectedRecommendedParts, setSelectedRecommendedParts] = useState<
     RecommendedPart[]
   >([]);
+
+  // Report type filter: "all" | "standard" | "laser"
+  const [reportTypeFilter, setReportTypeFilter] = useState<"all" | "standard" | "laser">("all");
 
   // Advanced filter states
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -3988,7 +4023,16 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
 
   // Filter helper functions - must be defined before filtered useMemo
   const getFieldsForTable = (table: "projector" | "site" | "serviceRecord") => {
-    return FILTER_FIELDS[table] || [];
+    const fields = FILTER_FIELDS[table] || [];
+    // When visible records are all laser, rename service record fields to laser equivalents
+    if (table === "serviceRecord" && useLaserLabels) {
+      return fields.map((f) =>
+        LASER_LABEL_OVERRIDES[f.key]
+          ? { ...f, label: LASER_LABEL_OVERRIDES[f.key] }
+          : f,
+      );
+    }
+    return fields;
   };
 
   const getOperatorsForField = (
@@ -4224,13 +4268,19 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
       }
     };
 
-    let filteredRecords = records.filter(
-      (rec) =>
+    const isLaserRecord = (rec: ServiceRecord) =>
+      isLaserProjectorModel(rec.projectorModel, laserProjectorModels);
+
+    let filteredRecords = records.filter((rec) => {
+      if (reportTypeFilter === "laser" && !isLaserRecord(rec)) return false;
+      if (reportTypeFilter === "standard" && isLaserRecord(rec)) return false;
+      return (
         matchesWorker(rec) &&
         matchesSearch(rec) &&
         inRange(rec.date || rec.scheduledDate || rec.createdAt) &&
-        matchesAdvancedFilters(rec),
-    );
+        matchesAdvancedFilters(rec)
+      );
+    });
 
     // Apply latest records only filter
     if (latestRecordsOnly) {
@@ -4275,11 +4325,30 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
     filterConditions,
     filterLogic,
     latestRecordsOnly,
+    reportTypeFilter,
+    laserProjectorModels,
   ]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, workerFilter, startDate, filterConditions, latestRecordsOnly]);
+  }, [search, workerFilter, startDate, filterConditions, latestRecordsOnly, reportTypeFilter]);
+
+  /**
+   * True when every record currently visible in the table is a laser record.
+   * Lets us auto-show laser column headers even while in "All" mode — e.g.
+   * when the user searches for a specific laser projector serial number.
+   */
+  const allVisibleAreLaser = useMemo(() => {
+    if (filtered.length === 0) return false;
+    return filtered.every((r) =>
+      isLaserProjectorModel(r.projectorModel, laserProjectorModels),
+    );
+  }, [filtered, laserProjectorModels]);
+
+  /** Whether to use laser column labels in headers and filter field dropdowns */
+  const useLaserLabels =
+    reportTypeFilter === "laser" ||
+    (reportTypeFilter !== "standard" && allVisibleAreLaser);
 
   // Filter UI helper functions
   const addFilterCondition = () => {
@@ -4625,24 +4694,30 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                     </div>
                     <div className="max-h-64 overflow-y-auto border-t border-black/20">
                       {columnKeys
-                        .filter((key) =>
-                          toLabel(key)
-                            .toLowerCase()
-                            .includes(columnSearch.toLowerCase()),
-                        )
-                        .map((key) => (
-                          <label
-                            key={key}
-                            className="flex items-center gap-2 px-3 py-2 text-sm text-black hover:bg-gray-50"
-                          >
-                            <Checkbox
-                              checked={visibleColumns[key]}
-                              onCheckedChange={() => toggleColumn(key as any)}
-                              className="border-black"
-                            />
-                            {toLabel(key)}
-                          </label>
-                        ))}
+                        .filter((key) => {
+                          const label = useLaserLabels && LASER_LABEL_OVERRIDES[key]
+                            ? LASER_LABEL_OVERRIDES[key]
+                            : toLabel(key);
+                          return label.toLowerCase().includes(columnSearch.toLowerCase());
+                        })
+                        .map((key) => {
+                          const label = useLaserLabels && LASER_LABEL_OVERRIDES[key]
+                            ? LASER_LABEL_OVERRIDES[key]
+                            : toLabel(key);
+                          return (
+                            <label
+                              key={key}
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-black hover:bg-gray-50"
+                            >
+                              <Checkbox
+                                checked={visibleColumns[key]}
+                                onCheckedChange={() => toggleColumn(key as any)}
+                                className="border-black"
+                              />
+                              {label}
+                            </label>
+                          );
+                        })}
                     </div>
                   </PopoverContent>
                 </Popover>
@@ -4683,12 +4758,31 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                       setLatestRecordsOnly(false);
                       setFilterLogic("AND");
                       setShowAdvancedFilters(false);
+                      setReportTypeFilter("all");
                       setPage(1);
                     }}
                   >
                     <X className="h-4 w-4 mr-2" />
                     Reset filters
                   </Button>
+
+                  {/* Report type toggle: All / Standard / Laser */}
+                  <div className="flex items-center rounded-md border-2 border-black overflow-hidden text-sm font-medium">
+                    {(["all", "standard", "laser"] as const).map((t, i) => (
+                      <button
+                        key={t}
+                        onClick={() => { setReportTypeFilter(t); setPage(1); }}
+                        className={`px-3 py-1.5 capitalize transition-colors ${
+                          reportTypeFilter === t
+                            ? "bg-black text-white"
+                            : "bg-white text-black hover:bg-gray-100"
+                        } ${i > 0 ? "border-l-2 border-black" : ""}`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+
                   <div className="relative">
                     <Button
                       variant="outline"
@@ -5102,7 +5196,9 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
                         key={key}
                         className="text-left whitespace-nowrap py-3 px-4 font-semibold text-black"
                       >
-                        {toLabel(key)}
+                        {useLaserLabels && LASER_LABEL_OVERRIDES[key]
+                          ? LASER_LABEL_OVERRIDES[key]
+                          : toLabel(key)}
                       </th>
                     ))}
                 </tr>
@@ -5351,6 +5447,7 @@ export default function OverviewView({ hideHeader, limit }: OverviewViewProps) {
             filterConditions,
             filterLogic,
           }}
+          reportType={reportTypeFilter}
         />
       )}
 

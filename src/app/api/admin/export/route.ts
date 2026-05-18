@@ -24,7 +24,11 @@ export async function POST(request: NextRequest) {
       userId: session.user.id,
       email: email || session.user.email,
       columns,
-      filters,
+      filters: {
+        ...filters,
+        // Ensure reportType is passed through (defaults to "all" in processor if missing)
+        reportType: filters.reportType ?? "all",
+      },
     };
 
     const job = await exportQueue.add("export-data", jobData, {

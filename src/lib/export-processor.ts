@@ -13,6 +13,7 @@ import {
 import { sendEmail } from "./email";
 import { getLaserProjectorModels } from "./get-laser-models";
 import { isLaserProjectorModel } from "./laser-projector-models";
+import { readLaserField } from "./laser-service-record";
 
 const CHUNK_SIZE = 50;
 
@@ -37,8 +38,12 @@ function safe(val: any) {
 }
 
 function buildPdfDataFromService(fullService: any, laserModels: string[] = []): MaintenanceReportData {
-  const workDetails = fullService.workDetails || {};
+  const wd = fullService.workDetails || fullService; // workDetails or flat record
   const isLaser = isLaserProjectorModel(fullService.projector?.modelNo || fullService.projector?.model, laserModels);
+  const laserRec = fullService.laserServiceRecord ?? null;
+
+  const lf = (laserKey: string): string =>
+    isLaser ? readLaserField(laserRec, laserKey, wd) : "";
 
   return {
     reportType: isLaser ? "laser" : "standard",
@@ -58,319 +63,182 @@ function buildPdfDataFromService(fullService: any, laserModels: string[] = []): 
     serialNo: fullService.projector?.serialNo || "",
     runningHours: fullService.projectorRunningHours?.toString() || "",
     projectorEnvironment:
-      workDetails.projectorPlacementEnvironment ||
-      fullService.projectorPlacementEnvironment ||
-      "",
-    startTime: workDetails.startTime || fullService.startTime,
-    endTime: workDetails.endTime || fullService.endTime,
-    opticals: {
-      reflector: mapStatus(
-        workDetails.reflector || fullService.reflector,
-        workDetails.reflectorNote || fullService.reflectorNote,
-      ),
-      uvFilter: mapStatus(
-        workDetails.uvFilter || fullService.uvFilter,
-        workDetails.uvFilterNote || fullService.uvFilterNote,
-      ),
-      integratorRod: mapStatus(
-        workDetails.integratorRod || fullService.integratorRod,
-        workDetails.integratorRodNote || fullService.integratorRodNote,
-      ),
-      coldMirror: mapStatus(
-        workDetails.coldMirror || fullService.coldMirror,
-        workDetails.coldMirrorNote || fullService.coldMirrorNote,
-      ),
-      foldMirror: mapStatus(
-        workDetails.foldMirror || fullService.foldMirror,
-        workDetails.foldMirrorNote || fullService.foldMirrorNote,
-      ),
+      wd.projectorPlacementEnvironment || "",
+    startTime: wd.startTime || fullService.startTime,
+    endTime: wd.endTime || fullService.endTime,
+    opticals: isLaser ? {
+      reflector: mapStatus(lf("diffuser"), lf("diffuserNote")),
+      uvFilter: mapStatus(lf("couplingFoldMirror"), lf("couplingFoldMirrorNote")),
+      integratorRod: mapStatus(lf("rotatingIntegrator"), lf("rotatingIntegratorNote")),
+      coldMirror: mapStatus(lf("shortIntegrator"), lf("shortIntegratorNote")),
+      foldMirror: mapStatus(lf("couplingElbow"), lf("couplingElbowNote")),
+    } : {
+      reflector: mapStatus(wd.reflector, wd.reflectorNote),
+      uvFilter: mapStatus(wd.uvFilter, wd.uvFilterNote),
+      integratorRod: mapStatus(wd.integratorRod, wd.integratorRodNote),
+      coldMirror: mapStatus(wd.coldMirror, wd.coldMirrorNote),
+      foldMirror: mapStatus(wd.foldMirror, wd.foldMirrorNote),
     },
-    electronics: {
-      touchPanel: mapStatus(
-        workDetails.touchPanel || fullService.touchPanel,
-        workDetails.touchPanelNote || fullService.touchPanelNote,
-      ),
-      evbBoard: mapStatus(
-        workDetails.evbBoard || fullService.evbBoard,
-        workDetails.evbBoardNote || fullService.evbBoardNote,
-      ),
-      ImcbBoard: mapStatus(
-        workDetails.ImcbBoard || fullService.ImcbBoard,
-        workDetails.ImcbBoardNote || fullService.ImcbBoardNote,
-      ),
-      pibBoard: mapStatus(
-        workDetails.pibBoard || fullService.pibBoard,
-        workDetails.pibBoardNote || fullService.pibBoardNote,
-      ),
-      IcpBoard: mapStatus(
-        workDetails.IcpBoard || fullService.IcpBoard,
-        workDetails.IcpBoardNote || fullService.IcpBoardNote,
-      ),
-      imbSBoard: mapStatus(
-        workDetails.imbSBoard || fullService.imbSBoard,
-        workDetails.imbSBoardNote || fullService.imbSBoardNote,
-      ),
+    electronics: isLaser ? {
+      touchPanel: mapStatus(lf("fMainBoard"), lf("fMainBoardNote")),
+      evbBoard: mapStatus(lf("hubNxBoard"), lf("hubNxBoardNote")),
+      ImcbBoard: mapStatus(lf("hkbbBoard"), lf("hkbbBoardNote")),
+      pibBoard: mapStatus(lf("dtsmBoard"), lf("dtsmBoardNote")),
+      IcpBoard: mapStatus("", ""),
+      imbSBoard: mapStatus("", ""),
+    } : {
+      touchPanel: mapStatus(wd.touchPanel, wd.touchPanelNote),
+      evbBoard: mapStatus(wd.evbBoard, wd.evbBoardNote),
+      ImcbBoard: mapStatus(wd.ImcbBoard, wd.ImcbBoardNote),
+      pibBoard: mapStatus(wd.pibBoard, wd.pibBoardNote),
+      IcpBoard: mapStatus(wd.IcpBoard, wd.IcpBoardNote),
+      imbSBoard: mapStatus(wd.imbSBoard, wd.imbSBoardNote),
     },
-    serialVerified: mapStatus(
-      workDetails.serialNumberVerified || fullService.serialNumberVerified,
-      workDetails.serialNumberVerifiedNote ||
-        fullService.serialNumberVerifiedNote,
-    ),
-    AirIntakeLadRad: mapStatus(
-      workDetails.AirIntakeLadRad || fullService.AirIntakeLadRad,
-      workDetails.AirIntakeLadRadNote || fullService.AirIntakeLadRadNote,
-    ),
-    coolant: mapStatus(
-      workDetails.coolantLevelColor || fullService.coolantLevelColor,
-      workDetails.coolantLevelColorNote || fullService.coolantLevelColorNote,
-    ),
+    serialVerified: mapStatus(wd.serialNumberVerified, wd.serialNumberVerifiedNote),
+    AirIntakeLadRad: isLaser
+      ? mapStatus(lf("filterRadFilter"), lf("filterRadFilterNote"))
+      : mapStatus(wd.AirIntakeLadRad, wd.AirIntakeLadRadNote),
+    coolant: mapStatus(wd.coolantLevelColor, wd.coolantLevelColorNote),
     lightEngineTest: {
-      white: mapStatus(
-        workDetails.lightEngineWhite || fullService.lightEngineWhite,
-        workDetails.lightEngineWhiteNote || fullService.lightEngineWhiteNote,
-      ),
-      red: mapStatus(
-        workDetails.lightEngineRed || fullService.lightEngineRed,
-        workDetails.lightEngineRedNote || fullService.lightEngineRedNote,
-      ),
-      green: mapStatus(
-        workDetails.lightEngineGreen || fullService.lightEngineGreen,
-        workDetails.lightEngineGreenNote || fullService.lightEngineGreenNote,
-      ),
-      blue: mapStatus(
-        workDetails.lightEngineBlue || fullService.lightEngineBlue,
-        workDetails.lightEngineBlueNote || fullService.lightEngineBlueNote,
-      ),
-      black: mapStatus(
-        workDetails.lightEngineBlack || fullService.lightEngineBlack,
-        workDetails.lightEngineBlackNote || fullService.lightEngineBlackNote,
-      ),
+      white: mapStatus(wd.lightEngineWhite, wd.lightEngineWhiteNote),
+      red: mapStatus(wd.lightEngineRed, wd.lightEngineRedNote),
+      green: mapStatus(wd.lightEngineGreen, wd.lightEngineGreenNote),
+      blue: mapStatus(wd.lightEngineBlue, wd.lightEngineBlueNote),
+      black: mapStatus(wd.lightEngineBlack, wd.lightEngineBlackNote),
     },
-    mechanical: {
-      acBlower: mapStatus(
-        workDetails.acBlowerVane || fullService.acBlowerVane,
-        workDetails.acBlowerVaneNote || fullService.acBlowerVaneNote,
-      ),
-      extractor: mapStatus(
-        workDetails.extractorVane || fullService.extractorVane,
-        workDetails.extractorVaneNote || fullService.extractorVaneNote,
-      ),
-      exhaustCFM: mapStatus(
-        workDetails.exhaustCfm || fullService.exhaustCfm,
-        workDetails.exhaustCfmNote || fullService.exhaustCfmNote,
-      ),
-      lightEngine4Fans: mapStatus(
-        workDetails.lightEngineFans || fullService.lightEngineFans,
-        workDetails.lightEngineFansNote || fullService.lightEngineFansNote,
-      ),
-      cardCageFans: mapStatus(
-        workDetails.cardCageFans || fullService.cardCageFans,
-        workDetails.cardCageFansNote || fullService.cardCageFansNote,
-      ),
-      radiatorFan: mapStatus(
-        workDetails.radiatorFanPump || fullService.radiatorFanPump,
-        workDetails.radiatorFanPumpNote || fullService.radiatorFanPumpNote,
-      ),
-      connectorHose: mapStatus(
-        workDetails.pumpConnectorHose || fullService.pumpConnectorHose,
-        workDetails.pumpConnectorHoseNote || fullService.pumpConnectorHoseNote,
-      ),
-      securityLock: mapStatus(
-        workDetails.securityLampHouseLock || fullService.securityLampHouseLock,
-        workDetails.securityLampHouseLockNote ||
-          fullService.securityLampHouseLockNote,
-      ),
+    mechanical: isLaser ? {
+      acBlower: mapStatus(lf("lePump"), lf("lePumpNote")),
+      extractor: mapStatus(lf("losPump"), lf("losPumpNote")),
+      exhaustCFM: mapStatus(lf("radiatorFan"), lf("radiatorFanNote")),
+      lightEngine4Fans: mapStatus(lf("exhaustFan"), lf("exhaustFanNote")),
+      cardCageFans: mapStatus(lf("leIntakeFan"), lf("leIntakeFanNote")),
+      radiatorFan: mapStatus(lf("leBlower"), lf("leBlowerNote")),
+      connectorHose: mapStatus(lf("shutter"), lf("shutterNote")),
+      securityLock: mapStatus("", ""),
+    } : {
+      acBlower: mapStatus(wd.acBlowerVane, wd.acBlowerVaneNote),
+      extractor: mapStatus(wd.extractorVane, wd.extractorVaneNote),
+      exhaustCFM: mapStatus(wd.exhaustCfm, wd.exhaustCfmNote),
+      lightEngine4Fans: mapStatus(wd.lightEngineFans, wd.lightEngineFansNote),
+      cardCageFans: mapStatus(wd.cardCageFans, wd.cardCageFansNote),
+      radiatorFan: mapStatus(wd.radiatorFanPump, wd.radiatorFanPumpNote),
+      connectorHose: mapStatus(wd.pumpConnectorHose, wd.pumpConnectorHoseNote),
+      securityLock: mapStatus(wd.securityLampHouseLock, wd.securityLampHouseLockNote),
     },
-    lampLOC: mapStatus(
-      workDetails.lampLocMechanism || fullService.lampLocMechanism,
-      workDetails.lampLocMechanismNote || fullService.lampLocMechanismNote,
-    ),
-    lampMake: workDetails.lampMakeModel || fullService.lampMakeModel || "",
-    lampHours:
-      (
-        workDetails.lampTotalRunningHours || fullService.lampTotalRunningHours
-      )?.toString() || "",
-    currentLampHours:
-      (
-        workDetails.lampCurrentRunningHours ||
-        fullService.lampCurrentRunningHours
-      )?.toString() || "",
+    lampLOC: isLaser ? mapStatus("", "") : mapStatus(wd.lampLocMechanism, wd.lampLocMechanismNote),
+    lampMake: wd.lampMakeModel || "",
+    lampHours: isLaser
+      ? (lf("laserHours") || wd.lampTotalRunningHours?.toString() || "")
+      : (wd.lampTotalRunningHours?.toString() || ""),
+    currentLampHours: wd.lampCurrentRunningHours?.toString() || "",
     voltageParams: {
-      pvn: workDetails.pvVsN || fullService.pvVsN || "",
-      pve: workDetails.pvVsE || fullService.pvVsE || "",
-      nve: workDetails.nvVsE || fullService.nvVsE || "",
+      pvn: wd.pvVsN || "",
+      pve: wd.pvVsE || "",
+      nve: wd.nvVsE || "",
     },
-    flBefore: (workDetails.flLeft || fullService.flLeft)?.toString() || "",
-    flAfter: (workDetails.flRight || fullService.flRight)?.toString() || "",
-    contentPlayer:
-      workDetails.contentPlayerModel || fullService.contentPlayerModel || "",
-    acStatus: workDetails.acStatus || fullService.acStatus || "",
+    flBefore: wd.flLeft?.toString() || "",
+    flAfter: wd.flRight?.toString() || "",
+    contentPlayer: wd.contentPlayerModel || "",
+    acStatus: wd.acStatus || "",
     leStatus: {
-      status: safe(workDetails.leStatus || fullService.leStatus),
-      remarks: safe(workDetails.leStatusNote || fullService.leStatusNote),
+      status: safe(wd.leStatus),
+      remarks: safe(wd.leStatusNote),
     },
     remarks: fullService.remarks || "",
-    leSerialNo:
-      workDetails.lightEngineSerialNumber ||
-      fullService.lightEngineSerialNumber ||
-      "",
+    leSerialNo: wd.lightEngineSerialNumber || "",
     mcgdData: {
       white2K: {
-        fl: (workDetails.white2Kfl || fullService.white2Kfl)?.toString() || "",
-        x: (workDetails.white2Kx || fullService.white2Kx)?.toString() || "",
-        y: (workDetails.white2Ky || fullService.white2Ky)?.toString() || "",
+        fl: wd.white2Kfl?.toString() || "",
+        x: wd.white2Kx?.toString() || "",
+        y: wd.white2Ky?.toString() || "",
       },
       white4K: {
-        fl: (workDetails.white4Kfl || fullService.white4Kfl)?.toString() || "",
-        x: (workDetails.white4Kx || fullService.white4Kx)?.toString() || "",
-        y: (workDetails.white4Ky || fullService.white4Ky)?.toString() || "",
+        fl: wd.white4Kfl?.toString() || "",
+        x: wd.white4Kx?.toString() || "",
+        y: wd.white4Ky?.toString() || "",
       },
       red2K: {
-        fl: (workDetails.red2Kfl || fullService.red2Kfl)?.toString() || "",
-        x: (workDetails.red2Kx || fullService.red2Kx)?.toString() || "",
-        y: (workDetails.red2Ky || fullService.red2Ky)?.toString() || "",
+        fl: wd.red2Kfl?.toString() || "",
+        x: wd.red2Kx?.toString() || "",
+        y: wd.red2Ky?.toString() || "",
       },
       red4K: {
-        fl: (workDetails.red4Kfl || fullService.red4Kfl)?.toString() || "",
-        x: (workDetails.red4Kx || fullService.red4Kx)?.toString() || "",
-        y: (workDetails.red4Ky || fullService.red4Ky)?.toString() || "",
+        fl: wd.red4Kfl?.toString() || "",
+        x: wd.red4Kx?.toString() || "",
+        y: wd.red4Ky?.toString() || "",
       },
       green2K: {
-        fl: (workDetails.green2Kfl || fullService.green2Kfl)?.toString() || "",
-        x: (workDetails.green2Kx || fullService.green2Kx)?.toString() || "",
-        y: (workDetails.green2Ky || fullService.green2Ky)?.toString() || "",
+        fl: wd.green2Kfl?.toString() || "",
+        x: wd.green2Kx?.toString() || "",
+        y: wd.green2Ky?.toString() || "",
       },
       green4K: {
-        fl: (workDetails.green4Kfl || fullService.green4Kfl)?.toString() || "",
-        x: (workDetails.green4Kx || fullService.green4Kx)?.toString() || "",
-        y: (workDetails.green4Ky || fullService.green4Ky)?.toString() || "",
+        fl: wd.green4Kfl?.toString() || "",
+        x: wd.green4Kx?.toString() || "",
+        y: wd.green4Ky?.toString() || "",
       },
       blue2K: {
-        fl: (workDetails.blue2Kfl || fullService.blue2Kfl)?.toString() || "",
-        x: (workDetails.blue2Kx || fullService.blue2Kx)?.toString() || "",
-        y: (workDetails.blue2Ky || fullService.blue2Ky)?.toString() || "",
+        fl: wd.blue2Kfl?.toString() || "",
+        x: wd.blue2Kx?.toString() || "",
+        y: wd.blue2Ky?.toString() || "",
       },
       blue4K: {
-        fl: (workDetails.blue4Kfl || fullService.blue4Kfl)?.toString() || "",
-        x: (workDetails.blue4Kx || fullService.blue4Kx)?.toString() || "",
-        y: (workDetails.blue4Ky || fullService.blue4Ky)?.toString() || "",
+        fl: wd.blue4Kfl?.toString() || "",
+        x: wd.blue4Kx?.toString() || "",
+        y: wd.blue4Ky?.toString() || "",
       },
     },
     cieXyz2K: {
-      x:
-        (
-          workDetails.BW_Step_10_2Kx || fullService.BW_Step_10_2Kx
-        )?.toString() || "",
-      y:
-        (
-          workDetails.BW_Step_10_2Ky || fullService.BW_Step_10_2Ky
-        )?.toString() || "",
-      fl:
-        (
-          workDetails.BW_Step_10_2Kfl || fullService.BW_Step_10_2Kfl
-        )?.toString() || "",
+      x: wd.BW_Step_10_2Kx?.toString() || "",
+      y: wd.BW_Step_10_2Ky?.toString() || "",
+      fl: wd.BW_Step_10_2Kfl?.toString() || "",
     },
     cieXyz4K: {
-      x:
-        (
-          workDetails.BW_Step_10_4Kx || fullService.BW_Step_10_4Kx
-        )?.toString() || "",
-      y:
-        (
-          workDetails.BW_Step_10_4Ky || fullService.BW_Step_10_4Ky
-        )?.toString() || "",
-      fl:
-        (
-          workDetails.BW_Step_10_4Kfl || fullService.BW_Step_10_4Kfl
-        )?.toString() || "",
+      x: wd.BW_Step_10_4Kx?.toString() || "",
+      y: wd.BW_Step_10_4Ky?.toString() || "",
+      fl: wd.BW_Step_10_4Kfl?.toString() || "",
     },
-    softwareVersion:
-      workDetails.softwareVersion || fullService.softwareVersion || "",
+    softwareVersion: wd.softwareVersion || "",
     screenInfo: {
       scope: {
-        height:
-          (workDetails.screenHeight || fullService.screenHeight)?.toString() ||
-          "",
-        width:
-          (workDetails.screenWidth || fullService.screenWidth)?.toString() ||
-          "",
-        gain:
-          (workDetails.screenGain || fullService.screenGain)?.toString() || "",
+        height: wd.screenHeight?.toString() || "",
+        width: wd.screenWidth?.toString() || "",
+        gain: wd.screenGain?.toString() || "",
       },
       flat: {
-        height:
-          (workDetails.flatHeight || fullService.flatHeight)?.toString() || "",
-        width:
-          (workDetails.flatWidth || fullService.flatWidth)?.toString() || "",
-        gain:
-          (workDetails.screenGain || fullService.screenGain)?.toString() || "",
+        height: wd.flatHeight?.toString() || "",
+        width: wd.flatWidth?.toString() || "",
+        gain: wd.screenGain?.toString() || "",
       },
-      make: workDetails.screenMake || fullService.screenMake || "",
+      make: wd.screenMake || "",
     },
-    throwDistance:
-      (workDetails.throwDistance || fullService.throwDistance)?.toString() ||
-      "",
+    throwDistance: wd.throwDistance?.toString() || "",
     imageEvaluation: {
-      focusBoresite: mapStatus(
-        workDetails.focusBoresight || fullService.focusBoresight,
-        workDetails.focusBoresightNote || fullService.focusBoresightNote,
-      ),
-      integratorPosition: mapStatus(
-        workDetails.integratorPosition || fullService.integratorPosition,
-        workDetails.integratorPositionNote ||
-          fullService.integratorPositionNote,
-      ),
-      spotOnScreen: mapStatus(
-        workDetails.spotsOnScreen || fullService.spotsOnScreen,
-        workDetails.spotsOnScreenNote || fullService.spotsOnScreenNote,
-      ),
-      screenCropping: mapStatus(
-        workDetails.screenCroppingOk || fullService.screenCropping,
-        workDetails.screenCroppingNote || fullService.screenCroppingNote,
-      ),
-      convergence: mapStatus(
-        workDetails.convergenceOk || fullService.convergence,
-        workDetails.convergenceNote || fullService.convergenceNote,
-      ),
-      channelsChecked: mapStatus(
-        workDetails.channelsCheckedOk || fullService.channelsChecked,
-        workDetails.channelsCheckedNote || fullService.channelsCheckedNote,
-      ),
-      pixelDefects: mapStatus(
-        workDetails.pixelDefects || fullService.pixelDefects,
-        workDetails.pixelDefectsNote || fullService.pixelDefectsNote,
-      ),
-      imageVibration: mapStatus(
-        workDetails.imageVibration || fullService.imageVibration,
-        workDetails.imageVibrationNote || fullService.imageVibrationNote,
-      ),
-      liteLOC: mapStatus(
-        workDetails.liteloc || fullService.liteloc,
-        workDetails.litelocNote || fullService.litelocNote,
-      ),
+      focusBoresite: mapStatus(wd.focusBoresight, wd.focusBoresightNote),
+      integratorPosition: mapStatus(wd.integratorPosition, wd.integratorPositionNote),
+      spotOnScreen: mapStatus(wd.spotsOnScreen, wd.spotsOnScreenNote),
+      screenCropping: mapStatus(wd.screenCroppingOk ?? wd.screenCropping, wd.screenCroppingNote),
+      convergence: mapStatus(wd.convergenceOk ?? wd.convergence, wd.convergenceNote),
+      channelsChecked: mapStatus(wd.channelsCheckedOk ?? wd.channelsChecked, wd.channelsCheckedNote),
+      pixelDefects: mapStatus(wd.pixelDefects, wd.pixelDefectsNote),
+      imageVibration: mapStatus(wd.imageVibration, wd.imageVibrationNote),
+      liteLOC: mapStatus(wd.liteloc, wd.litelocNote),
     },
     airPollution: {
-      airPollutionLevel:
-        workDetails.airPollutionLevel || fullService.airPollutionLevel || "",
-      hcho: (workDetails.hcho || fullService.hcho)?.toString() || "",
-      tvoc: (workDetails.tvoc || fullService.tvoc)?.toString() || "",
-      pm10: (workDetails.pm10 || fullService.pm10)?.toString() || "",
-      pm25: (workDetails.pm2_5 || fullService.pm2_5)?.toString() || "",
-      pm100: (workDetails.pm1 || fullService.pm1)?.toString() || "",
-      temperature:
-        (workDetails.temperature || fullService.temperature)?.toString() || "",
-      humidity:
-        (workDetails.humidity || fullService.humidity)?.toString() || "",
+      airPollutionLevel: wd.airPollutionLevel || "",
+      hcho: wd.hcho?.toString() || "",
+      tvoc: wd.tvoc?.toString() || "",
+      pm10: wd.pm10?.toString() || "",
+      pm25: wd.pm2_5?.toString() || "",
+      pm100: wd.pm1?.toString() || "",
+      temperature: wd.temperature?.toString() || "",
+      humidity: wd.humidity?.toString() || "",
     },
-    recommendedParts: Array.isArray(
-      workDetails.recommendedParts || fullService.recommendedParts,
-    )
-      ? (workDetails.recommendedParts || fullService.recommendedParts).map(
-          (part: any) => ({
-            name: String(part.name ?? part.description ?? ""),
-            partNumber: String(part.partNumber ?? part.part_number ?? ""),
-          }),
-        )
+    recommendedParts: Array.isArray(wd.recommendedParts)
+      ? wd.recommendedParts.map((part: any) => ({
+          name: String(part.name ?? part.description ?? ""),
+          partNumber: String(part.partNumber ?? part.part_number ?? ""),
+        }))
       : [],
     issueNotes: [],
     detectedIssues: [],
@@ -385,8 +253,8 @@ function buildPdfDataFromService(fullService: any, laserModels: string[] = []): 
       (fullService.signatures as any)?.siteSignatureUrl ||
       "",
     imagesLink: (() => {
-      if (workDetails.photosDriveLink || fullService.photosDriveLink) {
-        return workDetails.photosDriveLink || fullService.photosDriveLink;
+      if (wd.photosDriveLink || fullService.photosDriveLink) {
+        return wd.photosDriveLink || fullService.photosDriveLink;
       }
       const hasImages =
         (Array.isArray(fullService.images) && fullService.images.length > 0) ||
@@ -424,8 +292,17 @@ async function generateAndUploadPdf(
 async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
   let where: any = {};
 
+  // Apply report type filter (laser only / standard only)
+  const reportType = jobData.filters.reportType ?? "all";
+  if (reportType === "laser") {
+    where.laserServiceRecord = { isNot: null };
+  } else if (reportType === "standard") {
+    where.laserServiceRecord = { is: null };
+  }
+
   if (jobData.filters.type === "none") {
     const records = await prisma.serviceRecord.findMany({
+      where: Object.keys(where).length ? where : undefined,
       include: {
         projector: true,
         site: true,
@@ -436,6 +313,7 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
             email: true,
           },
         },
+        laserServiceRecord: true,
       },
     });
 
@@ -679,6 +557,7 @@ async function fetchFilteredRecords(jobData: ExportJobData): Promise<any[]> {
           email: true,
         },
       },
+      laserServiceRecord: true,
     },
   });
 

@@ -40,6 +40,7 @@ export async function GET(
             serialNo: true,
           },
         },
+        laserServiceRecord: true,
       },
     })
 
@@ -86,6 +87,7 @@ export async function GET(
       reportGenerated: service.reportGenerated,
       reportSubmittedAt: (service as any).reportSubmittedAt ?? null,
       reportUrl: service.reportUrl,
+      laserServiceRecord: (service as any).laserServiceRecord ?? null,
       workDetails: {
         reflector: service.reflector,
         reflectorNote: service.reflectorNote,

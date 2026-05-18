@@ -49,6 +49,8 @@ interface ExportDataModalProps {
     }>;
     filterLogic?: "AND" | "OR";
   };
+  /** Pre-select report type from the active filter in the overview. */
+  reportType?: "all" | "standard" | "laser";
 }
 
 // Filter field definitions
@@ -148,6 +150,7 @@ export default function ExportDataModal({
   toLabel,
   filters = {},
   currentAdvancedFilters,
+  reportType: initialReportType = "all",
 }: ExportDataModalProps) {
   const { user } = useAuth();
   const [selectAllColumns, setSelectAllColumns] = useState(true);
@@ -179,6 +182,7 @@ export default function ExportDataModal({
     []
   );
   const [filterLogic, setFilterLogic] = useState<"AND" | "OR">("AND");
+  const [exportReportType, setExportReportType] = useState<"all" | "standard" | "laser">(initialReportType);
 
   // Default toLabel function if not provided
   const getLabel = (key: string) => {
@@ -400,6 +404,7 @@ export default function ExportDataModal({
       columns: selectAllColumns ? "all" : Array.from(selectedColumns),
       filters: {
         type: filterType,
+        reportType: exportReportType,
         latestRecordsOnly,
         conditions: filterConditions.filter(c => c.value.trim()), // Only include conditions with values
         logic: filterLogic,
@@ -635,6 +640,34 @@ export default function ExportDataModal({
                 </PopoverContent>
               </Popover>
             )}
+          </div>
+
+          {/* Report Type Selection */}
+          <div className="space-y-3 mt-4">
+            <Label className="text-base font-semibold">Report Type</Label>
+            <div className="flex items-center gap-1 rounded-md border-2 border-black w-fit overflow-hidden text-sm font-medium">
+              {(["all", "standard", "laser"] as const).map((t, i) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setExportReportType(t)}
+                  className={`px-4 py-1.5 capitalize transition-colors ${
+                    exportReportType === t
+                      ? "bg-black text-white"
+                      : "bg-white text-black hover:bg-gray-100"
+                  } ${i > 0 ? "border-l-2 border-black" : ""}`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500">
+              {exportReportType === "laser"
+                ? "Only laser projector service records will be exported."
+                : exportReportType === "standard"
+                  ? "Only standard (Xenon) projector service records will be exported."
+                  : "All service records will be exported regardless of projector type."}
+            </p>
           </div>
 
           {/* Filters Selection */}

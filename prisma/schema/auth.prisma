@@ -352,6 +352,7 @@ model ServiceRecord {
   replacementRequired           Boolean?  @default(false)
   logs                          String?
   assignmentRequests            ServiceAssignmentRequest[]
+  laserServiceRecord            LaserServiceRecord?
 
   @@unique([projectorId, serviceNumber])
   @@index([projectorId, serviceNumber])
@@ -402,4 +403,62 @@ model DataFile {
   updatedAt DateTime @updatedAt
 
   @@map("data_file")
+}
+
+/// Stores laser-projector-specific checklist data with proper laser field names.
+/// Linked 1:1 to ServiceRecord. Created only when the projector is a laser model.
+model LaserServiceRecord {
+  id                      String        @id @default(cuid())
+  serviceRecordId         String        @unique
+  serviceRecord           ServiceRecord @relation(fields: [serviceRecordId], references: [id], onDelete: Cascade)
+
+  // Opticals
+  diffuser                String?
+  diffuserNote            String?
+  couplingFoldMirror      String?
+  couplingFoldMirrorNote  String?
+  rotatingIntegrator      String?
+  rotatingIntegratorNote  String?
+  shortIntegrator         String?
+  shortIntegratorNote     String?
+  couplingElbow           String?
+  couplingElbowNote       String?
+
+  // Electronics
+  fMainBoard              String?
+  fMainBoardNote          String?
+  hubNxBoard              String?
+  hubNxBoardNote          String?
+  hkbbBoard               String?
+  hkbbBoardNote           String?
+  dtsmBoard               String?
+  dtsmBoardNote           String?
+
+  // Disposable Consumables
+  filterRadFilter         String?
+  filterRadFilterNote     String?
+
+  // Mechanical
+  lePump                  String?
+  lePumpNote              String?
+  losPump                 String?
+  losPumpNote             String?
+  radiatorFan             String?
+  radiatorFanNote         String?
+  exhaustFan              String?
+  exhaustFanNote          String?
+  leIntakeFan             String?
+  leIntakeFanNote         String?
+  leBlower                String?
+  leBlowerNote            String?
+  shutter                 String?
+  shutterNote             String?
+
+  // Laser-specific
+  laserHours              Int?
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@map("laser_service_record")
 }

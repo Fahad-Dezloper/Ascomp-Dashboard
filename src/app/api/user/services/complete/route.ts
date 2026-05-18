@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { buildLaserRecordData } from "@/lib/laser-service-record"
+import { getLaserProjectorModels } from "@/lib/get-laser-models"
+import { isLaserProjectorModel } from "@/lib/laser-projector-models"
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +25,7 @@ export async function POST(request: NextRequest) {
     // Verify the service record exists and is assigned to this user
     const serviceRecord = await prisma.serviceRecord.findUnique({
       where: { id: serviceRecordId },
+      include: { projector: { select: { modelNo: true } } },
     })
 
     if (!serviceRecord) {
@@ -430,6 +434,30 @@ export async function POST(request: NextRequest) {
     } catch (projectorError) {
       console.error(`❌ Failed to update projector status:`, projectorError)
       // Log but don't fail the request - service record was already updated
+    }
+
+    // === LASER SERVICE RECORD UPSERT ===
+    // If this is a laser projector, write canonical laser field names to the
+    // dedicated LaserServiceRecord table (standard columns are also written for
+    // backward compat / form pre-fill).
+    try {
+      const projectorModel = (serviceRecord as any).projector?.modelNo ?? ""
+      const laserModels = await getLaserProjectorModels()
+      const isLaser = isLaserProjectorModel(projectorModel, laserModels)
+
+      if (isLaser && workDetails) {
+        const laserData = buildLaserRecordData(workDetails)
+        if (Object.keys(laserData).length > 0) {
+          await prisma.laserServiceRecord.upsert({
+            where: { serviceRecordId },
+            create: { serviceRecordId, ...laserData },
+            update: laserData,
+          })
+        }
+      }
+    } catch (laserErr) {
+      console.error("Failed to upsert LaserServiceRecord:", laserErr)
+      // Non-fatal — main service record was already saved
     }
 
     return NextResponse.json({
