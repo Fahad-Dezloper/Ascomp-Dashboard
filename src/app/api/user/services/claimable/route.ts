@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         startTime: true,
         endTime: true,
         createdAt: true,
+        reportSubmittedAt: true,
         site: {
           select: { id: true, siteName: true, address: true },
         },
@@ -143,6 +144,7 @@ export async function GET(request: NextRequest) {
         assignedTo: assigned,
         claimState,
         myPendingRequestId: myPendingId ?? null,
+        reportSubmittedAt: (r as any).reportSubmittedAt?.toISOString() ?? null,
       }
     })
 

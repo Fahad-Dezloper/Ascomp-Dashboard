@@ -1,13 +1,39 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Pencil, Clock } from "lucide-react";
 
-export default function GenerateReportStep({ data, onBack }: any) {
+const EDIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+function useEditCountdown(reportSubmittedAt: string | null) {
+  const [remainingMs, setRemainingMs] = useState<number>(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!reportSubmittedAt) { setRemainingMs(0); return; }
+    const tick = () => {
+      const elapsed = Date.now() - new Date(reportSubmittedAt).getTime();
+      const rem = Math.max(0, EDIT_WINDOW_MS - elapsed);
+      setRemainingMs(rem);
+      if (rem === 0 && intervalRef.current) clearInterval(intervalRef.current);
+    };
+    tick();
+    intervalRef.current = setInterval(tick, 1000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [reportSubmittedAt]);
+
+  const minutes = Math.floor(remainingMs / 60000);
+  const seconds = Math.floor((remainingMs % 60000) / 1000);
+  return { remainingMs, label: `${minutes}:${seconds.toString().padStart(2, "0")}` };
+}
+
+export default function GenerateReportStep({ data, onBack, onEditReport }: any) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [reportSubmittedAt, setReportSubmittedAt] = useState<string | null>(null);
 
   const getIssueEntries = () => {
     const workDetails = data.workDetails || {};
@@ -111,6 +137,8 @@ export default function GenerateReportStep({ data, onBack }: any) {
   };
 
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const { remainingMs, label: countdownLabel } = useEditCountdown(reportSubmittedAt);
+  const canEdit = remainingMs > 0;
 
   const submitServiceRecord = async () => {
     if (!data.selectedService?.id) {
@@ -167,7 +195,7 @@ export default function GenerateReportStep({ data, onBack }: any) {
       throw new Error(errorData.error || "Failed to submit service record");
     }
 
-    return response.json();
+    return response.json() as Promise<{ success: boolean; serviceRecord?: { id: string; reportSubmittedAt?: string } }>;
   };
 
   const handleSubmit = async () => {
@@ -177,10 +205,12 @@ export default function GenerateReportStep({ data, onBack }: any) {
     setProgress(10);
     setSubmitError(null);
     try {
-      // Submit to database
-      await submitServiceRecord();
+      const result = await submitServiceRecord();
       setProgress(100);
       setIsSubmitted(true);
+      if (result?.serviceRecord?.reportSubmittedAt) {
+        setReportSubmittedAt(result.serviceRecord.reportSubmittedAt);
+      }
     } catch (error) {
       console.error("Error submitting report:", error);
       setSubmitError(
@@ -240,6 +270,7 @@ export default function GenerateReportStep({ data, onBack }: any) {
 
       // Build report data object
       const reportData: any = {
+        reportType: fullService.isLaserProjector ? "laser" : "standard",
         cinemaName: fullService.cinemaName || fullService.site?.name || "",
         date: fullService.date
           ? new Date(fullService.date).toLocaleDateString()
@@ -764,21 +795,40 @@ export default function GenerateReportStep({ data, onBack }: any) {
             {isSubmitting ? "Submitting..." : "Submit Report"}
           </Button>
         ) : (
-          <Button
-            onClick={handleDownloadAndFinish}
-            disabled={isSubmitting}
-            className="w-full bg-green-600 text-white hover:bg-green-700 border-2 border-green-800 font-bold py-2 text-sm disabled:opacity-50"
-          >
-            {isSubmitting
-              ? progress < 20
-                ? "Fetching data..."
-                : progress < 50
-                  ? "Preparing report..."
-                  : progress < 90
-                    ? "Building PDF..."
-                    : "Downloading..."
-              : "Download PDF & Finish"}
-          </Button>
+          <div className="space-y-2">
+            <Button
+              onClick={handleDownloadAndFinish}
+              disabled={isSubmitting}
+              className="w-full bg-green-600 text-white hover:bg-green-700 border-2 border-green-800 font-bold py-2 text-sm disabled:opacity-50"
+            >
+              {isSubmitting
+                ? progress < 20
+                  ? "Fetching data..."
+                  : progress < 50
+                    ? "Preparing report..."
+                    : progress < 90
+                      ? "Building PDF..."
+                      : "Downloading..."
+                : "Download PDF & Finish"}
+            </Button>
+
+            {canEdit && onEditReport && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onEditReport(data.selectedService?.id)}
+                disabled={isSubmitting}
+                className="w-full border-2 border-amber-500 text-amber-700 hover:bg-amber-50 font-semibold py-2 text-sm flex items-center justify-center gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit Report
+                <span className="ml-1 flex items-center gap-1 text-xs font-normal text-amber-600">
+                  <Clock className="h-3 w-3" />
+                  {countdownLabel}
+                </span>
+              </Button>
+            )}
+          </div>
         )}
       </Card>
 

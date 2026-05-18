@@ -11,6 +11,8 @@ import {
   convertServiceVisitToText,
 } from "@/components/PDFGenerator";
 import { sendEmail } from "./email";
+import { getLaserProjectorModels } from "./get-laser-models";
+import { isLaserProjectorModel } from "./laser-projector-models";
 
 const CHUNK_SIZE = 50;
 
@@ -34,10 +36,12 @@ function safe(val: any) {
   return val ? String(val) : "";
 }
 
-function buildPdfDataFromService(fullService: any): MaintenanceReportData {
+function buildPdfDataFromService(fullService: any, laserModels: string[] = []): MaintenanceReportData {
   const workDetails = fullService.workDetails || {};
+  const isLaser = isLaserProjectorModel(fullService.projector?.modelNo || fullService.projector?.model, laserModels);
 
   return {
+    reportType: isLaser ? "laser" : "standard",
     cinemaName: fullService.cinemaName || fullService.site?.siteName || "",
     date: fullService.date
       ? new Date(fullService.date).toLocaleDateString()
@@ -402,8 +406,9 @@ function buildPdfDataFromService(fullService: any): MaintenanceReportData {
 
 async function generateAndUploadPdf(
   service: any,
+  laserModels: string[] = [],
 ): Promise<{ url: string; buffer: Buffer }> {
-  const pdfData = buildPdfDataFromService(service);
+  const pdfData = buildPdfDataFromService(service, laserModels);
   const pdfBytes = await generateMaintenanceReport(pdfData);
   const pdfBuffer = Buffer.from(pdfBytes);
 
@@ -1114,6 +1119,7 @@ export async function processExportJob(
   };
 
   await updateProgress(5, "Fetching records...");
+  const laserModels = await getLaserProjectorModels();
   const records = await fetchFilteredRecords(jobData);
   console.log(`📊 Found ${records.length} records to export`);
 
@@ -1168,7 +1174,7 @@ export async function processExportJob(
     // Process each record sequentially within a chunk to limit memory
     for (const record of chunk) {
       try {
-        const { url, buffer } = await generateAndUploadPdf(record);
+        const { url, buffer } = await generateAndUploadPdf(record, laserModels);
         pdfUrls.set(record.id, url);
 
         // Upload to Google Drive immediately and discard buffer

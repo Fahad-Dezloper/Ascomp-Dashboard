@@ -142,6 +142,8 @@ export interface MaintenanceReportData {
   imagesLink?: string;
   serviceId?: string;
   isDraft?: boolean;
+  reportType?: "standard" | "laser";
+  flDefault?: string;
 }
 
 // Normalize yes/no strings to consistent 'Yes' / 'No' for PDF display
@@ -399,13 +401,20 @@ export async function generateMaintenanceReport(
     });
   }
 
-  page1.drawText("EW - Preventive Maintenance Report", {
-    x: 220,
-    y: yPos - 20,
-    size: 14,
-    font: timesRomanBold,
-    color: rgb(0, 0, 0),
-  });
+  const isLaser = data.reportType === "laser";
+
+  page1.drawText(
+    isLaser
+      ? "EW - Preventive Maintenance Report - LASER"
+      : "EW - Preventive Maintenance Report",
+    {
+      x: isLaser ? 170 : 220,
+      y: yPos - 20,
+      size: 14,
+      font: timesRomanBold,
+      color: rgb(0, 0, 0),
+    },
+  );
 
   yPos -= 35;
 
@@ -586,33 +595,21 @@ export async function generateMaintenanceReport(
     yPos,
     width - 80,
     "OPTICALS",
-    [
-      [
-        "Reflector",
-        data.opticals.reflector.status,
-        data.opticals.reflector.yesNo || "",
-      ],
-      [
-        "UV filter",
-        data.opticals.uvFilter.status,
-        data.opticals.uvFilter.yesNo || "",
-      ],
-      [
-        "Integrator Rod",
-        data.opticals.integratorRod.status,
-        data.opticals.integratorRod.yesNo || "",
-      ],
-      [
-        "Cold Mirror",
-        data.opticals.coldMirror.status,
-        data.opticals.coldMirror.yesNo || "",
-      ],
-      [
-        "Fold Mirror",
-        data.opticals.foldMirror.status,
-        data.opticals.foldMirror.yesNo || "",
-      ],
-    ],
+    isLaser
+      ? [
+          ["Diffuser", data.opticals.reflector.status, data.opticals.reflector.yesNo || ""],
+          ["Coupling Fold Mirror", data.opticals.uvFilter.status, data.opticals.uvFilter.yesNo || ""],
+          ["Rotating Integrator", data.opticals.integratorRod.status, data.opticals.integratorRod.yesNo || ""],
+          ["Short Integrator", data.opticals.coldMirror.status, data.opticals.coldMirror.yesNo || ""],
+          ["Coupling Elbow", data.opticals.foldMirror.status, data.opticals.foldMirror.yesNo || ""],
+        ]
+      : [
+          ["Reflector", data.opticals.reflector.status, data.opticals.reflector.yesNo || ""],
+          ["UV filter", data.opticals.uvFilter.status, data.opticals.uvFilter.yesNo || ""],
+          ["Integrator Rod", data.opticals.integratorRod.status, data.opticals.integratorRod.yesNo || ""],
+          ["Cold Mirror", data.opticals.coldMirror.status, data.opticals.coldMirror.yesNo || ""],
+          ["Fold Mirror", data.opticals.foldMirror.status, data.opticals.foldMirror.yesNo || ""],
+        ],
   );
 
   yPos = drawSection(
@@ -623,38 +620,21 @@ export async function generateMaintenanceReport(
     yPos,
     width - 80,
     "ELECTRONICS",
-    [
-      [
-        "Touch Panel",
-        data.electronics.touchPanel.status,
-        data.electronics.touchPanel.yesNo || "",
-      ],
-      [
-        "EVB Board",
-        data.electronics.evbBoard.status,
-        data.electronics.evbBoard.yesNo || "",
-      ],
-      [
-        "IMCB Board",
-        data.electronics.ImcbBoard.status,
-        data.electronics.ImcbBoard.yesNo || "",
-      ],
-      [
-        "PIB Board",
-        data.electronics.pibBoard.status,
-        data.electronics.pibBoard.yesNo || "",
-      ],
-      [
-        "ICP Board",
-        data.electronics.IcpBoard.status,
-        data.electronics.IcpBoard.yesNo || "",
-      ],
-      [
-        "IMB/S Board",
-        data.electronics.imbSBoard.status,
-        data.electronics.imbSBoard.yesNo || "",
-      ],
-    ],
+    isLaser
+      ? [
+          ["F Main Board", data.electronics.touchPanel.status, data.electronics.touchPanel.yesNo || ""],
+          ["HUB-NX Board", data.electronics.evbBoard.status, data.electronics.evbBoard.yesNo || ""],
+          ["HKBB-Board", data.electronics.ImcbBoard.status, data.electronics.ImcbBoard.yesNo || ""],
+          ["DTSM Board", data.electronics.pibBoard.status, data.electronics.pibBoard.yesNo || ""],
+        ]
+      : [
+          ["Touch Panel", data.electronics.touchPanel.status, data.electronics.touchPanel.yesNo || ""],
+          ["EVB Board", data.electronics.evbBoard.status, data.electronics.evbBoard.yesNo || ""],
+          ["IMCB Board", data.electronics.ImcbBoard.status, data.electronics.ImcbBoard.yesNo || ""],
+          ["PIB Board", data.electronics.pibBoard.status, data.electronics.pibBoard.yesNo || ""],
+          ["ICP Board", data.electronics.IcpBoard.status, data.electronics.IcpBoard.yesNo || ""],
+          ["IMB/S Board", data.electronics.imbSBoard.status, data.electronics.imbSBoard.yesNo || ""],
+        ],
   );
 
   yPos = drawSection(
@@ -695,7 +675,7 @@ export async function generateMaintenanceReport(
     "Disposable Consumables",
     [
       [
-        "Air Intake, LAD and RAD",
+        isLaser ? "Filter + RAD Filter" : "Air Intake, LAD and RAD",
         data.AirIntakeLadRad.status,
         data.AirIntakeLadRad.yesNo || "",
       ],
@@ -747,60 +727,40 @@ export async function generateMaintenanceReport(
     yPos,
     width - 80,
     "MECHANICAL",
-    [
-      [
-        "AC blower and Vane Switch",
-        data.mechanical.acBlower.status,
-        data.mechanical.acBlower.yesNo || "",
-      ],
-      [
-        "Extractor Vane Switch",
-        data.mechanical.extractor.status,
-        data.mechanical.extractor.yesNo || "",
-      ],
-      [
-        "Exhaust CFM - Value",
-        data.mechanical.exhaustCFM.status,
-        data.mechanical.exhaustCFM.yesNo || "",
-      ],
-      [
-        "Light Engine 4 fans with LAD fan",
-        data.mechanical.lightEngine4Fans.status,
-        data.mechanical.lightEngine4Fans.yesNo || "",
-      ],
-      [
-        "Card Cage Top and Bottom fans",
-        data.mechanical.cardCageFans.status,
-        data.mechanical.cardCageFans.yesNo || "",
-      ],
-      [
-        "Radiator fan and Pump",
-        data.mechanical.radiatorFan.status,
-        data.mechanical.radiatorFan.yesNo || "",
-      ],
-      [
-        "Connector and hose for the Pump",
-        data.mechanical.connectorHose.status,
-        data.mechanical.connectorHose.yesNo || "",
-      ],
-      [
-        "Security and lamp house lock switch",
-        data.mechanical.securityLock.status,
-        data.mechanical.securityLock.yesNo || "",
-      ],
-    ],
+    isLaser
+      ? [
+          ["LE Pump", data.mechanical.acBlower.status, data.mechanical.acBlower.yesNo || ""],
+          ["LOS Pump", data.mechanical.extractor.status, data.mechanical.extractor.yesNo || ""],
+          ["Radiator Fan", data.mechanical.exhaustCFM.status, data.mechanical.exhaustCFM.yesNo || ""],
+          ["Exhaust Fan", data.mechanical.lightEngine4Fans.status, data.mechanical.lightEngine4Fans.yesNo || ""],
+          ["LE intake Fan", data.mechanical.cardCageFans.status, data.mechanical.cardCageFans.yesNo || ""],
+          ["LE Blower", data.mechanical.radiatorFan.status, data.mechanical.radiatorFan.yesNo || ""],
+          ["Shutter", data.mechanical.connectorHose.status, data.mechanical.connectorHose.yesNo || ""],
+        ]
+      : [
+          ["AC blower and Vane Switch", data.mechanical.acBlower.status, data.mechanical.acBlower.yesNo || ""],
+          ["Extractor Vane Switch", data.mechanical.extractor.status, data.mechanical.extractor.yesNo || ""],
+          ["Exhaust CFM - Value", data.mechanical.exhaustCFM.status, data.mechanical.exhaustCFM.yesNo || ""],
+          ["Light Engine 4 fans with LAD fan", data.mechanical.lightEngine4Fans.status, data.mechanical.lightEngine4Fans.yesNo || ""],
+          ["Card Cage Top and Bottom fans", data.mechanical.cardCageFans.status, data.mechanical.cardCageFans.yesNo || ""],
+          ["Radiator fan and Pump", data.mechanical.radiatorFan.status, data.mechanical.radiatorFan.yesNo || ""],
+          ["Connector and hose for the Pump", data.mechanical.connectorHose.status, data.mechanical.connectorHose.yesNo || ""],
+          ["Security and lamp house lock switch", data.mechanical.securityLock.status, data.mechanical.securityLock.yesNo || ""],
+        ],
   );
 
-  yPos = drawSection(
-    page1,
-    timesRomanBold,
-    timesRoman,
-    40,
-    yPos,
-    width - 80,
-    "Lamp LOC Mechanism",
-    [["X, Y and Z movement", data.lampLOC.status, data.lampLOC.yesNo || ""]],
-  );
+  if (!isLaser) {
+    yPos = drawSection(
+      page1,
+      timesRomanBold,
+      timesRoman,
+      40,
+      yPos,
+      width - 80,
+      "Lamp LOC Mechanism",
+      [["X, Y and Z movement", data.lampLOC.status, data.lampLOC.yesNo || ""]],
+    );
+  }
 
   if (data.projectorEnvironment) {
     drawTableRow(
@@ -819,36 +779,51 @@ export async function generateMaintenanceReport(
 
   yPos = height - 50;
 
-  drawTableRow(
-    page2,
-    timesRomanBold,
-    timesRoman,
-    40,
-    yPos,
-    width - 80,
-    ["Lamp Make and Model:", data.lampMake],
-    [150, 365],
-    20,
-  );
-  yPos -= 20;
+  if (isLaser) {
+    drawTableRow(
+      page2,
+      timesRomanBold,
+      timesRoman,
+      40,
+      yPos,
+      width - 80,
+      ["Number of Laser hours running:", data.lampHours],
+      [200, 315],
+      20,
+    );
+    yPos -= 20;
+  } else {
+    drawTableRow(
+      page2,
+      timesRomanBold,
+      timesRoman,
+      40,
+      yPos,
+      width - 80,
+      ["Lamp Make and Model:", data.lampMake],
+      [150, 365],
+      20,
+    );
+    yPos -= 20;
 
-  drawTableRow(
-    page2,
-    timesRomanBold,
-    timesRoman,
-    40,
-    yPos,
-    width - 80,
-    [
-      "Number of hours running:",
-      data.lampHours,
-      "Current lamp running hours:",
-      data.currentLampHours,
-    ],
-    [150, 150, 150, 65],
-    20,
-  );
-  yPos -= 20;
+    drawTableRow(
+      page2,
+      timesRomanBold,
+      timesRoman,
+      40,
+      yPos,
+      width - 80,
+      [
+        "Number of hours running:",
+        data.lampHours,
+        "Current lamp running hours:",
+        data.currentLampHours,
+      ],
+      [150, 150, 150, 65],
+      20,
+    );
+    yPos -= 20;
+  }
 
   drawTableRow(
     page2,
@@ -881,30 +856,57 @@ export async function generateMaintenanceReport(
   );
   yPos -= 20;
 
-  drawTableRow(
-    page2,
-    timesRomanBold,
-    timesRomanBold,
-    40,
-    yPos,
-    width - 80,
-    ["fL measurements:", "Before", "After"],
-    [150, 150, 215],
-    20,
-  );
-  yPos -= 20;
-  drawTableRow(
-    page2,
-    timesRoman,
-    timesRoman,
-    40,
-    yPos,
-    width - 80,
-    ["", data.flBefore, data.flAfter],
-    [150, 150, 215],
-    20,
-  );
-  yPos -= 20;
+  if (isLaser) {
+    drawTableRow(
+      page2,
+      timesRomanBold,
+      timesRomanBold,
+      40,
+      yPos,
+      width - 80,
+      ["fL measurements:", "Before", "After", "Default"],
+      [150, 107, 108, 150],
+      20,
+    );
+    yPos -= 20;
+    drawTableRow(
+      page2,
+      timesRoman,
+      timesRoman,
+      40,
+      yPos,
+      width - 80,
+      ["", data.flBefore, data.flAfter, data.flDefault || ""],
+      [150, 107, 108, 150],
+      20,
+    );
+    yPos -= 20;
+  } else {
+    drawTableRow(
+      page2,
+      timesRomanBold,
+      timesRomanBold,
+      40,
+      yPos,
+      width - 80,
+      ["fL measurements:", "Before", "After"],
+      [150, 150, 215],
+      20,
+    );
+    yPos -= 20;
+    drawTableRow(
+      page2,
+      timesRoman,
+      timesRoman,
+      40,
+      yPos,
+      width - 80,
+      ["", data.flBefore, data.flAfter],
+      [150, 150, 215],
+      20,
+    );
+    yPos -= 20;
+  }
 
   drawTableRow(
     page2,
@@ -1626,6 +1628,9 @@ export async function generateMaintenanceReport(
   );
   bottomY -= 20;
 
+  const withUnit = (value: string, unit: string) =>
+    value ? `${value} ${unit}` : "";
+
   drawTableRow(
     page2,
     timesRoman,
@@ -1635,13 +1640,13 @@ export async function generateMaintenanceReport(
     width - 80,
     [
       data.airPollution.airPollutionLevel,
-      data.airPollution.hcho,
-      data.airPollution.tvoc,
-      data.airPollution.pm100,
-      data.airPollution.pm25,
-      data.airPollution.pm10,
-      data.airPollution.temperature,
-      data.airPollution.humidity,
+      withUnit(data.airPollution.hcho, "mg/m\u00B3"),
+      withUnit(data.airPollution.tvoc, "mg/m\u00B3"),
+      withUnit(data.airPollution.pm100, "\u00B5g/m\u00B3"),
+      withUnit(data.airPollution.pm25, "\u00B5g/m\u00B3"),
+      withUnit(data.airPollution.pm10, "\u00B5g/m\u00B3"),
+      withUnit(data.airPollution.temperature, "\u00B0C"),
+      withUnit(data.airPollution.humidity, "RH %"),
     ],
     [100, 59, 59, 59, 59, 59, 59, 59],
     20,

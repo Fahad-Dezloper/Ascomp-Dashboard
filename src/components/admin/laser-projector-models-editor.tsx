@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CardContent } from "@/components/ui/card";
-import { X } from "lucide-react";
+import { X, Save, Check } from "lucide-react";
 import {
   sanitizeLaserProjectorModels,
   normalizeProjectorModelKey,
@@ -14,15 +14,19 @@ import {
 type Props = {
   models: string[];
   onChange: (models: string[]) => void;
+  onSave?: () => Promise<void>;
   compact?: boolean;
 };
 
 export function LaserProjectorModelsEditor({
   models,
   onChange,
+  onSave,
   compact = false,
 }: Props) {
   const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const addDraft = () => {
     const next = sanitizeLaserProjectorModels([...models, draft]);
@@ -32,6 +36,19 @@ export function LaserProjectorModelsEditor({
     }
     onChange(next);
     setDraft("");
+    setSaved(false);
+  };
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    setSaving(true);
+    try {
+      await onSave();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -103,6 +120,27 @@ export function LaserProjectorModelsEditor({
           >
             Add model
           </Button>
+          {onSave && (
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 text-xs bg-black text-white hover:bg-gray-800"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saved ? (
+                <>
+                  <Check className="h-3 w-3 mr-1" />
+                  Saved!
+                </>
+              ) : (
+                <>
+                  <Save className="h-3 w-3 mr-1" />
+                  {saving ? "Saving..." : "Save laser models"}
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </CardContent>
     </div>

@@ -34,9 +34,11 @@ export async function POST(request: NextRequest) {
 
     // Prepare update data
     const updateData: any = {
-      date: new Date(),  // Record completion date
+      date: new Date(),
       reportGenerated: true,
       endTime: new Date(),
+      // Set reportSubmittedAt only on the first submission (lock the 10-min edit window start)
+      ...((serviceRecord as any).reportSubmittedAt == null ? { reportSubmittedAt: new Date() } : {}),
     }
 
     // Helper to convert value to proper type
@@ -213,7 +215,8 @@ export async function POST(request: NextRequest) {
 
     // Fields that should not be updated (read-only or set on creation)
     const readonlyFields = new Set([
-      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'assignedToId'
+      'id', 'createdAt', 'updatedAt', 'userId', 'projectorId', 'siteId', 'assignedToId',
+      'reportSubmittedAt', // Set once on first submission, never overwritten
     ])
 
     // Handle recommendedParts as JSON
@@ -306,9 +309,16 @@ export async function POST(request: NextRequest) {
       updateData.logs = logs
     }
 
+    // Carry reportSubmittedAt directly (it's a DateTime set above, not in workDetails whitelist)
+    if (updateData.reportSubmittedAt) {
+      // Will be merged into cleanedData after loop
+    }
+
     // Clean up undefined values and filter to only valid schema fields (Prisma doesn't accept undefined)
     const cleanedData: any = {}
+    if (updateData.reportSubmittedAt) cleanedData.reportSubmittedAt = updateData.reportSubmittedAt
     Object.keys(updateData).forEach((key) => {
+      if (key === 'reportSubmittedAt') return // already handled above
       // Double check that field is valid before adding
       if (updateData[key] !== undefined && validSchemaFields.has(key)) {
         const value = updateData[key]
@@ -426,7 +436,7 @@ export async function POST(request: NextRequest) {
       success: true,
       serviceRecord: {
         id: updatedRecord.id,
-
+        reportSubmittedAt: updatedRecord.reportSubmittedAt,
       },
     })
   } catch (error) {

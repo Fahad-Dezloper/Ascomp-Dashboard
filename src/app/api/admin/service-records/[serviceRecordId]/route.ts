@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/db"
 import { auth } from "@/lib/auth"
+import { checkIsLaserProjector } from "@/lib/get-laser-models"
 
 export async function GET(
   request: NextRequest,
@@ -46,8 +47,11 @@ export async function GET(
       return NextResponse.json({ error: "Service record not found" }, { status: 404 })
     }
 
+    const isLaserProjector = await checkIsLaserProjector(service.projector.modelNo)
+
     // Build the same shape as /api/user/services/completed for reuse on the frontend
     const formattedService = {
+      isLaserProjector,
       id: service.id,
       engineerName: service.assignedTo?.name,
       serviceNumber: service.serviceNumber,
@@ -80,6 +84,7 @@ export async function GET(
       logs: (service as any).logs || '',
       signatures: service.signatures,
       reportGenerated: service.reportGenerated,
+      reportSubmittedAt: (service as any).reportSubmittedAt ?? null,
       reportUrl: service.reportUrl,
       workDetails: {
         reflector: service.reflector,

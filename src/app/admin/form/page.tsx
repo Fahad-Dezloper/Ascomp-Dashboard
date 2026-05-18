@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Save, ChevronDown, ChevronRight } from "lucide-react";
 import { CfmModelRulesEditor } from "@/components/admin/cfm-model-rules-editor";
 import { LaserProjectorModelsEditor } from "@/components/admin/laser-projector-models-editor";
+import { LaserFormFieldsEditor } from "@/components/admin/laser-form-fields-editor";
+import type { LaserFieldOptions } from "@/components/admin/laser-form-fields-editor";
 import type { CfmModelRule } from "@/lib/cfm-model-rules";
 import { RECOMMENDED_CFM_MODEL_RULES } from "@/lib/cfm-model-rules";
 import { sanitizeLaserProjectorModels } from "@/lib/laser-projector-models";
@@ -547,9 +549,8 @@ export default function FormBuilderPage() {
   const [cfmModelRules, setCfmModelRules] = useState<CfmModelRule[]>(() => [
     ...RECOMMENDED_CFM_MODEL_RULES,
   ]);
-  const [laserProjectorModels, setLaserProjectorModels] = useState<string[]>(
-    [],
-  );
+  const [laserProjectorModels, setLaserProjectorModels] = useState<string[]>([]);
+  const [laserFieldOptions, setLaserFieldOptions] = useState<LaserFieldOptions>({});
   const [newOption, setNewOption] = useState<Record<string, string>>({});
   const [newSubOption, setNewSubOption] = useState<Record<string, string>>({});
   const [expandedSubOptions, setExpandedSubOptions] = useState<Set<string>>(
@@ -579,6 +580,9 @@ export default function FormBuilderPage() {
           setLaserProjectorModels(
             sanitizeLaserProjectorModels(data.laserProjectorModels),
           );
+          if (data.laserFieldOptions && typeof data.laserFieldOptions === "object") {
+            setLaserFieldOptions(data.laserFieldOptions);
+          }
         }
       } catch (error) {
         console.error("Failed to load form config:", error);
@@ -599,6 +603,7 @@ export default function FormBuilderPage() {
         config: fieldConfigs,
         cfmModelRules,
         laserProjectorModels,
+        laserFieldOptions,
       };
       console.log(
         "Sending payload:",
@@ -778,6 +783,12 @@ export default function FormBuilderPage() {
           <LaserProjectorModelsEditor
             models={laserProjectorModels}
             onChange={setLaserProjectorModels}
+            onSave={saveConfig}
+          />
+          <LaserFormFieldsEditor
+            options={laserFieldOptions}
+            onChange={setLaserFieldOptions}
+            onSave={saveConfig}
           />
           {FORM_SECTIONS.map((section) => {
             const fields = fieldsBySection[section] || [];

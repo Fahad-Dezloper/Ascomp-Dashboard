@@ -19,6 +19,7 @@ import {
   exhaustCfmStatusForStorage,
   findMatchingCfmRule,
 } from "@/lib/cfm-model-rules";
+import { isLaserProjectorModel } from "@/lib/laser-projector-models";
 import { DynamicFormField } from "./dynamic-form-field";
 
 type IssueNotes = Record<string, string>;
@@ -292,7 +293,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
   const beforeImagesRef = useRef<UploadedImage[]>([]);
   const afterImagesRef = useRef<UploadedImage[]>([]);
   const brokenImagesRef = useRef<UploadedImage[]>([]);
-  const { config: formConfig, cfmModelRules, loading: configLoading } =
+  const { config: formConfig, cfmModelRules, laserProjectorModels, laserFieldOptions, loading: configLoading } =
     useFormConfig();
 
   const { register, handleSubmit, reset, watch, setValue, getValues } =
@@ -302,6 +303,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
 
   const watchedExhaustCfm = watch("exhaustCfm");
   const watchedProjectorModel = watch("projectorModel");
+  const isLaser = isLaserProjectorModel(watchedProjectorModel, laserProjectorModels);
 
   const exhaustCfmBandHint = useMemo(() => {
     const rule = findMatchingCfmRule(
@@ -1020,7 +1022,74 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     return { status: "normal", message: null };
   };
 
-  const renderFieldsBySection = (sectionTitle: string) => {
+  const LASER_SECTION_OVERRIDES: Record<
+    string,
+    { labelMap?: Record<string, string>; hiddenKeys?: string[] }
+  > = {
+    Opticals: {
+      labelMap: {
+        reflector: "Diffuser",
+        reflectorNote: "Diffuser Note",
+        uvFilter: "Coupling Fold Mirror",
+        uvFilterNote: "Coupling Fold Mirror Note",
+        integratorRod: "Rotating Integrator",
+        integratorRodNote: "Rotating Integrator Note",
+        coldMirror: "Short Integrator",
+        coldMirrorNote: "Short Integrator Note",
+        foldMirror: "Coupling Elbow",
+        foldMirrorNote: "Coupling Elbow Note",
+      },
+    },
+    Electronics: {
+      labelMap: {
+        touchPanel: "F Main Board",
+        touchPanelNote: "F Main Board Note",
+        evbBoard: "HUB-NX Board",
+        evbBoardNote: "HUB-NX Board Note",
+        ImcbBoard: "HKBB-Board",
+        ImcbBoardNote: "HKBB-Board Note",
+        pibBoard: "DTSM Board",
+        pibBoardNote: "DTSM Board Note",
+      },
+      hiddenKeys: ["IcpBoard", "IcpBoardNote", "imbSBoard", "imbSBoardNote"],
+    },
+    "Disposable Consumables": {
+      labelMap: { AirIntakeLadRad: "Filter + RAD Filter" },
+    },
+    Mechanical: {
+      labelMap: {
+        acBlowerVane: "LE Pump",
+        acBlowerVaneNote: "LE Pump Note",
+        extractorVane: "LOS Pump",
+        extractorVaneNote: "LOS Pump Note",
+        exhaustCfm: "Radiator Fan",
+        exhaustCfmNote: "Radiator Fan Note",
+        lightEngineFans: "Exhaust Fan",
+        lightEngineFansNote: "Exhaust Fan Note",
+        cardCageFans: "LE intake Fan",
+        cardCageFansNote: "LE intake Fan Note",
+        radiatorFanPump: "LE Blower",
+        radiatorFanPumpNote: "LE Blower Note",
+        pumpConnectorHose: "Shutter",
+        pumpConnectorHoseNote: "Shutter Note",
+      },
+      hiddenKeys: [
+        "securityLampHouseLock",
+        "securityLampHouseLockNote",
+        "lampLocMechanism",
+        "lampLocMechanismNote",
+      ],
+    },
+    "Lamp Information": {
+      labelMap: { lampTotalRunningHours: "Number of Laser hours running" },
+      hiddenKeys: ["lampMakeModel", "lampCurrentRunningHours"],
+    },
+  };
+
+  const renderFieldsBySection = (
+    sectionTitle: string,
+    overrides?: { labelMap?: Record<string, string>; hiddenKeys?: string[] },
+  ) => {
     if (!formConfig || formConfig.length === 0) {
       return null;
     }
@@ -1074,8 +1143,24 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 : ""
             }
           >
-            {row.map((field) => {
-              if (!field) return null;
+            {row.map((rawField) => {
+              if (!rawField) return null;
+              if (overrides?.hiddenKeys?.includes(rawField.key)) return null;
+              const overriddenLabel = overrides?.labelMap?.[rawField.key];
+              const laserCfg = isLaser ? laserFieldOptions[rawField.key] : undefined;
+              const hasLaserOptions = !!(laserCfg?.options && laserCfg.options.length > 0);
+              const field = {
+                ...(overriddenLabel ? { ...rawField, label: overriddenLabel } : rawField),
+                ...(hasLaserOptions
+                  ? {
+                      type: "select" as const,
+                      options: laserCfg!.options,
+                      subOptions: laserCfg!.subOptions,
+                      subOptionsInput: laserCfg!.subOptionsInput,
+                      defaultValue: laserCfg!.defaultValue ?? rawField.defaultValue,
+                    }
+                  : {}),
+              };
 
               // Explicit handling for contactDetails - split into name and phone inputs
               if (field.key === "contactDetails") {
@@ -1115,9 +1200,9 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                 );
               }
 
-              // Explicit handling for exhaustCfm to ensure it's always a number input
-              // This must come before any other checks to override incorrect config
-              if (field.key === "exhaustCfm") {
+              // Explicit handling for exhaustCfm — number input for standard projectors,
+              // but if laser options are configured for it, fall through to normal rendering.
+              if (field.key === "exhaustCfm" && !(isLaser && laserFieldOptions["exhaustCfm"]?.options?.length)) {
                 return (
                   <FormField
                     key={field.key}
@@ -1147,44 +1232,6 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
                           : exhaustCfmBandHint.message}
                       </p>
                     )}
-                  </FormField>
-                );
-              }
-
-              // Explicit handling for contactDetails - split into name and phone inputs
-              if (field.key === "contactDetails") {
-                return (
-                  <FormField
-                    key={field.key}
-                    label={field.label}
-                    required={field.required}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="text"
-                        value={contactName}
-                        onChange={(e) => {
-                          setContactName(e.target.value);
-                        }}
-                        placeholder="Mr. Name"
-                        className="border-2 border-black text-sm flex-1"
-                      />
-                      <span className="text-black font-semibold">-</span>
-                      <Input
-                        type="text"
-                        value={contactPhone}
-                        onChange={(e) => {
-                          setContactPhone(e.target.value);
-                        }}
-                        placeholder="Phone Number"
-                        className="border-2 border-black text-sm flex-1"
-                      />
-                    </div>
-                    {/* Hidden input to maintain form field registration */}
-                    <input
-                      type="hidden"
-                      {...register(field.key as keyof RecordWorkForm)}
-                    />
                   </FormField>
                 );
               }
@@ -1392,12 +1439,16 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
     const formattedValues = {
       ...values,
       contactDetails: combinedContactDetails,
-      exhaustCfmNote: values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
-      exhaustCfm: exhaustCfmStatusForStorage(
-        String(values.projectorModel || ""),
-        String(values.exhaustCfm ?? ""),
-        cfmModelRules,
-      ),
+      exhaustCfmNote: isLaser && laserFieldOptions["exhaustCfm"]?.options?.length
+        ? ""
+        : values.exhaustCfm ? `${values.exhaustCfm} M/S` : "",
+      exhaustCfm: isLaser && laserFieldOptions["exhaustCfm"]?.options?.length
+        ? String(values.exhaustCfm ?? "")
+        : exhaustCfmStatusForStorage(
+            String(values.projectorModel || ""),
+            String(values.exhaustCfm ?? ""),
+            cfmModelRules,
+          ),
       // Store the selected visit type into the DB field
       serviceNumber: values.serviceVisitType || undefined,
     };
@@ -1454,12 +1505,18 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
           {renderFieldsBySection("Projector Information")}
         </FormSection>
 
+        {isLaser && (
+          <div className="bg-blue-50 border-2 border-blue-600 rounded px-3 py-2 text-xs font-semibold text-blue-700">
+            Laser Projector — checklist labels are laser-specific
+          </div>
+        )}
+
         <FormSection title="Opticals">
-          {renderFieldsBySection("Opticals")}
+          {renderFieldsBySection("Opticals", isLaser ? LASER_SECTION_OVERRIDES["Opticals"] : undefined)}
         </FormSection>
 
         <FormSection title="Electronics">
-          {renderFieldsBySection("Electronics")}
+          {renderFieldsBySection("Electronics", isLaser ? LASER_SECTION_OVERRIDES["Electronics"] : undefined)}
         </FormSection>
 
         <FormSection title="Serial Number Verified">
@@ -1467,7 +1524,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         </FormSection>
 
         <FormSection title="Disposable Consumables">
-          {renderFieldsBySection("Disposable Consumables")}
+          {renderFieldsBySection("Disposable Consumables", isLaser ? LASER_SECTION_OVERRIDES["Disposable Consumables"] : undefined)}
         </FormSection>
 
         <FormSection title="Coolant">
@@ -1479,7 +1536,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         </FormSection>
 
         <FormSection title="Mechanical">
-          {renderFieldsBySection("Mechanical")}
+          {renderFieldsBySection("Mechanical", isLaser ? LASER_SECTION_OVERRIDES["Mechanical"] : undefined)}
         </FormSection>
 
         <FormSection title="Software & Screen Information">
@@ -1537,7 +1594,7 @@ export default function RecordWorkStep({ data, onNext, onBack }: any) {
         </FormSection>
 
         <FormSection title="Lamp Information">
-          {renderFieldsBySection("Lamp Information")}
+          {renderFieldsBySection("Lamp Information", isLaser ? LASER_SECTION_OVERRIDES["Lamp Information"] : undefined)}
         </FormSection>
 
         <FormSection title="Voltage Parameters">

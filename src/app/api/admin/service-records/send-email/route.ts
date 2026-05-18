@@ -73,6 +73,7 @@ export async function POST(request: NextRequest) {
         // console.log("fullservice here", fullService)
 
         const reportData: any = {
+            reportType: fullService.isLaserProjector ? "laser" : "standard",
             cinemaName: fullService.cinemaName || fullService.site?.name || "",
             date: fullService.date ? new Date(fullService.date).toLocaleDateString() : "",
             address: fullService.address || fullService.site?.address || "",

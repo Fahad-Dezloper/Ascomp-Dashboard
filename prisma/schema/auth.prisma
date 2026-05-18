@@ -336,6 +336,7 @@ model ServiceRecord {
   endTime                       DateTime?
   signatures                    Json?
   reportGenerated               Boolean   @default(false)
+  reportSubmittedAt             DateTime?
   reportUrl                     String?
   recommendedParts              Json?
   images                        String[]  @default([])

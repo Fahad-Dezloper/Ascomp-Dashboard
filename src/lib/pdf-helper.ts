@@ -29,6 +29,7 @@ export async function constructAndGeneratePDF(serviceId: string, isDraft?: boole
     const safe = (val: any) => val ? String(val) : ''
 
     const reportData: MaintenanceReportData = {
+        reportType: fullService.isLaserProjector ? "laser" : "standard",
         cinemaName: fullService.cinemaName || fullService.site?.name || "",
         date: fullService.date ? new Date(fullService.date).toLocaleDateString() : "",
         address: fullService.address || fullService.site?.address || "",

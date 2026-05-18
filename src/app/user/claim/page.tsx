@@ -1,13 +1,80 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ArrowLeft, Search, Loader2 } from "lucide-react"
+import { ArrowLeft, Search, Loader2, Pencil, Clock } from "lucide-react"
 import { toast } from "sonner"
 import type { Route } from "next"
+
+const EDIT_WINDOW_MS = 10 * 60 * 1000
+
+function EditCountdownButton({ reportSubmittedAt, serviceId }: { reportSubmittedAt: string; serviceId: string }) {
+  const router = useRouter()
+  const [remainingMs, setRemainingMs] = useState(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    const tick = () => {
+      const elapsed = Date.now() - new Date(reportSubmittedAt).getTime()
+      const rem = Math.max(0, EDIT_WINDOW_MS - elapsed)
+      setRemainingMs(rem)
+      if (rem === 0 && intervalRef.current) clearInterval(intervalRef.current)
+    }
+    tick()
+    intervalRef.current = setInterval(tick, 1000)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [reportSubmittedAt])
+
+  if (remainingMs === 0) return null
+
+  const minutes = Math.floor(remainingMs / 60000)
+  const seconds = Math.floor((remainingMs % 60000) / 1000)
+  const label = `${minutes}:${seconds.toString().padStart(2, "0")}`
+
+  const handleEdit = () => {
+    // We need to load the full service into workflow so the form pre-fills
+    // Navigate to workflow at Record Work step — the service ID is stored
+    // so the page can fetch and re-populate
+    fetch(`/api/admin/service-records/${serviceId}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((json) => {
+        const svc = json.service || json
+        const workflowData = {
+          selectedService: {
+            id: serviceId,
+            site: svc.site?.name || svc.cinemaName,
+            address: svc.address || svc.site?.address,
+            contactDetails: svc.contactDetails || svc.site?.contactDetails,
+            serviceNumber: svc.serviceNumber,
+          },
+          workDetails: svc.workDetails || {},
+        }
+        localStorage.setItem("workflowData", JSON.stringify(workflowData))
+        localStorage.setItem("workflowStep", "2")
+        router.push("/user/workflow")
+      })
+      .catch(() => toast.error("Could not load service data for editing."))
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={handleEdit}
+      className="border-2 border-amber-500 text-amber-700 hover:bg-amber-50 font-semibold flex items-center gap-1.5"
+    >
+      <Pencil className="h-3.5 w-3.5" />
+      Edit Report
+      <span className="flex items-center gap-1 text-xs font-normal text-amber-600">
+        <Clock className="h-3 w-3" />
+        {label}
+      </span>
+    </Button>
+  )
+}
 
 type ClaimState =
   | "completed"
@@ -32,6 +99,7 @@ type ClaimableRow = {
   assignedTo: { id: string; name: string } | null
   claimState: ClaimState
   myPendingRequestId: string | null
+  reportSubmittedAt: string | null
 }
 
 function phaseLabel(phase: ClaimableRow["visitPhase"]) {
@@ -247,6 +315,12 @@ export default function ClaimServicePage() {
                 <div className="flex flex-wrap gap-2 shrink-0">
                   {r.claimState === "completed" && (
                     <div className="flex flex-col items-end gap-2 max-w-[280px] text-right">
+                      {r.reportSubmittedAt && (
+                        <EditCountdownButton
+                          reportSubmittedAt={r.reportSubmittedAt}
+                          serviceId={r.id}
+                        />
+                      )}
                       <span className="text-xs text-gray-600 py-1 px-2">
                         This past visit is finished — you cannot claim it again.
                       </span>

@@ -4,6 +4,7 @@ import {
   type CfmModelRule,
 } from "@/lib/cfm-model-rules"
 import { sanitizeLaserProjectorModels } from "@/lib/laser-projector-models"
+import type { LaserFieldOptions } from "@/components/admin/laser-form-fields-editor"
 
 export type { CfmModelRule }
 
@@ -52,9 +53,8 @@ export function useFormConfig() {
   const [cfmModelRules, setCfmModelRules] = useState<CfmModelRule[]>(
     RECOMMENDED_CFM_MODEL_RULES,
   )
-  const [laserProjectorModels, setLaserProjectorModels] = useState<string[]>(
-    [],
-  )
+  const [laserProjectorModels, setLaserProjectorModels] = useState<string[]>([])
+  const [laserFieldOptions, setLaserFieldOptions] = useState<LaserFieldOptions>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -78,6 +78,9 @@ export function useFormConfig() {
           setLaserProjectorModels(
             sanitizeLaserProjectorModels(data.laserProjectorModels),
           )
+          if (data.laserFieldOptions && typeof data.laserFieldOptions === "object") {
+            setLaserFieldOptions(data.laserFieldOptions)
+          }
         } else {
           console.error("Failed to fetch form config:", res.status, res.statusText)
         }
@@ -96,5 +99,5 @@ export function useFormConfig() {
     }
   }, [])
 
-  return { config, cfmModelRules, laserProjectorModels, loading }
+  return { config, cfmModelRules, laserProjectorModels, laserFieldOptions, loading }
 }

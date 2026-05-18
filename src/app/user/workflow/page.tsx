@@ -85,6 +85,14 @@ export default function WorkflowPage() {
     }
   }
 
+  // Called from GenerateReportStep when engineer wants to re-edit within the 10-min window
+  const handleEditReport = (_serviceRecordId: string) => {
+    const RECORD_WORK_STEP = 2
+    setCurrentStep(RECORD_WORK_STEP)
+    localStorage.setItem("workflowStep", String(RECORD_WORK_STEP))
+    window.scrollTo(0, 0)
+  }
+
   const handleLogout = () => {
     // The logout function in auth-context handles everything:
     // - Clears all localStorage
@@ -227,6 +235,7 @@ export default function WorkflowPage() {
             data={workflowData}
             onNext={handleNext}
             onBack={handleBack}
+            onEditReport={handleEditReport}
             user={user}
           />
         </div>

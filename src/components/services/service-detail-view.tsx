@@ -1,10 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Pencil, Clock } from "lucide-react";
 import { toast } from "sonner";
+
+const EDIT_WINDOW_MS = 10 * 60 * 1000;
+
+function useEditCountdown(reportSubmittedAt: string | null | undefined) {
+  const [remainingMs, setRemainingMs] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!reportSubmittedAt) { setRemainingMs(0); return; }
+    const tick = () => {
+      const elapsed = Date.now() - new Date(reportSubmittedAt).getTime();
+      const rem = Math.max(0, EDIT_WINDOW_MS - elapsed);
+      setRemainingMs(rem);
+      if (rem === 0 && intervalRef.current) clearInterval(intervalRef.current);
+    };
+    tick();
+    intervalRef.current = setInterval(tick, 1000);
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [reportSubmittedAt]);
+  const minutes = Math.floor(remainingMs / 60000);
+  const seconds = Math.floor((remainingMs % 60000) / 1000);
+  return { remainingMs, label: `${minutes}:${seconds.toString().padStart(2, "0")}` };
+}
 
 export interface Service {
   id: string;
@@ -38,6 +61,7 @@ export interface Service {
   brokenImages: string[];
   signatures: any;
   reportGenerated: boolean;
+  reportSubmittedAt?: string | null;
   reportUrl: string | null;
   workDetails: any;
 }
@@ -52,8 +76,27 @@ import { useAuth } from "@/lib/auth-context";
 export function ServiceDetailView({ service, onBack }: ServiceDetailViewProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const { user } = useAuth();
+  const router = useRouter();
+  const { remainingMs, label: countdownLabel } = useEditCountdown(service.reportSubmittedAt);
+  const canEdit = remainingMs > 0;
 
-  console.log("service view details", service);
+  const handleEditReport = () => {
+    // Store service info into workflowData so RecordWork can pre-fill from it
+    const workflowData = {
+      selectedService: {
+        id: service.id,
+        site: service.site?.name,
+        address: service.address || service.site?.address,
+        contactDetails: service.contactDetails || service.site?.contactDetails,
+        serviceNumber: service.serviceNumber,
+      },
+      workDetails: service.workDetails || {},
+    };
+    localStorage.setItem("workflowData", JSON.stringify(workflowData));
+    localStorage.setItem("workflowStep", "2"); // Record Work step
+    router.push("/user/workflow");
+  };
+
   const handleDownloadPDF = async (service: Service) => {
     try {
       setIsGeneratingPdf(true);
@@ -207,6 +250,21 @@ export function ServiceDetailView({ service, onBack }: ServiceDetailViewProps) {
                 className="flex-1 sm:flex-none border-2 border-black text-black hover:bg-gray-100 font-medium"
               >
                 <span className="mr-2">📂</span> Photos
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleEditReport}
+                className="flex-1 sm:flex-none border-2 border-amber-500 text-amber-700 hover:bg-amber-50 font-semibold flex items-center gap-1.5"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Report
+                <span className="flex items-center gap-1 text-xs font-normal text-amber-600">
+                  <Clock className="h-3 w-3" />
+                  {countdownLabel}
+                </span>
               </Button>
             )}
             <Button

@@ -12,13 +12,43 @@ const CONFIG_FILE_PATH = path.join(process.cwd(), "data", "form-config.json")
 
 const FILE_OVERRIDE_KEYS = new Set(["exhaustCfm"])
 
+export type LaserFieldConfig = {
+  options?: string[]
+  subOptions?: Record<string, string[]>
+  subOptionsInput?: Record<string, boolean>
+  defaultValue?: string
+}
+export type LaserFieldOptions = Record<string, LaserFieldConfig>
+
+function parseLaserFieldOptions(raw: unknown): LaserFieldOptions {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {}
+  const obj = raw as Record<string, unknown>
+  const result: LaserFieldOptions = {}
+  for (const [key, val] of Object.entries(obj)) {
+    if (Array.isArray(val) && val.every((v) => typeof v === "string")) {
+      // backward-compat: old format was string[]
+      result[key] = { options: val }
+    } else if (val && typeof val === "object" && !Array.isArray(val)) {
+      const v = val as Record<string, unknown>
+      const entry: LaserFieldConfig = {}
+      if (Array.isArray(v.options)) entry.options = v.options.filter((o): o is string => typeof o === "string")
+      if (v.subOptions && typeof v.subOptions === "object" && !Array.isArray(v.subOptions)) entry.subOptions = v.subOptions as Record<string, string[]>
+      if (v.subOptionsInput && typeof v.subOptionsInput === "object" && !Array.isArray(v.subOptionsInput)) entry.subOptionsInput = v.subOptionsInput as Record<string, boolean>
+      if (typeof v.defaultValue === "string") entry.defaultValue = v.defaultValue
+      result[key] = entry
+    }
+  }
+  return result
+}
+
 function parseStoredConfig(raw: unknown): {
   fields: any[]
   cfmModelRules: CfmModelRule[]
   laserProjectorModels: string[]
+  laserFieldOptions: LaserFieldOptions
 } {
   if (Array.isArray(raw)) {
-    return { fields: raw, cfmModelRules: [], laserProjectorModels: [] }
+    return { fields: raw, cfmModelRules: [], laserProjectorModels: [], laserFieldOptions: {} }
   }
   if (raw && typeof raw === "object") {
     const o = raw as Record<string, unknown>
@@ -26,13 +56,12 @@ function parseStoredConfig(raw: unknown): {
       return {
         fields: o.fields as any[],
         cfmModelRules: sanitizeCfmModelRules(o.cfmModelRules),
-        laserProjectorModels: sanitizeLaserProjectorModels(
-          o.laserProjectorModels,
-        ),
+        laserProjectorModels: sanitizeLaserProjectorModels(o.laserProjectorModels),
+        laserFieldOptions: parseLaserFieldOptions(o.laserFieldOptions),
       }
     }
   }
-  return { fields: [], cfmModelRules: [], laserProjectorModels: [] }
+  return { fields: [], cfmModelRules: [], laserProjectorModels: [], laserFieldOptions: {} }
 }
 
 async function readConfigFromFile(): Promise<any[] | null> {
@@ -55,6 +84,7 @@ export type FormConfigReadResult = {
   fields: any[]
   cfmModelRules: CfmModelRule[]
   laserProjectorModels: string[]
+  laserFieldOptions: LaserFieldOptions
 }
 
 async function readConfig(): Promise<FormConfigReadResult | null> {
@@ -65,7 +95,7 @@ async function readConfig(): Promise<FormConfigReadResult | null> {
     })
 
     if (dbConfig?.config) {
-      let { fields, cfmModelRules, laserProjectorModels } = parseStoredConfig(
+      let { fields, cfmModelRules, laserProjectorModels, laserFieldOptions } = parseStoredConfig(
         dbConfig.config,
       )
       const fileConfig = await readConfigFromFile()
@@ -79,7 +109,7 @@ async function readConfig(): Promise<FormConfigReadResult | null> {
           return f
         })
       }
-      return { fields, cfmModelRules, laserProjectorModels }
+      return { fields, cfmModelRules, laserProjectorModels, laserFieldOptions }
     }
 
     console.log("No DB config found. Falling back to file...")
@@ -94,6 +124,7 @@ async function readConfig(): Promise<FormConfigReadResult | null> {
               fields: fileConfig,
               cfmModelRules: [],
               laserProjectorModels: [],
+              laserFieldOptions: {},
             },
             version: 1,
             isActive: true,
@@ -102,7 +133,7 @@ async function readConfig(): Promise<FormConfigReadResult | null> {
       } catch (seedError) {
         console.error("Failed to seed form config to DB:", seedError)
       }
-      return { fields: fileConfig, cfmModelRules: [], laserProjectorModels: [] }
+      return { fields: fileConfig, cfmModelRules: [], laserProjectorModels: [], laserFieldOptions: {} }
     }
   } catch (error) {
     console.error("Error in readConfig:", error)
@@ -112,6 +143,7 @@ async function readConfig(): Promise<FormConfigReadResult | null> {
         fields: fileOnly,
         cfmModelRules: [],
         laserProjectorModels: [],
+        laserFieldOptions: {},
       }
     }
   }
@@ -123,6 +155,7 @@ async function writeConfig(payload: {
   fields: any[]
   cfmModelRules: CfmModelRule[]
   laserProjectorModels: string[]
+  laserFieldOptions: LaserFieldOptions
 }): Promise<void> {
   await prisma.formConfiguration.create({
     data: {
@@ -138,7 +171,7 @@ export async function GET() {
     const result = await readConfig()
     if (!result) {
       return NextResponse.json(
-        { config: [], cfmModelRules: [], laserProjectorModels: [] },
+        { config: [], cfmModelRules: [], laserProjectorModels: [], laserFieldOptions: {} },
         {
           headers: {
             "Cache-Control":
@@ -154,6 +187,7 @@ export async function GET() {
         config: result.fields,
         cfmModelRules: result.cfmModelRules,
         laserProjectorModels: result.laserProjectorModels,
+        laserFieldOptions: result.laserFieldOptions,
       },
       {
         headers: {
@@ -176,7 +210,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { config, cfmModelRules: rawRules, laserProjectorModels: rawLaser } =
+    const { config, cfmModelRules: rawRules, laserProjectorModels: rawLaser, laserFieldOptions: rawLaserOptions } =
       body
 
     if (!config || !Array.isArray(config)) {
@@ -201,7 +235,15 @@ export async function POST(request: Request) {
       laserProjectorModels = previous?.laserProjectorModels ?? []
     }
 
-    await writeConfig({ fields: config, cfmModelRules, laserProjectorModels })
+    let laserFieldOptions: LaserFieldOptions
+    if (Object.prototype.hasOwnProperty.call(body, "laserFieldOptions")) {
+      laserFieldOptions = parseLaserFieldOptions(rawLaserOptions)
+    } else {
+      const previous = await readConfig()
+      laserFieldOptions = previous?.laserFieldOptions ?? {}
+    }
+
+    await writeConfig({ fields: config, cfmModelRules, laserProjectorModels, laserFieldOptions })
 
     return NextResponse.json({
       success: true,
