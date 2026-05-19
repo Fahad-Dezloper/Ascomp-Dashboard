@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
             location: fullService.location || "",
             screenNo: fullService.screenNumber || fullService.site?.screenNo || "",
             serviceVisit: fullService.engineerName ? `${fullService.engineerName} - ${convertServiceVisitToText(fullService.serviceNumber)}` : fullService.serviceNumber?.toString() || "",
+            serviceNumber: fullService.serviceNumber?.toString() || "",
             projectorModel: fullService.projector?.model || "",
             serialNo: fullService.projector?.serialNo || "",
             runningHours: fullService.projectorRunningHours?.toString() || "",

@@ -280,9 +280,24 @@ export default function GenerateReportStep({ data, onBack, onEditReport }: any) 
           fullService.contactDetails || fullService.site?.contactDetails || "",
         location: fullService.location || "",
         screenNo: fullService.screenNumber || fullService.site?.screenNo || "",
+        // Prefer the engineer's current selection from the form over the DB value
+        // (the DB may still have the old value if the unique constraint blocked the update)
+        serviceNumber: (
+          data.workDetails?.serviceNumber ||
+          data.workDetails?.serviceVisitType ||
+          fullService.serviceNumber
+        )?.toString() || "",
         serviceVisit: fullService.engineerName
-          ? `${fullService.engineerName} - ${convertServiceVisitToText(fullService.serviceNumber)}`
-          : fullService.serviceNumber?.toString() || "",
+          ? `${fullService.engineerName} - ${convertServiceVisitToText(
+              data.workDetails?.serviceNumber ||
+              data.workDetails?.serviceVisitType ||
+              fullService.serviceNumber
+            )}`
+          : (
+              data.workDetails?.serviceNumber ||
+              data.workDetails?.serviceVisitType ||
+              fullService.serviceNumber
+            )?.toString() || "",
         projectorModel: fullService.projector?.model || "",
         serialNo: fullService.projector?.serialNo || "",
         runningHours: fullService.projectorRunningHours?.toString() || "",

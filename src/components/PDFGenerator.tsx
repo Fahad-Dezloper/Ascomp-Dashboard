@@ -144,6 +144,8 @@ export interface MaintenanceReportData {
   isDraft?: boolean;
   reportType?: "standard" | "laser";
   flDefault?: string;
+  /** Raw service number / visit type (e.g. "installation", "1", "special service") */
+  serviceNumber?: string;
 }
 
 // Normalize yes/no strings to consistent 'Yes' / 'No' for PDF display
@@ -205,6 +207,28 @@ export const convertServiceVisitToText = (
 
   // If not a number and not a known ordinal, return as-is (capitalize first letter)
   return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+/**
+ * Derives the report headline based on service type and projector type.
+ * - "installation" (case-insensitive) → "Installation Commissioning Testing"
+ *   + "Laser" suffix when isLaser
+ * - everything else → "EW - Preventive Maintenance Report"
+ *   + " - LASER" suffix when isLaser
+ */
+export const getReportHeadline = (
+  serviceNumber: string | undefined,
+  isLaser: boolean,
+): string => {
+  const normalized = (serviceNumber ?? "").trim().toLowerCase();
+  if (normalized.includes("installation") || normalized.includes("commissioning")) {
+    return isLaser
+      ? "Installation Commissioning Testing Laser"
+      : "Installation Commissioning Testing";
+  }
+  return isLaser
+    ? "EW - Preventive Maintenance Report - LASER"
+    : "EW - Preventive Maintenance Report";
 };
 
 export async function generateMaintenanceReport(
@@ -403,18 +427,18 @@ export async function generateMaintenanceReport(
 
   const isLaser = data.reportType === "laser";
 
-  page1.drawText(
-    isLaser
-      ? "EW - Preventive Maintenance Report - LASER"
-      : "EW - Preventive Maintenance Report",
-    {
-      x: isLaser ? 170 : 220,
-      y: yPos - 20,
-      size: 14,
-      font: timesRomanBold,
-      color: rgb(0, 0, 0),
-    },
-  );
+  const headline = getReportHeadline(data.serviceNumber, isLaser);
+  const headlineSize = 14;
+  const headlineWidth = timesRomanBold.widthOfTextAtSize(headline, headlineSize);
+  const headlineX = (width - headlineWidth) / 2;
+
+  page1.drawText(headline, {
+    x: headlineX,
+    y: yPos - 20,
+    size: headlineSize,
+    font: timesRomanBold,
+    color: rgb(0, 0, 0),
+  });
 
   yPos -= 35;
 

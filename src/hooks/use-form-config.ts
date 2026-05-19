@@ -41,7 +41,7 @@ const DEFAULT_CONFIG: FieldConfig[] = [
     label: "Service Visit Type",
     type: "select",
     section: "Cinema Details",
-    options: ["1", "2", "3", "4", "5", "6", "special"],
+    options: ["1", "2", "3", "4", "5", "6", "special", "installation"],
   },
   { key: "projectorModel", label: "Projector Model", type: "text", required: true, section: "Projector Information" },
   { key: "projectorSerialNumber", label: "Serial Number", type: "text", required: true, section: "Projector Information" },

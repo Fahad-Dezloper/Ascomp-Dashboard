@@ -111,7 +111,7 @@ const getInitialFieldConfigs = (): FieldConfig[] => {
       label: "Service Visit Type",
       type: "select",
       section: "Cinema Details",
-      options: ["1", "2", "3", "4", "5", "6", "special"],
+      options: ["1", "2", "3", "4", "5", "6", "special", "installation"],
     },
     // Projector Information
     {

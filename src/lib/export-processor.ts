@@ -59,6 +59,7 @@ function buildPdfDataFromService(fullService: any, laserModels: string[] = []): 
     serviceVisit: fullService.assignedTo?.name
       ? `${fullService.assignedTo.name} - ${convertServiceVisitToText(fullService.serviceNumber)}`
       : fullService.serviceNumber?.toString() || "",
+    serviceNumber: fullService.serviceNumber?.toString() || "",
     projectorModel: fullService.projector?.modelNo || "",
     serialNo: fullService.projector?.serialNo || "",
     runningHours: fullService.projectorRunningHours?.toString() || "",

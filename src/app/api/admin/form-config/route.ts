@@ -109,6 +109,17 @@ async function readConfig(): Promise<FormConfigReadResult | null> {
           return f
         })
       }
+      // Ensure "installation" is always an option in serviceVisitType (forward migration)
+      fields = fields.map((f: any) => {
+        if (
+          f.key === "serviceVisitType" &&
+          Array.isArray(f.options) &&
+          !f.options.includes("installation")
+        ) {
+          return { ...f, options: [...f.options, "installation"] }
+        }
+        return f
+      })
       return { fields, cfmModelRules, laserProjectorModels, laserFieldOptions }
     }
 

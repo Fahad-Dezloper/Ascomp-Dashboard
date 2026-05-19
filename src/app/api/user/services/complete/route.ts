@@ -167,11 +167,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure `serviceNumber` stays unique per projector.
-    // Only apply suffixing logic when user selected "special service".
-    // Example:
-    // - existing: "special service"
-    // - new selection: "special service" => saved as "special service 2"
-    // - if "special service 2" exists => saved as "special service 3", etc.
+    // Apply suffixing for text-based service types that can repeat ("special service", "installation").
+    // e.g. second "installation" for the same projector is saved as "installation 2", etc.
     const normalizeSpacesLower = (s: unknown) =>
       String(s ?? "")
         .trim()
@@ -181,17 +178,20 @@ export async function POST(request: NextRequest) {
     const requestedServiceNumberRaw =
       workDetails?.serviceNumber ?? workDetails?.serviceVisitType
 
-    const SPECIAL_BASE = "special service"
-    if (
-      requestedServiceNumberRaw &&
-      normalizeSpacesLower(requestedServiceNumberRaw) === SPECIAL_BASE
-    ) {
+    const DEDUPLICATED_BASES = ["special service", "installation"]
+    const normalizedRequested = requestedServiceNumberRaw
+      ? normalizeSpacesLower(requestedServiceNumberRaw)
+      : ""
+    const matchedBase = DEDUPLICATED_BASES.find(base => normalizedRequested === base)
+
+    if (matchedBase) {
       const existing = await prisma.serviceRecord.findMany({
         where: {
           projectorId: serviceRecord.projectorId,
+          id: { not: serviceRecord.id }, // exclude current record being updated
           OR: [
-            { serviceNumber: { equals: SPECIAL_BASE } },
-            { serviceNumber: { startsWith: `${SPECIAL_BASE} ` } },
+            { serviceNumber: { equals: matchedBase } },
+            { serviceNumber: { startsWith: `${matchedBase} ` } },
           ],
         },
         select: { serviceNumber: true },
@@ -200,11 +200,11 @@ export async function POST(request: NextRequest) {
       let maxN = 0
       for (const r of existing) {
         const sn = normalizeSpacesLower(r.serviceNumber)
-        if (sn === SPECIAL_BASE) {
+        if (sn === matchedBase) {
           maxN = Math.max(maxN, 1)
           continue
         }
-        const m = sn.match(/^special service\s+(\d+)$/)
+        const m = sn.match(new RegExp(`^${matchedBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`))
         if (m?.[1]) {
           const n = Number(m[1])
           if (Number.isFinite(n)) maxN = Math.max(maxN, n)
@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
       }
 
       const nextN = maxN + 1
-      workDetails.serviceNumber = nextN <= 1 ? SPECIAL_BASE : `${SPECIAL_BASE} ${nextN}`
+      workDetails.serviceNumber = nextN <= 1 ? matchedBase : `${matchedBase} ${nextN}`
     }
 
 

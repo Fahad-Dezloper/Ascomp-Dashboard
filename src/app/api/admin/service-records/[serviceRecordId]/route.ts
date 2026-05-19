@@ -370,7 +370,7 @@ export async function PUT(
 
     const updateData: any = {}
 
-    // Ensure `serviceNumber` stays unique per projector when admin selects "special service".
+    // Ensure `serviceNumber` stays unique per projector for text-based service types.
     const normalizeSpacesLower = (s: unknown) =>
       String(s ?? "")
         .trim()
@@ -380,18 +380,20 @@ export async function PUT(
     const requestedServiceNumberRaw =
       workDetails?.serviceNumber ?? workDetails?.serviceVisitType
 
-    const SPECIAL_BASE = "special service"
-    if (
-      requestedServiceNumberRaw &&
-      normalizeSpacesLower(requestedServiceNumberRaw) === SPECIAL_BASE &&
-      serviceRecord.projectorId
-    ) {
+    const DEDUPLICATED_BASES = ["special service", "installation"]
+    const normalizedRequested = requestedServiceNumberRaw
+      ? normalizeSpacesLower(requestedServiceNumberRaw)
+      : ""
+    const matchedBase = DEDUPLICATED_BASES.find(base => normalizedRequested === base)
+
+    if (matchedBase && serviceRecord.projectorId) {
       const existing = await prisma.serviceRecord.findMany({
         where: {
           projectorId: serviceRecord.projectorId,
+          id: { not: serviceRecord.id }, // exclude current record being updated
           OR: [
-            { serviceNumber: { equals: SPECIAL_BASE } },
-            { serviceNumber: { startsWith: `${SPECIAL_BASE} ` } },
+            { serviceNumber: { equals: matchedBase } },
+            { serviceNumber: { startsWith: `${matchedBase} ` } },
           ],
         },
         select: { serviceNumber: true },
@@ -400,11 +402,11 @@ export async function PUT(
       let maxN = 0
       for (const r of existing) {
         const sn = normalizeSpacesLower(r.serviceNumber)
-        if (sn === SPECIAL_BASE) {
+        if (sn === matchedBase) {
           maxN = Math.max(maxN, 1)
           continue
         }
-        const m = sn.match(/^special service\s+(\d+)$/)
+        const m = sn.match(new RegExp(`^${matchedBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+(\\d+)$`))
         if (m?.[1]) {
           const n = Number(m[1])
           if (Number.isFinite(n)) maxN = Math.max(maxN, n)
@@ -413,7 +415,7 @@ export async function PUT(
 
       const nextN = maxN + 1
       if (workDetails) {
-        workDetails.serviceNumber = nextN <= 1 ? SPECIAL_BASE : `${SPECIAL_BASE} ${nextN}`
+        workDetails.serviceNumber = nextN <= 1 ? matchedBase : `${matchedBase} ${nextN}`
       }
     }
 
